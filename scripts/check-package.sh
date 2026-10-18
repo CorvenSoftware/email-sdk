@@ -2,13 +2,32 @@
 set -euo pipefail
 
 root="$(cd -- "$(dirname -- "$0")/.." && pwd)"
+case "${PACKAGE_CHECK_ALLOW_NETWORK:-0}" in
+  0) install_mode=--offline ;;
+  1) install_mode=--prefer-offline ;;
+  *) printf 'Package verification requires PACKAGE_CHECK_ALLOW_NETWORK to be 0 or 1.\n' >&2; exit 1 ;;
+esac
 stage="$(mktemp -d "${TMPDIR:-/tmp}/corven-email-sdk-package.XXXXXXXX")"
 # SAFETY: stage is a fresh mktemp directory owned only by this verification run.
 trap 'rm -rf -- "$stage"' EXIT
 
+if [ "$#" -gt 1 ]; then
+  printf 'Usage: pnpm check:package [tarball]\n' >&2
+  exit 1
+fi
+
+if [ "$#" -eq 1 ]; then
+  if [ ! -f "$1" ]; then
+    printf 'Packed-consumer verification requires an existing tarball: %s\n' "$1" >&2
+    exit 1
+  fi
+  cp -- "$1" "$stage/email-sdk.tgz"
+else
+  cd -- "$root"
+  pnpm build
+  pnpm pack --out "$stage/email-sdk.tgz"
+fi
 cd -- "$root"
-pnpm build
-pnpm pack --out "$stage/email-sdk.tgz"
 mkdir -- "$stage/consumer"
 node --input-type=module - "$stage" <<'MANIFEST'
 import { writeFileSync } from "node:fs";
@@ -46,7 +65,7 @@ for example in "$root/docs/user/content/_examples/"*.ts.template; do
   cp -- "$example" "$stage/consumer/docs-examples/$(basename -- "$example" .template)"
 done
 cp -- "$root/scripts/package-docs-runtime.mjs.template" "$stage/consumer/docs-runtime.mjs"
-pnpm --dir "$stage/consumer" install --offline --ignore-scripts
+pnpm --dir "$stage/consumer" install "$install_mode" --ignore-scripts
 pnpm --dir "$stage/consumer" exec tsc --noEmit
 node "$stage/consumer/consumer.ts"
 node "$stage/consumer/docs-runtime.mjs"
@@ -88,28 +107,30 @@ pnpm --dir "$stage/consumer" exec tsc -p tsconfig.ai.json
 node "$stage/consumer/compiled-ai/ai.js"
 node "$stage/consumer/compiled-ai/ai.cjs"
 ai_version="$(node -p "require('./package.json').devDependencies.ai")"
-pnpm --dir "$stage/consumer" add --offline --ignore-scripts --save-exact "ai@$ai_version"
+pnpm --dir "$stage/consumer" add "$install_mode" --ignore-scripts --save-exact "ai@$ai_version"
 cp -- "$root/scripts/package-ai-runtime.mjs.template" "$stage/consumer/native-ai.mjs"
 node "$stage/consumer/native-ai.mjs"
 cp -- "$root/scripts/package-react-consumer.ts.template" "$stage/consumer/react.ts"
 cp -- "$root/scripts/package-react-commonjs-consumer.cts.template" "$stage/consumer/react.cts"
-node --input-type=module - "$root/package.json" "$stage/consumer" <<'REACT_CONFIG'
+node --input-type=module - "$root/package.json" "$stage/consumer" "$install_mode" <<'REACT_CONFIG'
 import { readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
+import { spawnSync } from "node:child_process";
 const source = JSON.parse(readFileSync(process.argv[2], "utf8"));
-const path = join(process.argv[3], "package.json");
-const consumer = JSON.parse(readFileSync(path, "utf8"));
-for (const dependency of ["@react-email/render", "react", "react-dom", "@types/react"]) {
-  consumer.dependencies[dependency] = source.devDependencies[dependency];
-}
-writeFileSync(path, JSON.stringify(consumer));
+const dependencies = ["@react-email/render", "react", "react-dom", "@types/react"].map(
+  (dependency) => `${dependency}@${source.devDependencies[dependency]}`,
+);
+const installation = spawnSync("pnpm", [
+  "--dir", process.argv[3], "add", process.argv[4], "--ignore-scripts", "--save-exact", ...dependencies,
+], { stdio: "inherit" });
+if (installation.error) throw installation.error;
+if (installation.status !== 0) process.exit(installation.status ?? 1);
 writeFileSync(join(process.argv[3], "tsconfig.react.json"), JSON.stringify({
   extends: "./tsconfig.json",
   compilerOptions: { noEmit: false, outDir: "compiled-react" },
   include: ["react.ts", "react.cts"],
 }));
 REACT_CONFIG
-pnpm --dir "$stage/consumer" install --offline --ignore-scripts
 mkdir -- "$stage/consumer/docs-react"
 for example in "$root/docs/user/content/_examples/"react-*.ts.template; do
   cp -- "$example" "$stage/consumer/docs-react/$(basename -- "$example" .template)"

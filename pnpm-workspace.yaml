@@ -1,4 +1,5 @@
-packages: []
+packages:
+  - .
 verifyDepsBeforeRun: error
 minimumReleaseAge: 0
 overrides:

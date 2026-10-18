@@ -3,6 +3,14 @@
   "version": "0.1.0",
   "private": true,
   "description": "Effect-native transactional email with explicit submission evidence and replay safety.",
+  "homepage": "https://email-sdk.corvencore.com",
+  "bugs": {
+    "url": "https://github.com/CorvenSoftware/email-sdk/issues"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/CorvenSoftware/email-sdk.git"
+  },
   "bin": {
     "corven-email": "./dist/email-cli-main.js"
   },
@@ -230,6 +238,10 @@
     },
     "./package.json": "./package.json"
   },
+  "publishConfig": {
+    "access": "public",
+    "registry": "https://registry.npmjs.org/"
+  },
   "scripts": {
     "check": "pnpm lint && pnpm typecheck && pnpm check:examples && pnpm docs:check",
     "lint": "oxlint --type-aware --deny-warnings && oxfmt --check",
@@ -239,6 +251,9 @@
     "test": "vitest run",
     "build": "bash scripts/build.sh",
     "check:package": "bash scripts/check-package.sh",
+    "changeset": "changeset",
+    "release:status": "changeset status",
+    "release:version": "changeset version && pnpm install --ignore-scripts",
     "docs:dev": "cd docs/user && ASTRO_TELEMETRY_DISABLED=1 blume dev",
     "docs:build": "cd docs/user && ASTRO_TELEMETRY_DISABLED=1 blume build",
     "docs:deploy": "ALCHEMY_TELEMETRY_DISABLED=1 alchemy deploy --stage prod",
@@ -247,6 +262,7 @@
     "prepare": "effect-tsgo patch"
   },
   "devDependencies": {
+    "@changesets/cli": "3.0.3",
     "@effect/platform-node": "4.0.3",
     "@effect/tsgo": "0.51.1",
     "@effect/vitest": "4.0.3",

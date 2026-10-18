@@ -11,6 +11,7 @@ Effect-native email library.
 - [Usage examples](examples/) — compiled, not executed.
 - [HTTP provider authoring](docs/contributing/provider-authoring.md) — public contract and installed example.
 - [Installed-package verification](scripts/check-package.sh)
+- [Package releases](docs/contributing/releases.md) — Changesets, npm access and trusted publishing.
 - [Documentation deployment](docs/contributing/docs-deployment.md) — Alchemy and GitHub Actions setup.
 - [Contributor instructions](AGENTS.md)
 - [Reference sources](.agent-repos) — pinned source revisions for contributor research.
