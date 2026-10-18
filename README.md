@@ -2,7 +2,8 @@
 
 Effect-native email library.
 
-- [User documentation](docs/user/content/index.md) — Blume site, separate from contributor guidance.
+- [User documentation](https://email-sdk.corvencore.com) — guides and public API reference.
+- [Documentation source](docs/user/content/index.md) — Blume content, separate from contributor guidance.
 - [Package entrypoints and commands](package.json)
 - [Public exports](src/index.ts)
 - [Implementation and behavioral tests](src/)
