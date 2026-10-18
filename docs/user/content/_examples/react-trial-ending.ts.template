@@ -1,0 +1,15 @@
+import { renderReactEmail } from "@corven/email-sdk/react";
+import { transactionalEmailLayout } from "./react-layout.js";
+
+export const trialEndingEmail = (input: { endsAt: string; reviewUrl: string }) =>
+  renderReactEmail(
+    transactionalEmailLayout({
+      heading: "Your trial is ending",
+      preview: "Review your trial before it ends.",
+      paragraphs: [
+        `Your trial ends ${input.endsAt}.`,
+        "Review your plan and billing settings before that date.",
+      ],
+      action: { href: input.reviewUrl, label: "Review plan" },
+    }),
+  );

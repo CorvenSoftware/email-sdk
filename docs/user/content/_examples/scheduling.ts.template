@@ -1,0 +1,14 @@
+import { DateTime, Effect } from "effect";
+import { Email } from "@corven/email-sdk";
+
+export const scheduleNotification = Effect.gen(function* scheduleNotification() {
+  const email = yield* Email;
+  const sendAt = DateTime.add(yield* DateTime.now, { minutes: 10 });
+  return yield* email.send({
+    body: { text: "A scheduled notification." },
+    from: "sender@example.test",
+    sendAt,
+    subject: "Notification",
+    to: "recipient@example.test",
+  });
+});

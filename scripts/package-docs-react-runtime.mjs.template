@@ -1,0 +1,85 @@
+import assert from "node:assert/strict";
+import { Effect } from "effect";
+import { verificationCodeEmail } from "./compiled-docs-react/react-verification-code.js";
+import { passwordResetEmail } from "./compiled-docs-react/react-password-reset.js";
+import { teamInviteEmail } from "./compiled-docs-react/react-team-invite.js";
+import { welcomeEmail } from "./compiled-docs-react/react-welcome.js";
+import { trialEndingEmail } from "./compiled-docs-react/react-trial-ending.js";
+import { usageAlertEmail } from "./compiled-docs-react/react-usage-alert.js";
+import { paymentReceiptEmail } from "./compiled-docs-react/react-receipt.js";
+import { invoiceDueEmail } from "./compiled-docs-react/react-invoice-due.js";
+import { refundConfirmedEmail } from "./compiled-docs-react/react-refund-confirmed.js";
+
+const workflows = [
+  [verificationCodeEmail({ code: "527194", expiresIn: "ten minutes" }), ["527194", "ten minutes"]],
+  [
+    passwordResetEmail({ resetUrl: "https://example.test/reset", expiresIn: "one hour" }),
+    ["one hour", "example.test/reset"],
+  ],
+  [
+    teamInviteEmail({
+      teamName: "Example team",
+      inviter: "Example inviter",
+      inviteUrl: "https://example.test/invite",
+    }),
+    ["Example team", "Example inviter"],
+  ],
+  [
+    welcomeEmail({ name: "Example reader", startUrl: "https://example.test/start" }),
+    ["Example reader", "example.test/start"],
+  ],
+  [
+    trialEndingEmail({ endsAt: "20 October, 12:00 UTC", reviewUrl: "https://example.test/plan" }),
+    ["20 October, 12:00 UTC"],
+  ],
+  [
+    usageAlertEmail({
+      usage: "900 requests",
+      limit: "1,000 requests",
+      reviewUrl: "https://example.test/usage",
+    }),
+    ["900 requests", "1,000 requests"],
+  ],
+  [
+    paymentReceiptEmail({
+      reference: "payment-104",
+      amount: "USD 42.00",
+      detailsUrl: "https://example.test/receipt",
+    }),
+    ["payment-104", "USD 42.00"],
+  ],
+  [
+    invoiceDueEmail({
+      invoice: "invoice-205",
+      amount: "USD 18.00",
+      dueAt: "25 October",
+      paymentUrl: "https://example.test/invoice",
+    }),
+    ["invoice-205", "USD 18.00", "25 October"],
+  ],
+  [
+    refundConfirmedEmail({
+      reference: "refund-306",
+      amount: "USD 12.00",
+      detailsUrl: "https://example.test/refund",
+    }),
+    ["refund-306", "USD 12.00"],
+  ],
+];
+
+for (const [rendering, expectedContent] of workflows) {
+  const body = await Effect.runPromise(rendering);
+  for (const content of expectedContent) {
+    assert(
+      body.html.includes(content),
+      "The recipe must preserve its authorized application data in HTML.",
+    );
+    assert(
+      body.text.includes(content),
+      "The recipe must preserve its authorized application data in plain text.",
+    );
+  }
+}
+console.log(
+  "Documentation React recipes: nine local HTML/plain-text rendering workflows passed without sending.",
+);

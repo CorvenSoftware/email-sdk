@@ -1,0 +1,27 @@
+import { Effect, Layer } from "effect";
+import { Email, emailLayer } from "@corven/email-sdk";
+import type { EmailMessageInput } from "@corven/email-sdk";
+import { capturedEmailSenderLayer, EmailSubmissionCapture } from "@corven/email-sdk/capture";
+import { recordingSenderLayer } from "@corven/email-sdk/testing";
+
+export const captureSyntheticSubmission = Effect.fnUntraced(function* captureSyntheticSubmission(
+  message: EmailMessageInput,
+) {
+  const email = yield* Email;
+  const capture = yield* EmailSubmissionCapture;
+  const receipt = yield* email.send(message);
+  const snapshot = yield* capture.snapshot;
+  const purgedRecordCount = yield* capture.purgeRecords;
+
+  return { purgedRecordCount, receipt, snapshot };
+});
+
+export const capturedSyntheticEmailLayer = emailLayer().pipe(
+  Layer.provideMerge(
+    capturedEmailSenderLayer(recordingSenderLayer, {
+      capacity: 10,
+      maxBytes: 1_048_576,
+      privateData: "AuthorizePayloadCapture",
+    }),
+  ),
+);

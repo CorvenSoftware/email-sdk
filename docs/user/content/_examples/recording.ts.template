@@ -1,0 +1,17 @@
+import { Effect } from "effect";
+import { Email } from "@corven/email-sdk";
+import { RecordedEmails, recordingEmailLayer } from "@corven/email-sdk/testing";
+
+export const recordNotification = Effect.gen(function* recordNotification() {
+  const email = yield* Email;
+  const records = yield* RecordedEmails;
+  const receipt = yield* email.send({
+    body: { text: "Your fictional order is ready." },
+    from: "sender@example.test",
+    subject: "Order ready",
+    to: "recipient@example.test",
+  });
+  const messages = yield* records.messages;
+
+  return { messages, receipt };
+}).pipe(Effect.provide(recordingEmailLayer));

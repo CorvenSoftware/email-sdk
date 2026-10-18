@@ -1,0 +1,29 @@
+import { Effect, Layer } from "effect";
+import type { Redacted } from "effect";
+import { Email } from "@corven/email-sdk";
+import { sendgridPersonalizedEmailLayer } from "@corven/email-sdk/sendgrid";
+import { mailgunPersonalizedEmailLayer } from "@corven/email-sdk/mailgun";
+import { emailHttpLayer } from "./sending.js";
+
+export const sendgridNativeAccount = (apiKey: Redacted.Redacted) =>
+  sendgridPersonalizedEmailLayer({ apiKey, region: "Europe" }).pipe(Layer.provide(emailHttpLayer));
+
+export const mailgunNativeAccount = (apiKey: Redacted.Redacted, domain: string) =>
+  mailgunPersonalizedEmailLayer({ apiKey, domain, region: "Europe" }).pipe(
+    Layer.provide(emailHttpLayer),
+  );
+
+export const submitNativeAudience = Effect.gen(function* submitNativeAudience() {
+  const email = yield* Email;
+  return yield* email.sendPersonalized({
+    message: {
+      body: { html: "<p>Hello %recipient.name%</p>", text: "Hello %recipient.name%" },
+      from: "sender@example.test",
+      subject: "Hello %recipient.name%",
+    },
+    recipients: [
+      { to: "first@example.test", variables: { name: "First" } },
+      { to: "second@example.test", variables: { name: "Second" } },
+    ],
+  });
+});

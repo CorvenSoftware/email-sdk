@@ -1,0 +1,14 @@
+import { Layer } from "effect";
+import type { Redacted } from "effect";
+import { graphEmailLayer } from "@corven/email-sdk/graph";
+import { emailHttpLayer } from "./sending.js";
+
+export const configuredGraphAccount = (accessToken: Redacted.Redacted) =>
+  graphEmailLayer({
+    accessToken,
+    mailboxId: "00000000-0000-4000-8000-000000000001",
+    mailboxAddress: "sender@example.test",
+    senderIdentity: "OwnerOrSendAs",
+    mailFlow: "ProviderUnmodified",
+    sentItems: "Save",
+  }).pipe(Layer.provide(emailHttpLayer));

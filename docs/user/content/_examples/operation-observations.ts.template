@@ -1,0 +1,32 @@
+import { Effect } from "effect";
+import { Email, observedEmailOperationLayer } from "@corven/email-sdk";
+import type { EmailOperationObserver } from "@corven/email-sdk";
+import { defaultedEmailLayer } from "@corven/email-sdk/defaults";
+import { recordingEmailLayer } from "@corven/email-sdk/testing";
+
+export const fictionalObservedSubmission = (observer: EmailOperationObserver) =>
+  Effect.gen(function* executeObservedNotification() {
+    const operation = yield* (yield* Email).prepare(
+      {
+        body: { text: "A fictional lifecycle example." },
+        from: "sender@fictional.invalid",
+        subject: "Fictional notification",
+        to: "recipient@fictional.invalid",
+      },
+      {
+        executionMetadata: { tenant: "fictional-private-context" },
+        idempotencyKey: "caller-owned-event",
+      },
+    );
+
+    yield* operation.validate;
+
+    return yield* operation.send;
+  }).pipe(
+    Effect.provide(
+      observedEmailOperationLayer(
+        defaultedEmailLayer(recordingEmailLayer, { idempotencyKeyPrefix: "fictional/" }),
+        observer,
+      ),
+    ),
+  );

@@ -1,0 +1,27 @@
+import { createElement } from "react";
+import { themedReactEmailComponents } from "@corven/email-sdk/react";
+
+const { EmailAction, EmailCard, EmailDocument, EmailHeading, EmailParagraph } =
+  themedReactEmailComponents("light");
+
+interface TransactionalEmailLayoutInput {
+  readonly heading: string;
+  readonly paragraphs: readonly string[];
+  readonly preview: string;
+  readonly action?: { readonly href: string; readonly label: string };
+}
+
+export const transactionalEmailLayout = (input: TransactionalEmailLayoutInput) =>
+  createElement(
+    EmailDocument,
+    { lang: "en", preview: input.preview },
+    createElement(
+      EmailCard,
+      null,
+      createElement(EmailHeading, null, input.heading),
+      ...input.paragraphs.map((text, index) => createElement(EmailParagraph, { key: index }, text)),
+      input.action === undefined
+        ? null
+        : createElement(EmailAction, { href: input.action.href }, input.action.label),
+    ),
+  );

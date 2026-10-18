@@ -1,0 +1,35 @@
+import { Effect, Layer } from "effect";
+import { EmailRouter, emailLayer, observedEmailRouterLayer } from "@corven/email-sdk";
+import {
+  EmailObservationAggregate,
+  observedEmailSenderLayer,
+} from "@corven/email-sdk/observations";
+import { recordingSenderLayer } from "@corven/email-sdk/testing";
+
+const first = emailLayer().pipe(
+  Layer.provideMerge(observedEmailSenderLayer(Layer.fresh(recordingSenderLayer), { capacity: 2 })),
+);
+
+const second = emailLayer().pipe(
+  Layer.provideMerge(observedEmailSenderLayer(Layer.fresh(recordingSenderLayer), { capacity: 3 })),
+);
+
+const router = observedEmailRouterLayer(
+  [
+    { layer: first, name: "first" },
+    { layer: second, name: "second" },
+  ],
+  { primary: "first" },
+);
+
+export const fictionalObservationAggregation = Effect.gen(function* queryNamedObservations() {
+  const route = yield* (yield* EmailRouter).select({ primary: "second" });
+  yield* route.send({
+    body: { text: "A fictional fact aggregation example." },
+    from: "sender@fictional.invalid",
+    subject: "Fictional notification",
+    to: "recipient@fictional.invalid",
+  });
+
+  return yield* (yield* EmailObservationAggregate).snapshot;
+}).pipe(Effect.provide(router));

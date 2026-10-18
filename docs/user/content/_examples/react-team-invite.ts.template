@@ -1,0 +1,15 @@
+import { renderReactEmail } from "@corven/email-sdk/react";
+import { transactionalEmailLayout } from "./react-layout.js";
+
+export const teamInviteEmail = (input: { teamName: string; inviter: string; inviteUrl: string }) =>
+  renderReactEmail(
+    transactionalEmailLayout({
+      heading: "Join your team",
+      preview: "You have a team invitation.",
+      paragraphs: [
+        `${input.inviter} invited you to ${input.teamName}.`,
+        "Review the invitation before joining.",
+      ],
+      action: { href: input.inviteUrl, label: "Review invitation" },
+    }),
+  );

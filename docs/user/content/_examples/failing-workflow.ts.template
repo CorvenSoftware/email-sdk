@@ -1,0 +1,25 @@
+import { Duration, Effect } from "effect";
+import { Email, EmailDeliveryUnknown } from "@corven/email-sdk";
+import { FailedEmailSubmissions, failingEmailLayer } from "@corven/email-sdk/testing";
+
+export const inspectUncertainSubmission = Effect.gen(function* inspectUncertainSubmission() {
+  const email = yield* Email;
+  const failures = yield* FailedEmailSubmissions;
+  const result = yield* email
+    .send({
+      body: { text: "Your notification is ready." },
+      from: "sender@example.test",
+      subject: "Notification",
+      to: "recipient@example.test",
+    })
+    .pipe(Effect.result);
+  return { attempts: yield* failures.attempts, result };
+}).pipe(
+  Effect.provide(
+    failingEmailLayer(new EmailDeliveryUnknown({ provider: "example", reason: "transport" }), {
+      deadline: Duration.seconds(10),
+      initialDelay: Duration.millis(100),
+      maxAttempts: 3,
+    }),
+  ),
+);

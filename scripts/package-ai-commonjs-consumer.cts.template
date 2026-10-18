@@ -1,0 +1,34 @@
+import assert = require("node:assert/strict");
+import EffectLibrary = require("effect");
+import Agent = require("@corven/email-sdk/agent");
+import Ai = require("@corven/email-sdk/ai");
+import Testing = require("@corven/email-sdk/testing");
+
+const { Effect, Exit, Layer } = EffectLibrary;
+const proveCommonjsAi = (run: Ai.EmailAiRunner, tool: Ai.EmailAiTool, receipt: Ai.EmailAiReceipt): void => {
+  const acquisition: EffectLibrary.Effect.Effect<Ai.EmailAiTool, never, Agent.EmailAgent | EffectLibrary.Scope.Scope> = Ai.emailAiTool(run);
+  const tools = { sendEmail: tool };
+  // @ts-expect-error -- CommonJS model-facing receipts exclude provider handles.
+  void receipt.messageId;
+  // @ts-expect-error -- CommonJS model input cannot configure the host sender.
+  void tools.sendEmail.execute({ body: { text: "Fictional" }, from: "model@example.test", subject: "Fictional", to: "recipient@example.test" }, { context: undefined, messages: [], toolCallId: "fictional" });
+  void acquisition;
+};
+void proveCommonjsAi;
+
+const layers = Agent.emailAgentLayer({ from: "host@example.test" }).pipe(
+  Layer.provide(Layer.succeed(Agent.EmailAgentApproval, Agent.EmailAgentApproval.of({ review: () => Effect.succeed("Approved" as const) }))),
+  Layer.provideMerge(Testing.recordingEmailLayer),
+);
+const app = Effect.scoped(Effect.gen(function* verifyCommonjsAiRuntime() {
+  const tool = yield* Ai.emailAiTool(Effect.runPromise);
+  const input = { body: { text: "Fictional CommonJS AI message" }, subject: "Synthetic AI", to: "recipient@example.test" };
+  const options = { context: undefined, messages: [], toolCallId: "reused-tool-call-id" };
+  assert.deepEqual(yield* Effect.promise(() => tool.execute(input, options)), { receiptKind: "Recorded" });
+  assert.deepEqual(yield* Effect.promise(() => tool.execute(input, options)), { receiptKind: "Recorded" });
+  assert.equal((yield* (yield* Testing.RecordedEmails).messages).length, 2);
+  const malformed = { ...input, approved: true };
+  assert.ok(Exit.isFailure(yield* Effect.exit(Effect.promise(() => tool.execute(malformed, options)))));
+})).pipe(Effect.provide(layers));
+
+void Effect.runPromise(app);

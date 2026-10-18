@@ -1,0 +1,184 @@
+import assert = require("node:assert/strict");
+import EffectLibrary = require("effect");
+import EffectHttp = require("effect/http");
+import EmailSdk = require("@corven/email-sdk");
+import ProviderKit = require("@corven/email-sdk/provider");
+import Author = require("./author.js");
+import Brevo = require("@corven/email-sdk/brevo");
+import Sequenzy = require("@corven/email-sdk/sequenzy");
+import Sendheron = require("@corven/email-sdk/sendheron");
+import Iterable = require("@corven/email-sdk/iterable");
+import IterableDefaults = require("@corven/email-sdk/iterable-defaults");
+import NativeObservations = require("@corven/email-sdk/native-observations");
+import NativeCapture = require("@corven/email-sdk/native-capture");
+import Loops = require("@corven/email-sdk/loops");
+const { Effect, Layer, Redacted, Ref, Result, Schema } = EffectLibrary;
+const { HttpClient } = EffectHttp;
+const { Email, EmailInvalidMessage, EmailRejected } = EmailSdk;
+const apiKey = Redacted.make("fictional-unused-key");
+const message = { body: { html: "<p>Fictional CommonJS provider notification</p>" }, from: { address: "host@fictional.invalid", name: "Fictional Host" }, replyTo: "reply@fictional.invalid", subject: "Fictional CommonJS notification", to: "recipient@fictional.invalid" } as const;
+const noTransport = Layer.succeed(HttpClient.HttpClient, HttpClient.make(() => Effect.die("Unexpected CommonJS provider transport")));
+const brevo: EffectLibrary.Layer.Layer<EmailSdk.Email, EmailSdk.EmailConfigurationError, EffectHttp.HttpClient.HttpClient> = Brevo.brevoEmailLayer({ apiKey, contentAuthority: "AuthorizeProviderRendering", submissionMode: "TransactionalOnly", tracking: "AuthorizeProviderTracking" });
+const sequenzy: EffectLibrary.Layer.Layer<EmailSdk.Email, EmailSdk.EmailConfigurationError, EffectHttp.HttpClient.HttpClient> = Sequenzy.sequenzyEmailLayer({ apiKey, automaticUtm: "AccountDisabled", contactWrites: "AuthorizeProviderManagedProfiles", contentAuthority: "AuthorizeProviderRenderingAndRetention", replyTracking: "AccountDisabled", senderIdentity: "ExistingVerifiedProfile", submissionMode: "TransactionalOnly" });
+const sendheron: EffectLibrary.Layer.Layer<EmailSdk.Email, EmailSdk.EmailConfigurationError, EffectHttp.HttpClient.HttpClient> = Sendheron.sendheronEmailLayer({ apiKey, submissionMode: "TransactionalOnly", tracking: "AuthorizeProviderTracking" });
+const iterable: EffectLibrary.Layer.Layer<Iterable.IterableCampaignEmail, EmailSdk.EmailConfigurationError, EffectHttp.HttpClient.HttpClient> = Iterable.iterableCampaignLayer({ apiKey, campaignAuthority: "AuthorizeProviderManagedCampaign", contactWrites: "AuthorizeProfileCreation", dataRetention: "AuthorizePersistedSendData", projectIdentity: "EmailBased", region: "US", tracking: "AuthorizeCampaignTracking" });
+const proveNativeCapture = <E, R>(loops: EffectLibrary.Layer.Layer<Loops.LoopsTransactionalEmail, E, R>, account: EffectLibrary.Layer.Layer<Iterable.IterableCampaignEmail, E, R>): EffectLibrary.Layer.Layer<Iterable.IterableCampaignEmail | NativeCapture.EmailNativeCapture, E | EmailSdk.EmailConfigurationError, R> => {
+  const options = { capacity: 1, maxBytes: 10000, privateData: "AuthorizePayloadCapture" } as const;
+  const captured: EffectLibrary.Layer.Layer<Loops.LoopsTransactionalEmail | NativeCapture.EmailNativeCapture, E | EmailSdk.EmailConfigurationError, R> = NativeCapture.capturedLoopsTransactionalLayer(loops, options);
+  // @ts-expect-error -- Native capture requires explicit trusted-host permission and bounds.
+  void NativeCapture.capturedLoopsTransactionalLayer(loops);
+  // @ts-expect-error -- Native capture cannot decorate ordinary Email.
+  void NativeCapture.capturedIterableCampaignLayer(brevo, options);
+  void captured;
+  return NativeCapture.capturedIterableCampaignLayer(account, options);
+};
+void proveNativeCapture;
+const proveNativeObservations = <E, R>(loops: EffectLibrary.Layer.Layer<Loops.LoopsTransactionalEmail, E, R>, account: EffectLibrary.Layer.Layer<Iterable.IterableCampaignEmail, E, R>, observer: NativeObservations.EmailNativeObserver, starting: NativeObservations.EmailNativeOperationStarting, startingObserver: NativeObservations.EmailNativeStartingObserver): EffectLibrary.Layer.Layer<Iterable.IterableCampaignEmail | NativeObservations.EmailNativeObservations, E | EmailSdk.EmailConfigurationError, R> => {
+  const requiringObserver = () => Effect.asVoid(EmailSdk.Email);
+  const refusesContext: typeof requiringObserver extends NativeObservations.EmailNativeStartingObserver ? false : true = true;
+  const refusesSettled: NativeObservations.EmailNativeObserver extends NativeObservations.EmailNativeStartingObserver ? false : true = true;
+  // @ts-expect-error -- Native starting facts cannot change the selected operation.
+  starting.operation = "IterableCampaign";
+  // @ts-expect-error -- Native starting facts do not contain jobs.
+  void starting.job;
+  // @ts-expect-error -- Native starting callbacks are not serialized options.
+  void NativeObservations.observedIterableCampaignLayer(account, { onStarting: startingObserver });
+  void refusesContext;
+  void refusesSettled;
+  const observed: EffectLibrary.Layer.Layer<Loops.LoopsTransactionalEmail | NativeObservations.EmailNativeObservations, E | EmailSdk.EmailConfigurationError, R> = NativeObservations.observedLoopsTransactionalLayer(loops, {}, observer, startingObserver);
+  // @ts-expect-error -- Ordinary Email does not implement a native operation boundary.
+  void NativeObservations.observedIterableCampaignLayer(brevo);
+  // @ts-expect-error -- Callback code is not a serialized native observation option.
+  void NativeObservations.observedIterableCampaignLayer(account, { onReceipt: "callback" });
+  const failingObserver = () => Effect.fail(new EmailRejected({ provider: "fixture", reason: "rejected" }));
+  const refusesStartingErrors: typeof failingObserver extends NativeObservations.EmailNativeStartingObserver ? false : true = true;
+  void refusesStartingErrors;
+  // @ts-expect-error -- Callback failure cannot become a retryable native outcome.
+  void NativeObservations.observedIterableCampaignLayer(account, {}, failingObserver);
+  void observed;
+  return NativeObservations.observedIterableCampaignLayer(account, {}, observer, startingObserver);
+};
+void proveNativeObservations;
+const proveIterableDefaults = <E, R>(account: EffectLibrary.Layer.Layer<Iterable.IterableCampaignEmail, E, R>, defaults: IterableDefaults.IterableCampaignDefaultsInput): EffectLibrary.Layer.Layer<Iterable.IterableCampaignEmail, E | EmailSdk.EmailConfigurationError, R> => {
+  // @ts-expect-error -- CommonJS native defaults cannot select campaigns.
+  void IterableDefaults.defaultedIterableCampaignLayer(account, { campaignId: 123 });
+  // @ts-expect-error -- Native data cannot contain nested object defaults.
+  void IterableDefaults.defaultedIterableCampaignLayer(account, { dataFields: { nested: { value: 0 } } });
+  // @ts-expect-error -- Ordinary Email cannot acquire native campaign authority.
+  void IterableDefaults.defaultedIterableCampaignLayer(brevo, {});
+  return IterableDefaults.defaultedIterableCampaignLayer(account, defaults);
+};
+void proveIterableDefaults;
+const proveProviderTypes = (native: Iterable.IIterableCampaignEmail, preview: Iterable.IterableCampaignJob): void => {
+  // @ts-expect-error -- CommonJS native campaigns do not accept common sender overrides.
+  void native.send({ campaignId: 123, recipientEmail: "recipient@fictional.invalid", from: "host@fictional.invalid" });
+  // @ts-expect-error -- CommonJS owned campaign identities remain readonly.
+  preview.campaignId = 456;
+  // @ts-expect-error -- Open tracking cannot be represented as a provider opt-out.
+  void Sendheron.sendheronEmailLayer({ apiKey, submissionMode: "TransactionalOnly", tracking: "Disabled" });
+  // @ts-expect-error -- Brevo requires explicit rendering/tracking authority.
+  void Brevo.brevoEmailLayer({ apiKey });
+};
+void proveProviderTypes;
+void Effect.runPromise(Effect.gen(function* verifyCommonJsProviderContracts() {
+  yield* Author.verifyAuthoredProvider(ProviderKit.defineEmailHttpProvider);
+  yield* Effect.gen(function* preflightCommonJsBrevo() {
+    const email = yield* Email;
+    assert.equal((yield* email.validate(message)).body.html, message.body.html);
+    const error = yield* email.send(message, { idempotencyKey: "unsupported-key" }).pipe(Effect.flip);
+    assert(error instanceof EmailRejected);
+    assert.equal(error.reason, "unsupported-idempotency");
+  }).pipe(Effect.provide(brevo.pipe(Layer.provide(noTransport))));
+  yield* Effect.gen(function* preflightCommonJsSequenzy() {
+    const email = yield* Email;
+    yield* email.validate(message, { idempotencyKey: "forwarded-key" });
+    const error = yield* email.send({ ...message, headers: [{ name: "X-Workflow", value: "not-durable" }] }).pipe(Effect.flip);
+    assert(error instanceof EmailInvalidMessage);
+  }).pipe(Effect.provide(sequenzy.pipe(Layer.provide(noTransport))));
+  yield* Effect.gen(function* preflightCommonJsSendheron() {
+    const email = yield* Email;
+    yield* email.validate(message, { idempotencyKey: "forwarded-key" });
+    const error = yield* email.send({ ...message, body: { text: "not HTML" } }).pipe(Effect.flip);
+    assert(error instanceof EmailInvalidMessage);
+  }).pipe(Effect.provide(sendheron.pipe(Layer.provide(noTransport))));
+  yield* Effect.gen(function* preflightCommonJsIterable() {
+    const native = yield* Iterable.IterableCampaignEmail;
+    const preview = yield* native.validate({ campaignId: 123, dataFields: { values: [0, false, "fictional"] }, recipientEmail: "recipient@fictional.invalid" });
+    assert(Object.isFrozen(preview.dataFields?.values));
+    const error = yield* native.send(preview, { idempotencyKey: "not-native" }).pipe(Effect.flip);
+    assert(error instanceof EmailRejected);
+    assert.equal(error.reason, "unsupported-idempotency");
+  }).pipe(Effect.provide(iterable.pipe(Layer.provide(noTransport))));
+  yield* Effect.gen(function* inspectCommonjsNativeObservations() {
+    const deliveries = yield* Ref.make(0);
+    const starts: NativeObservations.EmailNativeOperationStarting[] = [];
+    const startingObserver: NativeObservations.EmailNativeStartingObserver = (fact) => Effect.sync(() => {
+      assert(Object.isFrozen(fact));
+      assert.equal(fact.operation, "IterableCampaign");
+      const codec = Schema.fromJsonString(NativeObservations.EmailNativeOperationStartingSchema);
+      const encoded = Schema.encodeSync(codec)(fact);
+      assert.deepEqual(Schema.decodeSync(codec)(encoded), fact);
+      assert(!encoded.includes("recipient@"));
+      starts.push(fact);
+    });
+    const observer: NativeObservations.EmailNativeObserver = () => Ref.update(deliveries, (count) => count + 1);
+    const native = yield* Iterable.IterableCampaignEmail;
+    const failure = new EmailSdk.EmailDeliveryUnknown({ provider: "iterable", reason: "transport" });
+    const supplied = Layer.succeed(Iterable.IterableCampaignEmail, Iterable.IterableCampaignEmail.of({ ...native, send: () => Effect.fail(failure) }));
+    yield* Effect.gen(function* observeCommonjsNativeOperation() {
+      const current = yield* Iterable.IterableCampaignEmail;
+      const view = yield* NativeObservations.EmailNativeObservations;
+      yield* current.validate({ campaignId: 123, recipientEmail: "recipient@fictional.invalid" });
+      assert.equal((yield* view.snapshot).observations.length, 0);
+      const result = yield* current.send({ campaignId: 123, recipientEmail: "recipient@fictional.invalid" }).pipe(Effect.result);
+      assert(Result.isFailure(result));
+      assert.equal(result.failure, failure);
+      const snapshot = yield* view.snapshot;
+      assert.deepEqual(snapshot.observations.map((value) => [value._tag, value.operation]), [["Unknown", "IterableCampaign"]]);
+      assert(Object.isFrozen(snapshot.observations));
+      const encoded = yield* Schema.encodeEffect(Schema.fromJsonString(NativeObservations.EmailNativeObservationSnapshotSchema))(snapshot);
+      assert(!encoded.includes("recipient@"));
+      assert.equal(yield* Ref.get(deliveries), 1);
+      assert.equal(starts.length, 1);
+    }).pipe(Effect.provide(NativeObservations.observedIterableCampaignLayer(supplied, { capacity: 1 }, observer, startingObserver)));
+    const escapedCapture = yield* Effect.gen(function* inspectInstalledCommonjsNativeCapture() {
+      const current = yield* Iterable.IterableCampaignEmail;
+      const capture = yield* NativeCapture.EmailNativeCapture;
+      const result = yield* current.send({ campaignId: 123, recipientEmail: "recipient@fictional.invalid" }).pipe(Effect.result);
+      assert(Result.isFailure(result));
+      assert.equal(result.failure, failure);
+      const snapshot = yield* capture.snapshot;
+      const record = snapshot.records[0];
+      assert(record);
+      const payload = yield* Schema.decodeEffect(Schema.fromJsonString(NativeCapture.EmailNativeCapturePayloadSchema))(Redacted.value(record.payloadJson));
+      assert.equal(payload.request._tag, "IterableCampaign");
+      assert.equal(payload.outcome._tag, "Unknown");
+      assert.equal(payload.request.options.idempotencyKey, undefined);
+      assert(!JSON.stringify(snapshot).includes("recipient@"));
+      assert.equal(yield* capture.purgeRecords, 1);
+      assert.equal((yield* capture.snapshot).truncated, true);
+      assert.equal((yield* capture.snapshot).records.length, 0);
+      return capture;
+    }).pipe(Effect.provide(NativeCapture.capturedIterableCampaignLayer(supplied, { capacity: 1, maxBytes: 10000, privateData: "AuthorizePayloadCapture" })));
+    assert.equal((yield* escapedCapture.snapshot).closed, true);
+    assert.equal(yield* escapedCapture.purgeRecords, 0);
+  }).pipe(Effect.provide(iterable.pipe(Layer.provide(noTransport))));
+  const defaults = yield* Schema.decodeEffect(IterableDefaults.IterableCampaignDefaultsSchema)({ dataFields: { collision: true, items: [null, false, 0] }, metadata: { retained: "default" } });
+  yield* Effect.gen(function* preflightCommonjsIterableDefaults() {
+    const native = yield* Iterable.IterableCampaignEmail;
+    const preview = yield* native.validate({ campaignId: 123, dataFields: { collision: false, items: [] }, metadata: { retained: "caller" }, recipientEmail: "recipient@fictional.invalid" });
+    assert.deepEqual(preview.dataFields, { collision: false, items: [], inner: true });
+    assert.deepEqual(preview.metadata, { retained: "caller" });
+    assert(Object.isFrozen(preview.dataFields?.items));
+    assert.equal(native.idempotency._tag, "None");
+    const result = yield* native.send(preview, { idempotencyKey: "unsupported-key" }).pipe(Effect.result);
+    assert(Result.isFailure(result) && result.failure instanceof EmailRejected);
+    assert.equal(result.failure.reason, "unsupported-idempotency");
+  }).pipe(Effect.provide(IterableDefaults.defaultedIterableCampaignLayer(IterableDefaults.defaultedIterableCampaignLayer(iterable, { dataFields: { inner: true } }), defaults).pipe(Layer.provide(noTransport))));
+  yield* Effect.sync(() => assert.throws(() => require("@corven/email-sdk/dist/email-capture-retention.js"), { code: "ERR_PACKAGE_PATH_NOT_EXPORTED" }));
+  yield* Effect.sync(() => assert.throws(() => require("@corven/email-sdk/dist/email-capture-outcome.js"), { code: "ERR_PACKAGE_PATH_NOT_EXPORTED" }));
+  yield* Effect.sync(() => assert.throws(() => require("@corven/email-sdk/dist/email-observation-retention.js"), { code: "ERR_PACKAGE_PATH_NOT_EXPORTED" }));
+  yield* Effect.sync(() => assert.throws(() => require("@corven/email-sdk/dist/email-unsettled-cause.js"), { code: "ERR_PACKAGE_PATH_NOT_EXPORTED" }));
+  yield* Effect.sync(() => assert.throws(() => require("@corven/email-sdk/dist/iterable-campaign-job.js"), { code: "ERR_PACKAGE_PATH_NOT_EXPORTED" }));
+  yield* Effect.sync(() => assert.throws(() => require("@corven/email-sdk/email-native-operations"), { code: "ERR_PACKAGE_PATH_NOT_EXPORTED" }));
+}));

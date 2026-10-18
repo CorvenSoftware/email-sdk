@@ -1,0 +1,31 @@
+import { Effect, Layer } from "effect";
+import type { Redacted } from "effect";
+import { EmailRouter, emailRouterLayer } from "@corven/email-sdk";
+import { postmarkEmailLayer } from "@corven/email-sdk/postmark";
+import { resendEmailLayer } from "@corven/email-sdk/resend";
+import { emailHttpLayer } from "./sending.js";
+
+export const sendRoutedNotification = (
+  resendKey: Redacted.Redacted,
+  postmarkToken: Redacted.Redacted,
+) => {
+  const routes = emailRouterLayer(
+    [
+      { layer: resendEmailLayer({ apiKey: resendKey }), name: "primary" },
+      { layer: postmarkEmailLayer({ serverToken: postmarkToken }), name: "backup" },
+    ],
+    { fallbacks: ["backup"], primary: "primary" },
+  ).pipe(Layer.provide(emailHttpLayer));
+
+  return Effect.gen(function* sendRoutedNotification() {
+    const router = yield* EmailRouter;
+    const email = yield* router.select();
+
+    return yield* email.send({
+      body: { text: "A fictional routed notification." },
+      from: "sender@example.test",
+      subject: "Notification",
+      to: "recipient@example.test",
+    });
+  }).pipe(Effect.provide(routes));
+};

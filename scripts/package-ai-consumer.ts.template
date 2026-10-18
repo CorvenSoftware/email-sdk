@@ -1,0 +1,48 @@
+import assert from "node:assert/strict";
+import { Cause, Effect, Exit, Layer, Ref } from "effect";
+import type { Scope } from "effect";
+import { EmailAgent, EmailAgentApproval, emailAgentLayer } from "@corven/email-sdk/agent";
+import type { EmailAgentInput } from "@corven/email-sdk/agent";
+import { EmailAiToolError, emailAiTool } from "@corven/email-sdk/ai";
+import type { EmailAiReceipt, EmailAiRunner, EmailAiTool } from "@corven/email-sdk/ai";
+import { RecordedEmails, recordingEmailLayer } from "@corven/email-sdk/testing";
+
+const proveAiDeclarations = (run: EmailAiRunner, tool: EmailAiTool, receipt: EmailAiReceipt): void => {
+  const acquired: Effect.Effect<EmailAiTool, never, EmailAgent | Scope.Scope> = emailAiTool(run);
+  const tools = { sendEmail: tool };
+  const input: EmailAgentInput = { body: { text: "Fictional" }, subject: "Fictional", to: "recipient@example.test" };
+  const ordinary: EmailAgentInput = input;
+  // @ts-expect-error -- Model output never includes private provider IDs.
+  void receipt.messageId;
+  // @ts-expect-error -- Model input never carries host approval.
+  void tools.sendEmail.execute({ ...ordinary, approved: true }, { context: undefined, messages: [], toolCallId: "fictional" });
+  void acquired;
+};
+void proveAiDeclarations;
+
+await Effect.runPromise(Effect.scoped(Effect.gen(function* verifyInstalledAiTool() {
+  const reviews = yield* Ref.make(0);
+  const layers = emailAgentLayer({ from: "host@example.test" }).pipe(
+    Layer.provide(Layer.succeed(EmailAgentApproval, EmailAgentApproval.of({
+      review: () => Ref.updateAndGet(reviews, n => n + 1).pipe(Effect.map(n => n === 1 ? "Declined" as const : "Approved" as const)),
+    }))),
+    Layer.provideMerge(recordingEmailLayer),
+  );
+  yield* Effect.gen(function* runInstalledNativeTool() {
+    const tool = yield* emailAiTool(Effect.runPromise);
+    const input = { body: { text: "Fictional packed AI message" }, subject: "Synthetic AI", to: "recipient@example.test" };
+    const schema = tool.inputSchema["~standard"];
+    assert.equal(schema.jsonSchema.input({ target: "draft-07" }).type, "object");
+    const pending = schema.validate({ ...input, approved: true });
+    const invalid = yield* Effect.promise(() => Promise.resolve(pending));
+    assert.ok("issues" in invalid);
+    const options = { context: { approved: true }, messages: [], toolCallId: "reused-tool-call-id" };
+    const declined = yield* Effect.exit(Effect.promise(() => tool.execute(input, options)));
+    assert.ok(Exit.isFailure(declined));
+    assert.ok(Cause.squash(declined.cause) instanceof EmailAiToolError);
+    assert.deepEqual(yield* Effect.promise(() => tool.execute(input, options)), { receiptKind: "Recorded" });
+    assert.deepEqual(yield* Effect.promise(() => tool.execute(input, options)), { receiptKind: "Recorded" });
+    assert.equal(yield* Ref.get(reviews), 3);
+    assert.equal((yield* (yield* RecordedEmails).messages).length, 2);
+  }).pipe(Effect.provide(layers));
+})));

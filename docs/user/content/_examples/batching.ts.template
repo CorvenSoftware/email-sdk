@@ -1,0 +1,20 @@
+import { Effect } from "effect";
+import { Email } from "@corven/email-sdk";
+
+export const sendNotifications = Effect.gen(function* sendNotifications() {
+  const email = yield* Email;
+
+  return yield* email.sendAll(
+    [
+      {
+        message: {
+          body: { text: "A fictional notification." },
+          from: "sender@example.test",
+          subject: "Notification",
+          to: "recipient@example.test",
+        },
+      },
+    ],
+    { concurrency: 2 },
+  );
+});

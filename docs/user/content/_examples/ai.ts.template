@@ -1,0 +1,6 @@
+import { Effect } from "effect";
+import { emailAiTool } from "@corven/email-sdk/ai";
+
+export const hostAiTools = emailAiTool(Effect.runPromise).pipe(
+  Effect.map((sendEmail) => ({ sendEmail })),
+);

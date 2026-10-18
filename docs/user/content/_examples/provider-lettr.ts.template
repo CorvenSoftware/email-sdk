@@ -1,0 +1,7 @@
+import { Layer } from "effect";
+import type { Redacted } from "effect";
+import { lettrEmailLayer } from "@corven/email-sdk/lettr";
+import { emailHttpLayer } from "./sending.js";
+
+export const configuredLettrAccount = (apiKey: Redacted.Redacted) =>
+  lettrEmailLayer({ apiKey, submissionMode: "Immediate" }).pipe(Layer.provide(emailHttpLayer));

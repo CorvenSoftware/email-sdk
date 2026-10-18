@@ -1,0 +1,5 @@
+packages: []
+verifyDepsBeforeRun: error
+minimumReleaseAge: 0
+allowBuilds:
+  esbuild: true

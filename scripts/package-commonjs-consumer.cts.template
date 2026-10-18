@@ -1,0 +1,1014 @@
+import assert = require("node:assert/strict");
+import Crypto = require("node:crypto");
+import EffectLibrary = require("effect");
+import EmailSdk = require("@corven/email-sdk");
+import Testing = require("@corven/email-sdk/testing");
+import Resend = require("@corven/email-sdk/resend");
+import Postmark = require("@corven/email-sdk/postmark");
+import PostmarkWebhook = require("@corven/email-sdk/postmark-webhook");
+import Sendgrid = require("@corven/email-sdk/sendgrid");
+import Mailgun = require("@corven/email-sdk/mailgun");
+import MailgunWebhook = require("@corven/email-sdk/mailgun-webhook");
+import Agent = require("@corven/email-sdk/agent");
+import Defaults = require("@corven/email-sdk/defaults");
+import Observations = require("@corven/email-sdk/observations");
+import Capture = require("@corven/email-sdk/capture");
+import Mailersend = require("@corven/email-sdk/mailersend");
+import Mailpace = require("@corven/email-sdk/mailpace");
+import Unosend = require("@corven/email-sdk/unosend");
+import Lettermint = require("@corven/email-sdk/lettermint");
+import Plunk = require("@corven/email-sdk/plunk");
+import Helo = require("@corven/email-sdk/helo");
+import Jetemail = require("@corven/email-sdk/jetemail");
+import Lettr = require("@corven/email-sdk/lettr");
+import Sparkpost = require("@corven/email-sdk/sparkpost");
+import Primitive = require("@corven/email-sdk/primitive");
+import Mailtrap = require("@corven/email-sdk/mailtrap");
+import Mailchimp = require("@corven/email-sdk/mailchimp");
+import Scaleway = require("@corven/email-sdk/scaleway");
+import Zeptomail = require("@corven/email-sdk/zeptomail");
+import Graph = require("@corven/email-sdk/graph");
+import Cloudflare = require("@corven/email-sdk/cloudflare");
+import Ses = require("@corven/email-sdk/ses");
+import Smtp = require("@corven/email-sdk/smtp");
+import Loops = require("@corven/email-sdk/loops");
+import LoopsDefaults = require("@corven/email-sdk/loops-defaults");
+import Webhook = require("@corven/email-sdk/resend-webhook");
+import EffectHttp = require("effect/http");
+
+const { DateTime, Duration, Effect, Layer, Redacted, Ref, Result, Schema, Queue } = EffectLibrary;
+const message = {
+  body: { text: "Fictional CommonJS package consumer." },
+  from: "sender@example.test",
+  subject: "Offline CommonJS example",
+  to: "recipient@example.test",
+} as const;
+const credential = Redacted.make("sk_fictional-unused-key");
+const proveAgentDeclarations = (agent: Agent.IEmailAgent, input: Agent.EmailAgentInput, proposal: Agent.EmailAgentProposal): void => {
+  const layer: EffectLibrary.Layer.Layer<Agent.EmailAgent, EmailSdk.EmailConfigurationError, EmailSdk.Email | Agent.EmailAgentApproval> = Agent.emailAgentLayer({ from: "host@fictional.invalid" });
+  // @ts-expect-error -- CommonJS model input cannot replace the host sender.
+  void agent.submit({ ...input, from: "model@fictional.invalid" });
+  // @ts-expect-error -- CommonJS model input cannot approve or identify a submission.
+  void agent.submit({ ...input, approved: true, idempotencyKey: "model-key" });
+  // @ts-expect-error -- CommonJS approval proposals retain readonly ownership.
+  proposal.message.subject = "changed";
+  // @ts-expect-error -- CommonJS approval decisions are explicit, not booleans.
+  void Agent.EmailAgentApproval.of({ review: () => Effect.succeed(true) });
+  const pending = Agent.EmailAgent.pipe(Effect.flatMap((agent) => agent.submit(input)), Effect.provide(Agent.emailAgentLayer({ from: "host@fictional.invalid" }).pipe(Layer.provide(Testing.recordingEmailLayer))));
+  // @ts-expect-error -- CommonJS execution requires the host approval capability.
+  const runnable: EffectLibrary.Effect.Effect<EmailSdk.EmailReceipt, EmailSdk.EmailSendError | Agent.EmailAgentApprovalError | EmailSdk.EmailConfigurationError> = pending;
+  void runnable;
+  void layer;
+};
+void proveAgentDeclarations;
+
+const proveDefaultsDeclarations = (defaults: Defaults.EmailDefaultsInput): void => {
+  const layer: EffectLibrary.Layer.Layer<EmailSdk.Email, EmailSdk.EmailConfigurationError, EffectHttp.HttpClient.HttpClient> = Defaults.defaultedEmailLayer(Resend.resendEmailLayer({ apiKey: credential }), defaults);
+  // @ts-expect-error -- CommonJS defaults require Email rather than the sender authority.
+  void Defaults.defaultedEmailLayer(Testing.recordingSenderLayer, {});
+  // @ts-expect-error -- CommonJS defaults cannot generate a shared logical key.
+  void Defaults.defaultedEmailLayer(Testing.recordingEmailLayer, { idempotencyKey: "shared-key" });
+  // @ts-expect-error -- CommonJS default metadata remains string-valued.
+  void Defaults.defaultedEmailLayer(Testing.recordingEmailLayer, { metadata: { count: 1 } });
+  void layer;
+};
+void proveDefaultsDeclarations;
+
+const proveCaptureDeclarations = (view: Capture.IEmailSubmissionCapture, snapshot: Capture.EmailCaptureSnapshot, record: Capture.EmailCaptureRecord): void => {
+  const effect: EffectLibrary.Effect.Effect<Capture.EmailCaptureSnapshot> = view.snapshot;
+  const purge: EffectLibrary.Effect.Effect<number> = view.purgeRecords;
+  void purge;
+  const layer: EffectLibrary.Layer.Layer<EmailSdk.EmailSender | Capture.EmailSubmissionCapture, EmailSdk.EmailConfigurationError, EffectHttp.HttpClient.HttpClient> = Capture.capturedEmailSenderLayer(Resend.resendSenderLayer({ apiKey: credential }), { capacity: 1, maxBytes: 4096, privateData: "AuthorizePayloadCapture" });
+  // @ts-expect-error -- CommonJS capture requires explicit authorization and bounds.
+  void Capture.capturedEmailSenderLayer(Testing.recordingSenderLayer, { capacity: 1, maxBytes: 4096 });
+  // @ts-expect-error -- CommonJS captured private data is not a diagnostic string.
+  const json: string = record.payloadJson;
+  // @ts-expect-error -- CommonJS snapshot ownership is readonly.
+  snapshot.records.length = 0;
+  // @ts-expect-error -- CommonJS capture cannot reset replay state.
+  void view.clear;
+  void effect; void layer; void json;
+};
+void proveCaptureDeclarations;
+
+const proveRetryDeclarations = (decision: EmailSdk.EmailRetryDecision, observer: EmailSdk.EmailRetryObserver, restriction: EmailSdk.EmailRetryRestriction, candidate: EmailSdk.EmailRetryCandidate): void => {
+  const requiringRestriction = () => Effect.as(EmailSdk.Email, true);
+  const synchronousRestriction = () => true;
+  const refusesRestrictionContext: typeof requiringRestriction extends EmailSdk.EmailRetryRestriction ? false : true = true;
+  const refusesSynchronousRestriction: typeof synchronousRestriction extends EmailSdk.EmailRetryRestriction ? false : true = true;
+  const refusesVoidRestriction: EmailSdk.EmailRetryObserver extends EmailSdk.EmailRetryRestriction ? false : true = true;
+  const refusesObserverSubstitution: EmailSdk.EmailRetryRestriction extends EmailSdk.EmailRetryObserver ? false : true = true;
+  void refusesObserverSubstitution;
+  // @ts-expect-error -- Retry restrictions are explicit host Effects, not policy JSON.
+  void EmailSdk.emailLayer({ maxAttempts: 2, initialDelay: Duration.millis(1), deadline: Duration.seconds(30), shouldRetry: restriction });
+  void refusesRestrictionContext; void refusesSynchronousRestriction; void refusesVoidRestriction;
+  const layer: EffectLibrary.Layer.Layer<EmailSdk.Email, EmailSdk.EmailConfigurationError, EffectHttp.HttpClient.HttpClient> = Resend.resendEmailLayer({ apiKey: EffectLibrary.Redacted.make("fictional-key") }, undefined, observer, restriction);
+  const failingObserver = () => EffectLibrary.Effect.fail(new EmailSdk.EmailRejected({ provider: "fixture", reason: "rejected" }));
+  const requiringObserver = () => EffectLibrary.Effect.asVoid(EmailSdk.Email);
+  const refusesRestrictionErrors: typeof failingObserver extends EmailSdk.EmailRetryRestriction ? false : true = true;
+  void refusesRestrictionErrors;
+  const refusesErrors: typeof failingObserver extends EmailSdk.EmailRetryObserver ? false : true = true;
+  const refusesContext: typeof requiringObserver extends EmailSdk.EmailRetryObserver ? false : true = true;
+  // @ts-expect-error -- CommonJS candidate ordinals remain readonly.
+  candidate.nextAttempt = 2;
+  // @ts-expect-error -- CommonJS restriction candidates do not expose private requests.
+  void candidate.message;
+  // @ts-expect-error -- CommonJS retry facts do not expose private requests.
+  void decision.message;
+  // @ts-expect-error -- CommonJS retry facts retain readonly numbering.
+  decision.nextAttempt = 2;
+  // @ts-expect-error -- CommonJS callbacks are not serialized policy fields.
+  void EmailSdk.emailLayer({ maxAttempts: 2, initialDelay: EffectLibrary.Duration.millis(1), deadline: EffectLibrary.Duration.seconds(30), onRetry: observer });
+  void layer; void refusesErrors; void refusesContext;
+};
+void proveRetryDeclarations;
+
+const proveObservationDeclarations = (view: Observations.IEmailSubmissionObservations, snapshot: Observations.EmailSubmissionObservationSnapshot, starting: Observations.EmailSubmissionStarting, startingObserver: Observations.EmailSubmissionStartingObserver): void => {
+  const layer: EffectLibrary.Layer.Layer<EmailSdk.EmailSender | Observations.EmailSubmissionObservations, EmailSdk.EmailConfigurationError> = Observations.observedEmailSenderLayer(Testing.recordingSenderLayer, {}, undefined, startingObserver);
+  const requiringObserver = () => Effect.asVoid(EmailSdk.Email);
+  const refusesContext: typeof requiringObserver extends Observations.EmailSubmissionStartingObserver ? false : true = true;
+  const refusesSettled: Observations.EmailSubmissionObserver extends Observations.EmailSubmissionStartingObserver ? false : true = true;
+  // @ts-expect-error -- Starting facts cannot replace acquired sender identity.
+  starting.provider = "replacement";
+  // @ts-expect-error -- Starting callbacks never expose message intent.
+  void starting.message;
+  // @ts-expect-error -- Starting callbacks are explicit host code, not serialized options.
+  void Observations.observedEmailSenderLayer(Testing.recordingSenderLayer, { onStarting: startingObserver });
+  void layer;
+  void refusesContext;
+  void refusesSettled;
+  const effect: EffectLibrary.Effect.Effect<Observations.EmailSubmissionObservationSnapshot> = view.snapshot;
+  // @ts-expect-error -- CommonJS observation options never accept callbacks.
+  void Observations.observedEmailSenderLayer(Testing.recordingSenderLayer, { onReceipt: () => undefined });
+  const failingObserver = () => Effect.fail(new EmailSdk.EmailRejected({ provider: "fixture", reason: "rejected" }));
+  const refusesStartingErrors: typeof failingObserver extends Observations.EmailSubmissionStartingObserver ? false : true = true;
+  void refusesStartingErrors;
+  // @ts-expect-error -- CommonJS callback failures cannot grant retry authority.
+  void Observations.observedEmailSenderLayer(Testing.recordingSenderLayer, {}, failingObserver);
+  // @ts-expect-error -- CommonJS snapshots cannot reset retained state.
+  snapshot.observations.length = 0;
+  // @ts-expect-error -- CommonJS composition requires an actual sender Layer.
+  void Observations.observedEmailSenderLayer(Layer.empty);
+  void effect;
+};
+void proveObservationDeclarations;
+
+const provePostmarkWebhookDeclarations = (event: PostmarkWebhook.PostmarkWebhookEvent): void => {
+  const parsed: EffectLibrary.Effect.Effect<PostmarkWebhook.PostmarkWebhookEvent, PostmarkWebhook.EmailWebhookNormalizationError> = PostmarkWebhook.parsePostmarkWebhookEvent("raw JSON");
+  const provenance: "UnverifiedPayload" = event.provenance;
+  // @ts-expect-error -- CommonJS unsigned observations cannot authenticate a Resend body.
+  void Webhook.parseResendWebhookEvent(event);
+  // @ts-expect-error -- CommonJS body projection never creates a delivery ID.
+  void event.deliveryId;
+  // @ts-expect-error -- CommonJS native reports are not outbound receipts.
+  const receipt: EmailSdk.EmailReceipt = event;
+  void parsed;
+  void provenance;
+  void receipt;
+};
+void provePostmarkWebhookDeclarations;
+
+const mailgunWebhookSecret = "fictional-packed-mailgun-signing-key";
+const proveMailgunWebhookDeclarations = (verifier: MailgunWebhook.IMailgunWebhookVerifier, proof: MailgunWebhook.VerifiedMailgunWebhookSignature, event: MailgunWebhook.MailgunWebhookEvent): void => {
+  const parsed: EffectLibrary.Effect.Effect<MailgunWebhook.MailgunWebhookEvent, MailgunWebhook.EmailWebhookNormalizationError> = MailgunWebhook.parseMailgunWebhookEvent("raw JSON");
+  const provenance: "UnverifiedPayload" = event.provenance;
+  // @ts-expect-error -- CommonJS challenge proof never becomes event-body data.
+  void MailgunWebhook.parseMailgunWebhookEvent(proof);
+  // @ts-expect-error -- CommonJS unsigned events do not authenticate Resend bodies.
+  void Webhook.parseResendWebhookEvent(event);
+  // @ts-expect-error -- CommonJS provider-day event IDs are not delivery identities.
+  void event.deliveryId;
+  // @ts-expect-error -- CommonJS RFC header values are not submission handles.
+  void event.providerMessageId;
+  void parsed;
+  void provenance;
+  const verified: EffectLibrary.Effect.Effect<MailgunWebhook.VerifiedMailgunWebhookSignature, Webhook.EmailWebhookVerificationError> = verifier.verifySignature({ timestamp: 1_791_849_600, token: "fictional-token", signature: "00".repeat(32) });
+  void verified;
+  // @ts-expect-error -- CommonJS Mailgun signing credentials remain Redacted.
+  void MailgunWebhook.mailgunWebhookLayer({ signingSecrets: ["unwrapped-key"], signatureField: "signature" });
+  // @ts-expect-error -- CommonJS Mailgun primary/parent selection is explicit.
+  void MailgunWebhook.mailgunWebhookLayer({ signingSecrets: [Redacted.make(mailgunWebhookSecret)] });
+  // @ts-expect-error -- CommonJS Mailgun challenge proof never authenticates an event body.
+  const payload: Webhook.VerifiedResendWebhook = proof;
+  // @ts-expect-error -- CommonJS Mailgun challenge proof cannot authenticate an event body.
+  void Webhook.parseResendWebhookEvent(proof);
+  // @ts-expect-error -- CommonJS raw event bodies are not signature-verification inputs.
+  void verifier.verifySignature({ body: "raw event", headers: [] });
+  void payload;
+};
+void proveMailgunWebhookDeclarations;
+
+const webhookSecret = `whsec_${Buffer.from("fictional-packed-webhook-signing-key").toString("base64")}`;
+const proveWebhookDeclarations = (verifier: Webhook.IResendWebhookVerifier, proof: Webhook.VerifiedResendWebhook): void => {
+  const verified: EffectLibrary.Effect.Effect<Webhook.VerifiedResendWebhook, Webhook.EmailWebhookVerificationError> = verifier.verify({ body: "raw", headers: [] });
+  void verified;
+  const parsed: EffectLibrary.Effect.Effect<Webhook.ResendWebhookEvent, Webhook.EmailWebhookNormalizationError> = Webhook.parseResendWebhookEvent(proof);
+  void parsed;
+  // @ts-expect-error -- CommonJS normalization requires authenticated proof, not raw fields.
+  void Webhook.parseResendWebhookEvent({ body: proof.body, id: proof.id, timestamp: proof.timestamp });
+  // @ts-expect-error -- CommonJS signing credentials remain Redacted.
+  void Webhook.resendWebhookLayer({ signingSecrets: ["unwrapped-secret"] });
+  // @ts-expect-error -- CommonJS merged dictionaries cannot preserve duplicate signing headers.
+  void verifier.verify({ body: "raw", headers: { "svix-id": "opaque" } });
+  // @ts-expect-error -- CommonJS unverified fields cannot manufacture verification proof.
+  const forged: Webhook.VerifiedResendWebhook = { body: proof.body, id: proof.id, timestamp: proof.timestamp };
+  void forged;
+};
+void proveWebhookDeclarations;
+
+const loopsConfiguration = { apiKey: credential, attachments: "Disabled", templateAuthority: "ProviderManaged" } as const;
+const loopsJob = { email: "recipient@fictional.invalid", transactionalId: "fictional-template", dataVariables: { items: [{ amount: 0 }] } } as const;
+const loopsAcquisition = Effect.service(Loops.LoopsTransactionalEmail).pipe(Effect.provide(Loops.loopsTransactionalLayer(loopsConfiguration)));
+const proveLoopsDeclarations = (loops: Loops.ILoopsTransactionalEmail): void => {
+  const submitted: EffectLibrary.Effect.Effect<EmailSdk.EmailReceipt, EmailSdk.EmailSendError> = loops.send(loopsJob);
+  void submitted;
+  const batched: EffectLibrary.Effect.Effect<readonly EffectLibrary.Result.Result<EmailSdk.EmailReceipt, EmailSdk.EmailSendError>[], EmailSdk.EmailInvalidOptions> = loops.sendAll([{ job: loopsJob, options: { idempotencyKey: "per-job-key" } }], { concurrency: 2 });
+  void batched;
+  // @ts-expect-error -- CommonJS native batches require job envelopes.
+  void loops.sendAll([{ message }]);
+  // @ts-expect-error -- CommonJS native batch keys belong to individual jobs.
+  void loops.sendAll([{ job: loopsJob }], { concurrency: 2, idempotencyKey: "shared-key" });
+  // @ts-expect-error -- CommonJS native-template acquisition preserves its HTTP requirement.
+  const withoutTransport: EffectLibrary.Effect.Effect<Loops.ILoopsTransactionalEmail, EmailSdk.EmailConfigurationError> = loopsAcquisition;
+  void withoutTransport;
+  // @ts-expect-error -- CommonJS native-template construction preserves explicit authority.
+  void Loops.loopsTransactionalLayer({ apiKey: credential, attachments: "Disabled" });
+  // @ts-expect-error -- CommonJS native-template credentials remain Redacted.
+  void Loops.loopsTransactionalLayer({ ...loopsConfiguration, apiKey: "unwrapped-key" });
+  // @ts-expect-error -- CommonJS ordinary messages are not stored-template jobs.
+  void loops.send(message);
+  // @ts-expect-error -- CommonJS native variables do not accept booleans.
+  void loops.send({ ...loopsJob, dataVariables: { invalid: true } });
+};
+void proveLoopsDeclarations;
+const proveLoopsDefaultsDeclarations = (defaults: LoopsDefaults.LoopsTransactionalDefaultsInput): void => {
+  const decorated: EffectLibrary.Layer.Layer<Loops.LoopsTransactionalEmail, EmailSdk.EmailConfigurationError, EffectHttp.HttpClient.HttpClient> = LoopsDefaults.defaultedLoopsTransactionalLayer(Loops.loopsTransactionalLayer(loopsConfiguration), defaults);
+  void decorated;
+  // @ts-expect-error -- CommonJS native defaults retain their HTTP requirement.
+  const withoutTransport: EffectLibrary.Effect.Effect<Loops.ILoopsTransactionalEmail, EmailSdk.EmailConfigurationError> = Effect.service(Loops.LoopsTransactionalEmail).pipe(Effect.provide(decorated));
+  void withoutTransport;
+  // @ts-expect-error -- CommonJS native defaults cannot decorate ordinary literal Email.
+  void LoopsDefaults.defaultedLoopsTransactionalLayer(Testing.recordingEmailLayer, {});
+  // @ts-expect-error -- CommonJS native defaults never generate a shared logical key.
+  void LoopsDefaults.defaultedLoopsTransactionalLayer(Loops.loopsTransactionalLayer(loopsConfiguration), { idempotencyKey: "shared" });
+  // @ts-expect-error -- CommonJS Loops variables do not accept booleans.
+  void LoopsDefaults.defaultedLoopsTransactionalLayer(Loops.loopsTransactionalLayer(loopsConfiguration), { dataVariables: { flag: true } });
+};
+void proveLoopsDefaultsDeclarations;
+
+const sesConfiguration = { accessKeyId: Redacted.make("AKIAFICTIONALEXAMPLE1"), secretAccessKey: credential, region: "us-east-1", mailFlow: "ProviderUnmodified" } as const;
+const sesAcquisition = Effect.service(EmailSdk.Email).pipe(Effect.provide(Ses.sesEmailLayer(sesConfiguration)));
+const cloudflareConfiguration = { accountId: "0123456789abcdef0123456789abcdef", apiToken: credential, mailFlow: "ProviderUnmodified" } as const;
+const cloudflareAcquisition = Effect.service(EmailSdk.Email).pipe(Effect.provide(Cloudflare.cloudflareEmailLayer(cloudflareConfiguration)));
+const graphConfiguration = {
+  accessToken: credential,
+  mailboxAddress: "sender@example.test",
+  mailboxId: "33333333-3333-4333-8333-333333333333",
+  mailFlow: "ProviderUnmodified",
+  senderIdentity: "OwnerOrSendAs",
+  sentItems: "DoNotSave",
+} as const;
+const remoteLayers = [
+  Ses.sesEmailLayer(sesConfiguration),
+  Ses.sesEmailLayer({ ...sesConfiguration, sessionToken: credential }),
+  Cloudflare.cloudflareEmailLayer(cloudflareConfiguration),
+  Graph.graphEmailLayer(graphConfiguration),
+  Graph.graphEmailLayer({ ...graphConfiguration, sentItems: "Save" }),
+  Zeptomail.zeptomailEmailLayer({ apiKey: credential, agentMode: "Live" }),
+  Zeptomail.zeptomailEmailLayer({ apiKey: credential, agentMode: "Sandbox" }),
+  Scaleway.scalewayEmailLayer({ secretKey: credential, projectId: "33333333-3333-4333-8333-333333333333", tracking: "ProviderDisabled" }),
+  Mailchimp.mailchimpEmailLayer({ apiKey: credential, automaticFooter: "AccountDisabled", keyMode: "Live", messageRules: "AccountDisabled" }),
+  Mailtrap.mailtrapEmailLayer({ apiKey: credential, automaticBcc: "DomainDisabled", automaticFooter: "DomainDisabled", tracking: "DomainDisabled" }),
+  Primitive.primitiveEmailLayer({ apiKey: Redacted.make("prim_fictional-key"), keylessSends: "Reject", tracking: "ProviderDisabled" }),
+  Sparkpost.sparkpostEmailLayer({ apiKey: credential, region: "Europe" }),
+  Resend.resendEmailLayer({ apiKey: credential }),
+  Postmark.postmarkEmailLayer({ serverToken: credential }),
+  Sendgrid.sendgridEmailLayer({ apiKey: credential }),
+  Mailgun.mailgunEmailLayer({ apiKey: credential, domain: "mg.example.test" }),
+  Mailersend.mailersendEmailLayer({ apiKey: credential }),
+  Mailpace.mailpaceEmailLayer({ serverToken: credential }),
+  Unosend.unosendEmailLayer({ apiKey: credential }),
+  Lettermint.lettermintEmailLayer({ apiToken: credential }),
+  Helo.heloEmailLayer({ apiKey: credential, channelMode: "Sandbox" }),
+  Jetemail.jetemailEmailLayer({ apiKey: Redacted.make("transactional_fictional-key"), automaticBcc: "DomainDisabled", tracking: "DomainDisabled" }),
+  Lettr.lettrEmailLayer({ apiKey: Redacted.make("lttr_fictional-key"), submissionMode: "Immediate" }),
+  Lettr.lettrEmailLayer({ apiKey: Redacted.make("lttr_fictional-key"), submissionMode: "Scheduled" }),
+  Plunk.plunkEmailLayer({ apiKey: credential, contactWrites: "AllowUpsert", tracking: "ProjectDisabled" }),
+];
+void remoteLayers;
+const graphAcquisition = Effect.service(EmailSdk.Email).pipe(Effect.provide(Graph.graphEmailLayer(graphConfiguration)));
+
+const proveCommonjsDeclarations = (email: EmailSdk.IEmail) => {
+  const prepared: EffectLibrary.Effect.Effect<EmailSdk.EmailPreparedOperation, EmailSdk.EmailInvalidMessage | EmailSdk.EmailInvalidOptions | EmailSdk.EmailRejected> = email.prepare(message, { executionMetadata: { tenant: "fictional-context" } });
+  void prepared;
+  // @ts-expect-error -- CommonJS consumers cannot pass nonrepresentable bigint execution metadata.
+  void email.send(message, { executionMetadata: { tenant: 1n } });
+  const submission: EffectLibrary.Effect.Effect<EmailSdk.EmailReceipt, EmailSdk.EmailSendError> = email.send(message);
+  void submission;
+  // @ts-expect-error -- CommonJS declarations must require a body alternative.
+  void email.send({ ...message, body: {} });
+  // @ts-expect-error -- CommonJS provider declarations must preserve Redacted credentials.
+  void Resend.resendEmailLayer({ apiKey: "not-redacted" });
+  // @ts-expect-error -- CommonJS JetEmail declarations must preserve domain setting requirements.
+  void Jetemail.jetemailEmailLayer({ apiKey: credential });
+  // @ts-expect-error -- CommonJS SES acquisition preserves its HTTP requirement.
+  const sesWithoutTransport: EffectLibrary.Effect.Effect<EmailSdk.IEmail, EmailSdk.EmailConfigurationError> = sesAcquisition;
+  void sesWithoutTransport;
+  // @ts-expect-error -- CommonJS SES preserves explicit region and mail-flow choices.
+  void Ses.sesEmailLayer({ accessKeyId: sesConfiguration.accessKeyId, secretAccessKey: credential });
+  // @ts-expect-error -- CommonJS SES credential identifiers remain Redacted.
+  void Ses.sesEmailLayer({ ...sesConfiguration, accessKeyId: "unwrapped-key" });
+  // @ts-expect-error -- CommonJS SES secret keys remain Redacted.
+  void Ses.sesEmailLayer({ ...sesConfiguration, secretAccessKey: "unwrapped-secret" });
+  // @ts-expect-error -- CommonJS SES session tokens remain Redacted.
+  void Ses.sesEmailLayer({ ...sesConfiguration, sessionToken: "unwrapped-token" });
+  // @ts-expect-error -- CommonJS Cloudflare acquisition preserves its HTTP requirement.
+  const cloudflareWithoutTransport: EffectLibrary.Effect.Effect<EmailSdk.IEmail, EmailSdk.EmailConfigurationError> = cloudflareAcquisition;
+  void cloudflareWithoutTransport;
+  // @ts-expect-error -- CommonJS Cloudflare declarations preserve account and mail-flow requirements.
+  void Cloudflare.cloudflareEmailLayer({ apiToken: credential });
+  // @ts-expect-error -- CommonJS Cloudflare credentials remain Redacted.
+  void Cloudflare.cloudflareEmailLayer({ ...cloudflareConfiguration, apiToken: "unwrapped-token" });
+  // @ts-expect-error -- CommonJS Graph acquisition must preserve its explicit HTTP requirement.
+  const graphWithoutTransport: EffectLibrary.Effect.Effect<EmailSdk.IEmail, EmailSdk.EmailConfigurationError> = graphAcquisition;
+  void graphWithoutTransport;
+  // @ts-expect-error -- CommonJS Graph preserves explicit mailbox and remote-state choices.
+  void Graph.graphEmailLayer({ accessToken: credential });
+  // @ts-expect-error -- CommonJS Graph access tokens remain Redacted.
+  void Graph.graphEmailLayer({ ...graphConfiguration, accessToken: "unwrapped-token" });
+  // @ts-expect-error -- CommonJS Graph rejects send-on-behalf identity.
+  void Graph.graphEmailLayer({ ...graphConfiguration, senderIdentity: "SendOnBehalf" });
+  // @ts-expect-error -- CommonJS ZeptoMail declarations require explicit agent mode.
+  void Zeptomail.zeptomailEmailLayer({ apiKey: credential });
+  // @ts-expect-error -- CommonJS ZeptoMail credentials remain Redacted.
+  void Zeptomail.zeptomailEmailLayer({ apiKey: "unwrapped-key", agentMode: "Live" });
+  // @ts-expect-error -- CommonJS Scaleway construction requires explicit project/tracking.
+  void Scaleway.scalewayEmailLayer({ secretKey: credential });
+  // @ts-expect-error -- CommonJS Scaleway credentials remain Redacted.
+  void Scaleway.scalewayEmailLayer({ secretKey: "unwrapped-key", projectId: "33333333-3333-4333-8333-333333333333", tracking: "ProviderDisabled" });
+  const invalidStatistics: Mailchimp.MailchimpTagStatisticsInput = {
+    // @ts-expect-error -- CommonJS tag statistics require explicit retention authority.
+    authority: "NotAuthorized",
+    // @ts-expect-error -- Known account labels must be nonempty.
+    knownTags: [],
+  };
+  void invalidStatistics;
+  // @ts-expect-error -- CommonJS Mailchimp declarations require live-key/account attestations.
+  void Mailchimp.mailchimpEmailLayer({ apiKey: credential });
+  // @ts-expect-error -- CommonJS Mailchimp credentials remain Redacted.
+  void Mailchimp.mailchimpEmailLayer({ apiKey: "unwrapped-key", automaticFooter: "AccountDisabled", keyMode: "Live", messageRules: "AccountDisabled" });
+  // @ts-expect-error -- CommonJS Mailtrap declarations require domain attestations.
+  void Mailtrap.mailtrapEmailLayer({ apiKey: credential });
+  // @ts-expect-error -- CommonJS Mailtrap credentials remain Redacted.
+  void Mailtrap.mailtrapEmailLayer({ apiKey: "unwrapped-key", automaticBcc: "DomainDisabled", automaticFooter: "DomainDisabled", tracking: "DomainDisabled" });
+  // @ts-expect-error -- CommonJS Primitive declarations preserve explicit behavior/attestations.
+  void Primitive.primitiveEmailLayer({ apiKey: credential });
+  // @ts-expect-error -- CommonJS Primitive credentials remain Redacted.
+  void Primitive.primitiveEmailLayer({ apiKey: "unwrapped-key", keylessSends: "Reject", tracking: "ProviderDisabled" });
+  // @ts-expect-error -- CommonJS SparkPost declarations require Redacted credentials.
+  void Sparkpost.sparkpostEmailLayer({ apiKey: "unwrapped-key" });
+  // @ts-expect-error -- CommonJS SparkPost declarations reject arbitrary endpoints.
+  void Sparkpost.sparkpostEmailLayer({ apiKey: credential, region: "Unreviewed" });
+  // @ts-expect-error -- CommonJS Lettr declarations preserve explicit endpoint authority.
+  void Lettr.lettrEmailLayer({ apiKey: credential });
+  // @ts-expect-error -- CommonJS Lettr credentials must remain Redacted.
+  void Lettr.lettrEmailLayer({ apiKey: "lttr_unwrapped-key", submissionMode: "Scheduled" });
+  // @ts-expect-error -- CommonJS Helo declarations must preserve Redacted credentials.
+  void Helo.heloEmailLayer({ apiKey: "not-redacted", channelMode: "Live" });
+  // @ts-expect-error -- CommonJS Helo declarations must preserve explicit channel mode.
+  void Helo.heloEmailLayer({ apiKey: credential });
+  // @ts-expect-error -- CommonJS Plunk declarations must preserve authorization requirements.
+  void Plunk.plunkEmailLayer({ apiKey: credential });
+};
+void proveCommonjsDeclarations;
+
+const program = Effect.gen(function* verifyCommonjsPackage() {
+  for (const inspect of [Sendgrid.preflightSendgridEmail, Mailgun.preflightMailgunEmail, Mailersend.preflightMailersendEmail, Mailpace.preflightMailpaceEmail, Unosend.preflightUnosendEmail]) {
+    const preview = yield* inspect(message);
+    assert.strictEqual(preview.subject, message.subject);
+    assert.strictEqual(Reflect.set(preview.body, "text", "tampered"), false);
+    const keyed = yield* inspect(message, { idempotencyKey: "private-inspection-key" }).pipe(Effect.result);
+    assert(Result.isFailure(keyed));
+    assert(keyed.failure instanceof EmailSdk.EmailRejected);
+    assert.strictEqual(keyed.failure.reason, "unsupported-idempotency");
+  }
+  const localPreflight = yield* Resend.preflightResendEmail(message, { idempotencyKey: "private-preflight-key" });
+  assert.strictEqual(localPreflight.subject, message.subject);
+  assert.strictEqual(Reflect.set(localPreflight.body, "text", "changed"), false);
+  const refusedPreflight = yield* Postmark.preflightPostmarkEmail(message, { idempotencyKey: "private-preflight-key" }).pipe(Effect.result);
+  assert(Result.isFailure(refusedPreflight));
+  assert(refusedPreflight.failure instanceof EmailSdk.EmailRejected);
+  assert.strictEqual(refusedPreflight.failure.reason, "unsupported-idempotency");
+  const observedFirst = EmailSdk.emailLayer().pipe(Layer.provideMerge(Observations.observedEmailSenderLayer(Layer.fresh(Testing.recordingSenderLayer), { capacity: 1 })));
+  const observedSecond = EmailSdk.emailLayer().pipe(Layer.provideMerge(Observations.observedEmailSenderLayer(Layer.fresh(Testing.recordingSenderLayer), { capacity: 2 })));
+  const factRouter = EmailSdk.observedEmailRouterLayer([{ layer: observedFirst, name: "first" }, { layer: observedSecond, name: "second" }], { primary: "first" });
+  yield* Effect.gen(function* verifyCommonjsObservationAggregate() {
+    const router = yield* EmailSdk.EmailRouter;
+    const first = yield* router.select({ primary: "first" });
+    const second = yield* router.select({ primary: "second" });
+    yield* first.send(message, { executionMetadata: { tenant: "private-packed-tenant" } });
+    yield* first.send({ ...message, subject: "private-packed-subject" });
+    yield* second.send(message);
+    const snapshot = yield* (yield* Observations.EmailObservationAggregate).snapshot;
+    assert.strictEqual(snapshot.retainedObservations, 2);
+    assert.strictEqual(snapshot.sources[0].snapshot.observations.length, 1);
+    assert.strictEqual(snapshot.sources[0].unit, "SenderInvocation");
+    assert(snapshot.truncated);
+    const encoded = yield* Schema.encodeEffect(Schema.toCodecJson(Observations.EmailObservationAggregateSnapshotSchema))(snapshot);
+    const decoded = yield* Schema.decodeEffect(Schema.toCodecJson(Observations.EmailObservationAggregateSnapshotSchema))(encoded);
+    assert.strictEqual(decoded.retainedObservations, 2);
+    assert(!JSON.stringify(encoded).includes("private-packed"));
+    assert.strictEqual(Reflect.set(snapshot.sources[0].snapshot.observations, "length", 0), false);
+  }).pipe(Effect.provide(factRouter));
+  const firstAccount = EmailSdk.emailLayer().pipe(Layer.provideMerge(Capture.capturedEmailSenderLayer(Layer.fresh(Testing.recordingSenderLayer), { capacity: 2, maxBytes: 4096, privateData: "AuthorizePayloadCapture" })));
+  const secondAccount = EmailSdk.emailLayer().pipe(Layer.provideMerge(Capture.capturedEmailSenderLayer(Layer.fresh(Testing.recordingSenderLayer), { capacity: 2, maxBytes: 4096, privateData: "AuthorizePayloadCapture" })));
+  const aggregateRouter = EmailSdk.capturedEmailRouterLayer([{ layer: firstAccount, name: "first" }, { layer: secondAccount, name: "second" }], { primary: "first" });
+  yield* Effect.gen(function* verifyCommonjsCaptureAggregate() {
+    const router = yield* EmailSdk.EmailRouter;
+    yield* (yield* router.select({ primary: "first" })).send({ ...message, subject: "private-packed-first" });
+    yield* (yield* router.select({ primary: "second" })).send({ ...message, subject: "private-packed-second" });
+    const snapshot: Capture.EmailCaptureAggregateSnapshot = yield* (yield* Capture.EmailCaptureAggregate).snapshot;
+    assert.strictEqual(snapshot.retainedRecords, 2);
+    assert.strictEqual(snapshot.sources[0].name, "first");
+    assert.strictEqual(snapshot.sources[1]?.unit, "SenderInvocation");
+    assert(!JSON.stringify(snapshot).includes("private-packed-first"));
+    const [record] = snapshot.sources[0].snapshot.records;
+    assert(record !== undefined);
+    const payload = yield* Schema.decodeEffect(Schema.fromJsonString(Capture.EmailCapturePayloadSchema))(Redacted.value(record.payloadJson));
+    assert.strictEqual(payload.submission.message.subject, "private-packed-first");
+    const encoded = yield* Schema.encodeEffect(Schema.toCodecJson(Capture.EmailCaptureAggregateSnapshotSchema))(snapshot).pipe(Effect.result);
+    assert(Result.isFailure(encoded));
+  }).pipe(Effect.provide(aggregateRouter));
+  const routedEvents = yield* Queue.unbounded<EmailSdk.EmailOperationEvent>();
+  yield* Effect.gen(function* verifyCommonjsRoutedLifecycle() {
+    const receipt = yield* (yield* EmailSdk.Email).send(message);
+    const event = yield* Queue.take(routedEvents);
+    assert(EmailSdk.EmailOperationOutcomeSchema.guards.Receipt(event.outcome));
+    assert.strictEqual(event.outcome.route, "selected");
+    assert.deepStrictEqual(event.previews[0].routes, ["selected"]);
+    assert.strictEqual(event.outcome.receipt._tag, receipt._tag);
+    const json = yield* Schema.encodeEffect(Schema.fromJsonString(EmailSdk.EmailOperationOutcomeSchema))(event.outcome);
+    const decoded = yield* Schema.decodeEffect(Schema.fromJsonString(EmailSdk.EmailOperationOutcomeSchema))(json);
+    assert(EmailSdk.EmailOperationOutcomeSchema.guards.Receipt(decoded));
+    assert.strictEqual(decoded.route, "selected");
+  }).pipe(Effect.provide(EmailSdk.observedEmailOperationLayer(EmailSdk.emailRouterLayer([{ layer: Layer.fresh(Testing.recordingEmailLayer), name: "selected" }], { primary: "selected" }), (event) => Queue.offer(routedEvents, event).pipe(Effect.asVoid))));
+  const transformOrdinal = yield* Ref.make(0);
+  const transformedLayer = EmailSdk.transformedEmailLayer(Defaults.defaultedEmailLayer(Layer.fresh(Testing.recordingEmailLayer), { idempotencyKeyPrefix: "prepared/" }), ({ message: input, options }) => Ref.getAndUpdate(transformOrdinal, (value) => value + 1).pipe(Effect.map((value) => { assert.strictEqual(options.executionMetadata?.tenant, input.subject === message.subject ? "fictional-context" : "fictional-personalized-context"); return { ...input, subject: `${input.subject}/${value}/${options.executionMetadata?.tenant}` }; })));
+  const operationEvents = yield* Queue.unbounded<EmailSdk.EmailOperationEvent>();
+  const lifecycleLayer = EmailSdk.observedEmailOperationLayer(transformedLayer, Effect.succeed((event: EmailSdk.EmailOperationEvent) => Queue.offer(operationEvents, event).pipe(Effect.asVoid)));
+  yield* Effect.gen(function* verifyCommonjsPreparedTransformation() {
+    const instant = DateTime.makeUnsafe("2026-01-02T03:04:05.123Z");
+    const context = { tenant: "fictional-context", nested: { name: "private-packed-deep", instant }, values: [0, false, null, undefined] };
+    const operation = yield* (yield* EmailSdk.Email).prepare(message, { executionMetadata: context, idempotencyKey: "event" });
+    const [preview] = operation.previews;
+    assert.strictEqual(preview.message.subject, `${message.subject}/0/fictional-context`);
+    assert.strictEqual(preview.options.idempotencyKey, "prepared/event");
+    assert(Object.isFrozen(preview.options.executionMetadata));
+    const ownedContext = preview.options.executionMetadata;
+    assert(Schema.is(Schema.Struct({ nested: Schema.Struct({ instant: Schema.DateTimeUtc, name: Schema.String }) }))(ownedContext));
+    context.nested.name = "changed";
+    Reflect.set(instant, "epochMilliseconds", 0);
+    assert.strictEqual(ownedContext.nested.name, "private-packed-deep");
+    assert.strictEqual(DateTime.formatIso(ownedContext.nested.instant), "2026-01-02T03:04:05.123Z");
+    assert.strictEqual(Reflect.set(ownedContext.nested, "name", "tampered"), false);
+    yield* operation.validate;
+    const receipt = yield* operation.send;
+    assert.strictEqual(receipt._tag, "Recorded");
+    assert.strictEqual(yield* operation.send, receipt);
+    const event = yield* Queue.take(operationEvents);
+    assert(EmailSdk.EmailOperationOutcomeSchema.guards.Receipt(event.outcome));
+    assert.strictEqual(event.outcome.route, undefined);
+    assert.strictEqual(event.previews[0].options.idempotencyKey, "prepared/event");
+    assert.notStrictEqual(event.outcome.receipt, receipt);
+    assert.strictEqual(Reflect.set(event.outcome.receipt, "sequence", -1), false);
+    const encoded = yield* Schema.encodeEffect(Schema.fromJsonString(EmailSdk.EmailOperationOutcomeSchema))(event.outcome);
+    const decoded = yield* Schema.decodeEffect(Schema.fromJsonString(EmailSdk.EmailOperationOutcomeSchema))(encoded);
+    assert(EmailSdk.EmailOperationOutcomeSchema.guards.Receipt(decoded));
+    assert.strictEqual(decoded.receipt._tag, receipt._tag);
+    const sharedOptions = yield* Schema.decodeEffect(EmailSdk.EmailPersonalizedOptionsSchema)({ executionMetadata: { tenant: "fictional-personalized-context" } });
+    const results = yield* (yield* EmailSdk.Email).sendPersonalized({ message: { body: message.body, from: message.from, subject: "Personalized %recipient.name%" }, recipients: [{ to: "first@fictional.invalid", variables: { name: "First" } }, { to: "second@fictional.invalid", variables: { name: "Second" } }] }, sharedOptions);
+    assert(results.every(Result.isSuccess));
+    assert.strictEqual(yield* Queue.size(operationEvents), 3);
+  }).pipe(Effect.provide(lifecycleLayer));
+  const decisions = yield* Ref.make<"Approved" | "Declined">("Declined");
+  const agentLayer = Agent.emailAgentLayer({ from: "host@fictional.invalid" }).pipe(Layer.provide(Layer.succeed(Agent.EmailAgentApproval, Agent.EmailAgentApproval.of({ review: () => Ref.get(decisions) }))), Layer.provide(Layer.fresh(Testing.recordingEmailLayer)));
+  yield* Effect.gen(function* verifyCommonjsAgentApproval() {
+    const agent = yield* Agent.EmailAgent;
+    const input = { body: { text: "Fictional agent message" }, subject: "Fictional agent subject", to: "recipient@fictional.invalid" };
+    const declined = yield* Effect.result(agent.submit(input));
+    assert(Result.isFailure(declined) && declined.failure instanceof Agent.EmailAgentApprovalError);
+    assert.strictEqual(declined.failure.reason, "declined");
+    yield* Ref.set(decisions, "Approved");
+    const first = yield* agent.submit(input, { idempotencyKey: "host-key" });
+    const repeated = yield* agent.submit(input, { idempotencyKey: "host-key" });
+    assert.strictEqual(first._tag, "Recorded");
+    assert.strictEqual(first, repeated);
+  }).pipe(Effect.provide(agentLayer));
+  const defaults = yield* Schema.decodeEffect(Defaults.EmailDefaultsSchema)({ metadata: { application: "default", collision: "default" }, idempotencyKeyPrefix: "application/" });
+  yield* Effect.gen(function* verifyCommonjsDefaults() {
+    const email = yield* EmailSdk.Email;
+    const prepared = yield* email.validate({ ...message, metadata: { collision: "operation" } });
+    assert.deepStrictEqual(prepared.metadata, { application: "default", collision: "operation" });
+    assert(Object.isFrozen(prepared.metadata));
+    const first = yield* email.send(message, { idempotencyKey: "one" });
+    const second = yield* email.send(message, { idempotencyKey: "one" });
+    assert.strictEqual(first, second);
+    const conflict = yield* Effect.result(email.send({ ...message, subject: "Changed intent" }, { idempotencyKey: "one" }));
+    assert(Result.isFailure(conflict) && conflict.failure instanceof EmailSdk.EmailRejected);
+    assert.strictEqual(conflict.failure.reason, "idempotency-conflict");
+  }).pipe(Effect.provide(Defaults.defaultedEmailLayer(Layer.fresh(Testing.recordingEmailLayer), defaults)));
+  const privateCapture = yield* Effect.gen(function* verifyCommonjsCapture() {
+    const email = yield* EmailSdk.Email;
+    const view = yield* Capture.EmailSubmissionCapture;
+    const privateMessage = { ...message, body: { text: "private-captured-content 🦉" } };
+    const first = yield* email.send(privateMessage, { idempotencyKey: "private-captured-key" });
+    assert.strictEqual(yield* email.send(privateMessage, { idempotencyKey: "private-captured-key" }), first);
+    const snapshot = yield* view.snapshot;
+    assert.strictEqual(snapshot.records.length, 1);
+    assert(snapshot.truncated && Object.isFrozen(snapshot.records));
+    assert(!JSON.stringify(snapshot).includes("private-captured"));
+    const [record] = snapshot.records;
+    assert(record !== undefined && Object.isFrozen(record));
+    const payload = yield* Schema.decodeEffect(Schema.fromJsonString(Capture.EmailCapturePayloadSchema))(Redacted.value(record.payloadJson));
+    assert.strictEqual(payload.submission.message.body.text, privateMessage.body.text);
+    assert.strictEqual(payload.submission.idempotencyKey, "private-captured-key");
+    assert(payload.outcome._tag === "Receipt" && payload.outcome.receipt._tag === "Recorded");
+    const serialized = yield* Schema.encodeEffect(Schema.toCodecJson(Capture.EmailCaptureSnapshotSchema))(snapshot).pipe(Effect.result);
+    assert(Result.isFailure(serialized));
+    const purge: EffectLibrary.Effect.Effect<number> = view.purgeRecords;
+    assert.strictEqual(yield* purge, 1);
+    const empty = yield* view.snapshot;
+    assert.strictEqual(empty.records.length, 0);
+    assert.strictEqual(empty.retainedBytes, 0);
+    assert(empty.truncated && !empty.closed);
+    assert.strictEqual(yield* purge, 0);
+    assert.strictEqual(yield* email.send(privateMessage, { idempotencyKey: "private-captured-key" }), first);
+    const conflict = yield* email.send({ ...privateMessage, subject: "Different captured intent" }, { idempotencyKey: "private-captured-key" }).pipe(Effect.result);
+    assert(Result.isFailure(conflict) && conflict.failure instanceof EmailSdk.EmailRejected);
+    assert.strictEqual(conflict.failure.reason, "idempotency-conflict");
+    assert.strictEqual(snapshot.records.length, 1);
+    return { view, snapshot };
+  }).pipe(Effect.provide(EmailSdk.emailLayer().pipe(Layer.provideMerge(Capture.capturedEmailSenderLayer(Layer.fresh(Testing.recordingSenderLayer), { capacity: 1, maxBytes: 4096, privateData: "AuthorizePayloadCapture" })))));
+  assert.strictEqual(yield* privateCapture.view.purgeRecords, 0);
+  assert((yield* privateCapture.view.snapshot).closed);
+  assert.strictEqual((yield* privateCapture.view.snapshot).records.length, 0);
+  assert.strictEqual(privateCapture.snapshot.records.length, 1);
+  const retryDecisions: EmailSdk.EmailRetryDecision[] = [];
+  const retryObserver: EmailSdk.EmailRetryObserver = (decision) => Effect.sync(() => { retryDecisions.push(decision); });
+  yield* Effect.gen(function* verifyCommonjsRetryDecisions() {
+    const email = yield* EmailSdk.Email;
+    const view = yield* Testing.FailedEmailSubmissions;
+    const result = yield* email.send({ from: "sender@fictional.invalid", to: "recipient@fictional.invalid", subject: "private retry subject", body: { text: "private retry body" } }).pipe(Effect.result);
+    assert(Result.isFailure(result) && result.failure instanceof EmailSdk.EmailRejected);
+    assert.strictEqual((yield* view.attempts).length, 2);
+    assert.strictEqual(retryDecisions.length, 1);
+    const [decision] = retryDecisions;
+    assert(decision !== undefined && Object.isFrozen(decision));
+    assert.strictEqual(decision.provider, "failing");
+    assert.strictEqual(decision.attempt, 1);
+    assert.strictEqual(decision.nextAttempt, 2);
+    const encoded = yield* Schema.encodeEffect(EmailSdk.EmailRetryDecisionSchema)(decision);
+    yield* Schema.decodeEffect(EmailSdk.EmailRetryDecisionSchema)(encoded);
+    assert(!JSON.stringify(encoded).includes("private retry"));
+  }).pipe(Effect.provide(Testing.failingEmailLayer(new EmailSdk.EmailRejected({ provider: "synthetic", reason: "rate-limited" }), { deadline: Duration.seconds(30), initialDelay: Duration.millis(1), maxAttempts: 2 }, retryObserver)));
+  const vetoed: EmailSdk.EmailRetryCandidate[] = [];
+  const vetoNotifications = yield* Ref.make(0);
+  const vetoFailure = new EmailSdk.EmailRejected({ provider: "synthetic", reason: "rate-limited" });
+  const restriction: EmailSdk.EmailRetryRestriction = (decision) => Effect.sync(() => {
+    assert(Object.isFrozen(decision));
+    assert.strictEqual(decision.provider, "failing");
+    const codec = Schema.fromJsonString(EmailSdk.EmailRetryCandidateSchema);
+    const encoded = Schema.encodeSync(codec)(decision);
+    assert.deepStrictEqual(Schema.decodeSync(codec)(encoded), decision);
+    assert(!encoded.includes("private"));
+    vetoed.push(decision);
+    return false;
+  });
+  yield* Effect.gen(function* verifyCommonjsRetryRestriction() {
+    const result = yield* (yield* EmailSdk.Email).send(message).pipe(Effect.result);
+    assert(Result.isFailure(result));
+    assert(result.failure instanceof EmailSdk.EmailRejected);
+    assert.strictEqual(result.failure.reason, "rate-limited");
+    assert.strictEqual(result.failure.provider, "failing");
+    assert.strictEqual(vetoFailure.provider, "synthetic");
+    assert.strictEqual((yield* (yield* Testing.FailedEmailSubmissions).attempts).length, 1);
+    assert.strictEqual(vetoed.length, 1);
+    assert.strictEqual(yield* Ref.get(vetoNotifications), 0);
+  }).pipe(Effect.provide(Testing.failingEmailLayer(vetoFailure, { deadline: Duration.seconds(30), initialDelay: Duration.millis(1), maxAttempts: 3 }, () => Ref.update(vetoNotifications, (count) => count + 1), restriction)));
+  const observationDeliveries = yield* Ref.make(0);
+  const startingFacts: Observations.EmailSubmissionStarting[] = [];
+  const startingObserver: Observations.EmailSubmissionStartingObserver = (fact) => Effect.gen(function* receiveCommonjsStartingFact() {
+    assert.strictEqual(yield* Ref.get(observationDeliveries), startingFacts.length);
+    assert(Object.isFrozen(fact));
+    assert.strictEqual(fact.provider, "recording");
+    const codec = Schema.fromJsonString(Observations.EmailSubmissionStartingSchema);
+    const encoded = Schema.encodeSync(codec)(fact);
+    assert.deepStrictEqual(Schema.decodeSync(codec)(encoded), fact);
+    assert(!encoded.includes("private-observation"));
+    startingFacts.push(fact);
+  });
+  const observer: Observations.EmailSubmissionObserver = () => Ref.update(observationDeliveries, (count) => count + 1);
+  yield* Effect.gen(function* verifyCommonjsObservations() {
+    const email = yield* EmailSdk.Email;
+    const view = yield* Observations.EmailSubmissionObservations;
+    const message = { from: "sender@fictional.invalid", to: "recipient@fictional.invalid", subject: "private-observation-subject", body: { text: "private-observation-content" } };
+    const first = yield* email.send(message, { idempotencyKey: "private-observation-key" });
+    const repeated = yield* email.send(message, { idempotencyKey: "private-observation-key" });
+    assert.strictEqual(first, repeated);
+    const snapshot = yield* view.snapshot;
+    assert.strictEqual(snapshot.observations.length, 1);
+    assert(snapshot.truncated);
+    assert(Object.isFrozen(snapshot) && Object.isFrozen(snapshot.observations));
+    const [last] = snapshot.observations;
+    assert(last !== undefined && Object.isFrozen(last));
+    assert.strictEqual(last._tag, "Receipt");
+    assert(!JSON.stringify(snapshot).includes("private-observation"));
+    const restored = yield* Schema.decodeEffect(Observations.EmailSubmissionObservationSnapshotSchema)(yield* Schema.encodeEffect(Observations.EmailSubmissionObservationSnapshotSchema)(snapshot));
+    assert.deepStrictEqual(restored, snapshot);
+    assert.strictEqual(yield* Ref.get(observationDeliveries), 2);
+    assert.strictEqual(startingFacts.length, 2);
+  }).pipe(Effect.provide(EmailSdk.emailLayer().pipe(Layer.provideMerge(Observations.observedEmailSenderLayer(Layer.fresh(Testing.recordingSenderLayer), { capacity: 1 }, observer, startingObserver)))));
+  for (const type of ["delivered", "failed", "complained", "future"] as const) {
+    const event = yield* MailgunWebhook.parseMailgunWebhookEvent(JSON.stringify({ "event-data": { event: type, id: "fictional-mailgun-event", message: { headers: { "message-id": "fictional@fictional.invalid" } }, recipient: "[REDACTED]", severity: "temporary", timestamp: 1770146431.25 } }));
+    assert.strictEqual(event.provenance, "UnverifiedPayload");
+    assert.strictEqual(event.eventTimestampSeconds, 1770146431.25);
+    assert.strictEqual(String(event.providerEventId), "fictional-mailgun-event");
+    assert(Object.isFrozen(event));
+    if (MailgunWebhook.MailgunWebhookEventSchema.guards.Other(event)) { assert.strictEqual(type, "future"); }
+    else { assert(MailgunWebhook.MailgunWebhookRecipientSchema.guards.Redacted(event.recipient)); assert(Object.isFrozen(event.recipient)); }
+    if (type === "failed") { assert(MailgunWebhook.MailgunWebhookEventSchema.guards.Failed(event)); assert.strictEqual(event.severity, "temporary"); }
+    if (type === "complained") assert(MailgunWebhook.MailgunWebhookEventSchema.guards.Complained(event));
+    if (type === "delivered") assert(MailgunWebhook.MailgunWebhookEventSchema.guards.Delivered(event));
+    const restored = yield* Schema.decodeEffect(MailgunWebhook.MailgunWebhookEventSchema)(yield* Schema.encodeEffect(MailgunWebhook.MailgunWebhookEventSchema)(event));
+    assert.deepStrictEqual(restored, event);
+  }
+  const duplicateMailgun = yield* MailgunWebhook.parseMailgunWebhookEvent('{"event-data":{"event":"delivered","event":"complained"}}').pipe(Effect.result);
+  assert(Result.isFailure(duplicateMailgun) && duplicateMailgun.failure instanceof MailgunWebhook.EmailWebhookNormalizationError);
+  assert.strictEqual(duplicateMailgun.failure.reason, "invalid-json");
+  for (const body of [
+    '{"RecordType":"Delivery","MessageID":"fictional-postmark-message","Recipient":"Person@fictional.invalid"}',
+    '{"RecordType":"Bounce","MessageID":"fictional-postmark-message","Email":"Person@fictional.invalid","Type":"HardBounce","TypeCode":1}',
+    '{"RecordType":"Bounce","MessageID":"fictional-postmark-message","Email":"Person@fictional.invalid","Type":"SoftBounce","TypeCode":4096}',
+    '{"RecordType":"SpamComplaint","MessageID":"fictional-postmark-message","Email":"Person@fictional.invalid","Type":"SpamComplaint","TypeCode":100001}',
+    '{"RecordType":"FutureRecord"}',
+  ]) {
+    const event = yield* PostmarkWebhook.parsePostmarkWebhookEvent(body);
+    assert.strictEqual(event.provenance, "UnverifiedPayload");
+    assert(Object.isFrozen(event));
+    if (body.includes("SoftBounce")) { assert(PostmarkWebhook.PostmarkWebhookEventSchema.guards.BounceReported(event)); assert.strictEqual(event.bounceTypeCode, 4096); }
+    else if (body.includes("HardBounce")) assert(PostmarkWebhook.PostmarkWebhookEventSchema.guards.Bounced(event));
+    else if (body.includes("SpamComplaint")) assert(PostmarkWebhook.PostmarkWebhookEventSchema.guards.Complained(event));
+    else if (body.includes("FutureRecord")) assert(PostmarkWebhook.PostmarkWebhookEventSchema.guards.Other(event));
+    else assert(PostmarkWebhook.PostmarkWebhookEventSchema.guards.Delivered(event));
+    const restored = yield* Schema.decodeEffect(PostmarkWebhook.PostmarkWebhookEventSchema)(yield* Schema.encodeEffect(PostmarkWebhook.PostmarkWebhookEventSchema)(event));
+    assert.deepStrictEqual(restored, event);
+  }
+  const ambiguousPostmark = yield* PostmarkWebhook.parsePostmarkWebhookEvent('{"RecordType":"FutureRecord","RecordType":"Delivery"}').pipe(Effect.result);
+  assert(Result.isFailure(ambiguousPostmark) && ambiguousPostmark.failure instanceof PostmarkWebhook.EmailWebhookNormalizationError);
+  assert.strictEqual(ambiguousPostmark.failure.reason, "invalid-json");
+  yield* Effect.gen(function* verifyCommonjsMailgunSignature() {
+    const verifier = yield* MailgunWebhook.MailgunWebhookVerifier;
+    const timestamp = Math.floor((yield* EffectLibrary.Clock.currentTimeMillis) / 1000);
+    const token = "t".repeat(50);
+    const signature = Crypto.createHmac("sha256", mailgunWebhookSecret).update(`${timestamp}${token}`).digest("hex");
+    const request = yield* Schema.decodeEffect(MailgunWebhook.MailgunWebhookSignatureSchema)({ timestamp, token, signature });
+    const proof = yield* verifier.verifySignature(request);
+    assert.strictEqual(String(proof.token), token);
+    assert.strictEqual(String(proof.timestamp), String(timestamp));
+    const tampered = yield* verifier.verifySignature({ ...request, token: "x".repeat(50) }).pipe(Effect.result);
+    assert(Result.isFailure(tampered) && tampered.failure instanceof Webhook.EmailWebhookVerificationError);
+    assert.strictEqual(tampered.failure.reason, "invalid-signature");
+  }).pipe(Effect.provide(MailgunWebhook.mailgunWebhookLayer({ signatureField: "signature", signingSecrets: [Redacted.make(mailgunWebhookSecret)] })));
+  yield* Effect.gen(function* verifyCommonjsWebhook() {
+    const verifier = yield* Webhook.ResendWebhookVerifier;
+    const timestamp = String(Math.floor((yield* EffectLibrary.Clock.currentTimeMillis) / 1000));
+    const body = '{"type":"email.delivered","data":{"email_id":"fictional-provider-id","to":["recipient@fictional.invalid"]},"private":"fictional-packed-payload"}';
+    const id = "fictional-packed-message";
+    const signature = Crypto.createHmac("sha256", Buffer.from(webhookSecret.slice(6), "base64")).update(`${id}.${timestamp}.${body}`).digest("base64");
+    const request = yield* Schema.decodeEffect(Webhook.ResendWebhookRequestSchema)({ body, headers: [{ name: "svix-id", value: id }, { name: "svix-timestamp", value: timestamp }, { name: "svix-signature", value: `v1,${signature}` }] });
+    const proof = yield* verifier.verify(request);
+    assert.strictEqual(proof.body, body);
+    assert.strictEqual(String(proof.id), id);
+    const event = yield* Webhook.parseResendWebhookEvent(proof);
+    assert(Webhook.ResendWebhookEventSchema.guards.Delivered(event));
+    assert.strictEqual(String(event.deliveryId), id);
+    assert.strictEqual(String(event.providerMessageId), "fictional-provider-id");
+    assert.deepStrictEqual(event.recipients.map(String), ["recipient@fictional.invalid"]);
+    assert(Object.isFrozen(event) && Object.isFrozen(event.recipients));
+    const restored = yield* Schema.decodeEffect(Webhook.ResendWebhookEventSchema)(yield* Schema.encodeEffect(Webhook.ResendWebhookEventSchema)(event));
+    assert.deepStrictEqual(restored, event);
+    // @ts-expect-error -- CommonJS delivery reports are not submission receipts.
+    const receipt: EmailSdk.EmailReceipt = event;
+    void receipt;
+    for (const candidateBody of ['{"type":"email.received","data":{"email_id":"fictional-inbound-id"}}', '{"type":"email.delivered","typ\\u0065":"email.bounced","data":{}}']) {
+      const candidateSignature = Crypto.createHmac("sha256", Buffer.from(webhookSecret.slice(6), "base64")).update(`${id}.${timestamp}.${candidateBody}`).digest("base64");
+      const candidateProof = yield* verifier.verify({ body: candidateBody, headers: [{ name: "svix-id", value: id }, { name: "svix-timestamp", value: timestamp }, { name: "svix-signature", value: `v1,${candidateSignature}` }] });
+      const candidate = yield* Webhook.parseResendWebhookEvent(candidateProof).pipe(Effect.result);
+      if (candidateBody.includes("email.received")) { assert(Result.isSuccess(candidate) && Webhook.ResendWebhookEventSchema.guards.Other(candidate.success)); }
+      else { assert(Result.isFailure(candidate) && candidate.failure instanceof Webhook.EmailWebhookNormalizationError); assert.strictEqual(candidate.failure.reason, "invalid-json"); }
+    }
+    const tampered = yield* verifier.verify({ ...request, body: `${body} ` }).pipe(Effect.result);
+    assert(Result.isFailure(tampered) && tampered.failure instanceof Webhook.EmailWebhookVerificationError);
+    assert.strictEqual(tampered.failure.reason, "invalid-signature");
+  }).pipe(Effect.provide(Webhook.resendWebhookLayer({ signingSecrets: [Redacted.make(webhookSecret)] })));
+  yield* Effect.gen(function* verifyCommonjsLoopsPreflight() {
+    const loops = yield* Loops.LoopsTransactionalEmail;
+    const owned = yield* loops.validate(loopsJob);
+    assert.strictEqual(String(owned.transactionalId), loopsJob.transactionalId);
+    const incompatible = yield* loops.validate({ ...loopsJob, ...message }).pipe(Effect.result);
+    assert(Result.isFailure(incompatible));
+    const request = yield* Schema.decodeEffect(Loops.LoopsTransactionalRequestSchema)({ job: loopsJob, options: { idempotencyKey: "x".repeat(101) } });
+    const batch = yield* loops.sendAll([request]);
+    const [refused] = batch;
+    assert(refused !== undefined && Result.isFailure(refused) && refused.failure instanceof EmailSdk.EmailRejected);
+    assert.strictEqual(refused.failure.reason, "unsupported-idempotency");
+    assert.deepStrictEqual(yield* loops.sendAll([]), []);
+  }).pipe(Effect.provide(Loops.loopsTransactionalLayer(loopsConfiguration).pipe(Layer.provide(Layer.succeed(EffectHttp.HttpClient.HttpClient, EffectHttp.HttpClient.make(() => Effect.die("Unexpected packed Loops transport")))))));
+  const loopsDefaults = yield* Schema.decodeEffect(LoopsDefaults.LoopsTransactionalDefaultsSchema)({ dataVariables: { application: "retained", items: [{ title: "replaced" }] }, idempotencyKeyPrefix: "x".repeat(100) });
+  yield* Effect.gen(function* verifyCommonjsLoopsDefaults() {
+    const loops = yield* Loops.LoopsTransactionalEmail;
+    const preview = yield* loops.validate(loopsJob);
+    assert.deepStrictEqual(preview.dataVariables, { application: "retained", items: [{ amount: 0 }] });
+    assert(Object.isFrozen(preview.dataVariables));
+    const result = yield* loops.send(loopsJob, { idempotencyKey: "event" }).pipe(Effect.result);
+    assert(Result.isFailure(result) && result.failure instanceof EmailSdk.EmailRejected);
+    assert.equal(result.failure.reason, "unsupported-idempotency");
+  }).pipe(Effect.provide(LoopsDefaults.defaultedLoopsTransactionalLayer(Loops.loopsTransactionalLayer(loopsConfiguration), loopsDefaults).pipe(Layer.provide(Layer.succeed(EffectHttp.HttpClient.HttpClient, EffectHttp.HttpClient.make(() => Effect.die("Unexpected packed Loops defaults transport")))))));
+  yield* Effect.gen(function* verifyCommonjsForwardedKeys() {
+    const attempts = yield* Ref.make(0);
+    const sender = EmailSdk.EmailSender.of({
+      capabilities: Testing.recordingEmailCapabilities,
+      validate: () => Effect.void,
+      provider: "synthetic-forwarder",
+      idempotency: EmailSdk.EmailSenderIdempotencySchema.cases.KeyForwarding.make({ keyRequirement: "Required", maxKeyLength: 32 }),
+      submit: () => Ref.update(attempts, (count) => count + 1).pipe(Effect.andThen(Effect.fail(new EmailSdk.EmailDeliveryUnknown({ provider: "synthetic-forwarder", reason: "server-error" })))),
+    });
+    const outcome = yield* Effect.gen(function* submitCommonjsForwardedKey() {
+      const email = yield* EmailSdk.Email;
+      const missing = yield* email.send(message).pipe(Effect.result);
+      assert(Result.isFailure(missing) && missing.failure instanceof EmailSdk.EmailRejected);
+      assert.equal(missing.failure.reason, "unsupported-idempotency");
+      assert.equal(yield* Ref.get(attempts), 0);
+      return yield* email.send(message, { idempotencyKey: "synthetic-forwarding-key" });
+    }).pipe(Effect.provide(EmailSdk.emailLayer().pipe(Layer.provide(Layer.succeed(EmailSdk.EmailSender, sender)))), Effect.result);
+    assert(Result.isFailure(outcome) && outcome.failure instanceof EmailSdk.EmailDeliveryUnknown);
+    assert.equal(yield* Ref.get(attempts), 1);
+  });
+  for (const encoded of [
+    { _tag: "RecipientOutcomes", messageId: "shared-message-id", outcomes: [{ _tag: "Accepted", messageId: "accepted-id", recipient: "recipient@example.test" }, { _tag: "Rejected", messageId: "rejected-id", recipient: "copy@example.test" }], provider: "synthetic-outcomes" },
+    { _tag: "AcceptedWithIds", messageIds: ["opaque-second-id", "opaque-first-id"], provider: "synthetic-counts" },
+    { _tag: "PartiallyAcceptedCounts", counts: { acceptedCount: 1, rejectedCount: 1 }, provider: "synthetic-counts" },
+    { _tag: "RecipientsRejected", rejected: ["recipient@example.test", "copy@example.test"], provider: "synthetic-counts" },
+  ] as const) {
+    const receipt = yield* Schema.decodeEffect(EmailSdk.EmailReceiptSchema)(encoded);
+    if (EmailSdk.EmailReceiptSchema.guards.RecipientOutcomes(receipt)) { receipt.outcomes.forEach(Object.freeze); Object.freeze(receipt.outcomes); }
+    if (EmailSdk.EmailReceiptSchema.guards.AcceptedWithIds(receipt)) Object.freeze(receipt.messageIds);
+    if (EmailSdk.EmailReceiptSchema.guards.PartiallyAcceptedCounts(receipt)) Object.freeze(receipt.counts);
+    if (EmailSdk.EmailReceiptSchema.guards.RecipientsRejected(receipt)) Object.freeze(receipt.rejected);
+    Object.freeze(receipt);
+    const sender = EmailSdk.EmailSender.of({ capabilities: Testing.recordingEmailCapabilities, validate: () => Effect.void, provider: "synthetic-counts", idempotency: EmailSdk.EmailSenderIdempotencySchema.cases.None.make({}), submit: () => Effect.succeed(receipt) });
+    const routed = yield* Effect.gen(function* verifyCommonjsTerminalRouting() {
+      const ordinary = yield* (yield* EmailSdk.Email).send({ ...message, cc: "copy@example.test" });
+      assert.equal(ordinary._tag, receipt._tag);
+      if (EmailSdk.EmailReceiptSchema.guards.RecipientOutcomes(ordinary)) { assert.equal(ordinary.messageId, "shared-message-id"); assert.deepEqual(ordinary.outcomes.map(({ _tag, recipient, messageId }) => [_tag, recipient, messageId]), [["Accepted", "recipient@example.test", "accepted-id"], ["Rejected", "copy@example.test", "rejected-id"]]); }
+      if (EmailSdk.EmailReceiptSchema.guards.AcceptedWithIds(ordinary)) { assert.deepEqual(ordinary.messageIds, ["opaque-second-id", "opaque-first-id"]); assert(Object.isFrozen(ordinary.messageIds)); }
+      return yield* (yield* (yield* EmailSdk.EmailRouter).select()).send({ ...message, cc: "copy@example.test" });
+    }).pipe(Effect.provide(EmailSdk.emailRouterLayer([
+      { name: "primary", layer: EmailSdk.emailLayer().pipe(Layer.provide(Layer.succeed(EmailSdk.EmailSender, sender))) },
+      { name: "backup", layer: Testing.failingEmailLayer(new EmailSdk.EmailRejected({ provider: "fictional-backup", reason: "authentication" })) },
+    ], { primary: "primary", fallbacks: ["backup"] })));
+    assert.equal(routed.route, "primary");
+    if (EmailSdk.EmailReceiptSchema.guards.RecipientOutcomes(routed)) { assert.equal(routed.messageId, "shared-message-id"); assert.deepEqual(routed.outcomes.map(({ _tag, recipient, messageId }) => [_tag, recipient, messageId]), [["Accepted", "recipient@example.test", "accepted-id"], ["Rejected", "copy@example.test", "rejected-id"]]); assert(Object.isFrozen(routed.outcomes)); assert(routed.outcomes.every(Object.isFrozen)); }
+    else if (EmailSdk.EmailReceiptSchema.guards.AcceptedWithIds(routed)) { assert.deepEqual(routed.messageIds, ["opaque-second-id", "opaque-first-id"]); assert(Object.isFrozen(routed.messageIds)); assert(!("messageId" in routed)); }
+    else if (EmailSdk.EmailReceiptSchema.guards.PartiallyAcceptedCounts(routed)) { assert.equal(routed.counts.acceptedCount, 1); assert.equal(routed.counts.rejectedCount, 1); assert(!("accepted" in routed)); }
+    else { assert(EmailSdk.EmailReceiptSchema.guards.RecipientsRejected(routed)); assert.deepEqual(routed.rejected, ["recipient@example.test", "copy@example.test"]); }
+  }
+  yield* Effect.gen(function* verifyCommonjsPortableScheduling() {
+    const instant = DateTime.makeUnsafe("2030-01-02T03:04:05.123Z");
+    const date = DateTime.toDateUtc(instant);
+    const email = yield* EmailSdk.Email;
+    const namedMessage = { ...message, from: { address: message.from, name: "Fictional Sender" } };
+    const prepared = yield* email.validate({ ...message, from: "Fictional Sender <sender@example.test>", sendAt: date });
+    date.setTime(0);
+    const options = { idempotencyKey: "portable-schedule" };
+    const first = yield* email.send(prepared, options);
+    assert.deepEqual(yield* email.send({ ...namedMessage, sendAt: "2030-01-02T08:34:05.123+05:30" }, options), first);
+    const batch = yield* email.sendAll([{ message: { ...namedMessage, sendAt: DateTime.toDateUtc(instant) }, options }]);
+    assert(batch[0] !== undefined && Result.isSuccess(batch[0]));
+    assert.deepEqual(batch[0].success, first);
+    const records = yield* (yield* Testing.RecordedEmails).messages;
+    assert.equal(records.length, 1);
+    assert(records[0]?.sendAt !== undefined);
+    assert.equal(DateTime.toEpochMillis(records[0].sendAt), DateTime.toEpochMillis(instant));
+    const invalid = yield* email.send({ ...message, sendAt: "2030-02-30T03:04:05+05:30" }).pipe(Effect.result);
+    assert(Result.isFailure(invalid) && invalid.failure instanceof EmailSdk.EmailInvalidMessage);
+  }).pipe(Effect.provide(Layer.fresh(Testing.recordingEmailLayer)));
+  yield* Effect.gen(function* verifyCommonjsRecording() {
+    const recorder = yield* Testing.RecordedEmails;
+    const email = yield* EmailSdk.Email;
+    const first = yield* email.send(message, { idempotencyKey: "synthetic-commonjs-key" });
+    const replay = yield* email.send(message, { idempotencyKey: "synthetic-commonjs-key" });
+    assert.deepEqual(first, replay);
+    assert(EmailSdk.EmailReceiptSchema.guards.Recorded(first));
+    assert.equal((yield* recorder.messages).length, 1);
+    const snapshot = yield* recorder.messages;
+    const purge: EffectLibrary.Effect.Effect<number> = recorder.purgeMessages;
+    assert.equal(yield* purge, 1);
+    assert.deepEqual(yield* recorder.messages, []);
+    assert.strictEqual(yield* email.send(message, { idempotencyKey: "synthetic-commonjs-key" }), first);
+    const conflict = yield* email.send({ ...message, subject: "Conflicting purged intent" }, { idempotencyKey: "synthetic-commonjs-key" }).pipe(Effect.result);
+    assert(Result.isFailure(conflict) && conflict.failure instanceof EmailSdk.EmailRejected);
+    assert.equal(conflict.failure.reason, "idempotency-conflict");
+    assert.deepEqual(yield* recorder.messages, []);
+    assert.equal(yield* purge, 0);
+    const next = yield* email.send(message);
+    assert(EmailSdk.EmailReceiptSchema.guards.Recorded(next));
+    assert.equal(next.sequence, 2);
+    assert.equal(snapshot.length, 1);
+    assert.equal(yield* purge, 1);
+  }).pipe(Effect.provide(Testing.recordingEmailLayer));
+  yield* Effect.gen(function* verifyCommonjsRouting() {
+    const router = yield* EmailSdk.EmailRouter;
+    const route = yield* router.select();
+    const routed = yield* route.send(message);
+    assert.equal(routed.route, "synthetic");
+    assert(EmailSdk.EmailReceiptSchema.guards.Recorded(routed));
+  }).pipe(Effect.provide(EmailSdk.emailRouterLayer([{ name: "synthetic", layer: Layer.fresh(Testing.recordingEmailLayer) }], { primary: "synthetic" })));
+
+  yield* Effect.gen(function* verifyCommonjsSmtpPreflight() {
+    const email = yield* EmailSdk.Email;
+    yield* email.validate(message);
+    const keyed = yield* Effect.result(email.send(message, { idempotencyKey: "not-replay-authority" }));
+    assert(Result.isFailure(keyed));
+    assert(keyed.failure instanceof EmailSdk.EmailRejected);
+    assert.equal(keyed.failure.reason, "unsupported-idempotency");
+  }).pipe(Effect.provide(Smtp.smtpEmailLayer({
+    authentication: Smtp.SmtpAuthenticationSchema.cases.None.make({}),
+    helloName: "client.fictional.invalid", host: "smtp.fictional.invalid",
+    mailFlow: "ProviderUnmodified", port: 465, security: "ImplicitTls",
+  })));
+
+  yield* Effect.gen(function* verifyCommonjsMailchimpScheduling() {
+    const sendAt = DateTime.makeUnsafe(Math.ceil(DateTime.toEpochMillis(yield* DateTime.now) / 1000) * 1000 + 60_000);
+    const statistics: Mailchimp.MailchimpTagStatisticsInput = { authority: "AuthorizeKnownAccountTagStatistics", knownTags: [{ name: "workflow", value: "fictional" }] };
+    const bodies: string[] = [];
+    const client = EffectHttp.HttpClient.make((request) => Effect.sync(() => {
+      assert.equal(request.url, "https://mandrillapp.com/api/1.4/messages/send");
+      assert(request.body._tag === "Uint8Array");
+      bodies.push(new TextDecoder().decode(request.body.body));
+      return EffectHttp.HttpClientResponse.fromWeb(request, new Response(JSON.stringify([{ _id: "packed-scheduled-id", email: "recipient@example.test", status: "scheduled" }]), { status: 200 }));
+    }));
+    yield* Effect.gen(function* exerciseCommonjsMailchimpProtocol() {
+      const email = yield* EmailSdk.Email;
+      const unapproved = yield* email.send({ ...message, tags: [{ name: "workflow", value: "private-unapproved" }] }).pipe(Effect.result);
+      assert(Result.isFailure(unapproved));
+      assert(unapproved.failure instanceof EmailSdk.EmailInvalidMessage);
+      assert.equal(bodies.length, 0);
+      const receipt = yield* email.send({ ...message, sendAt, tags: statistics.knownTags });
+      assert(EmailSdk.EmailReceiptSchema.guards.RecipientOutcomes(receipt));
+      assert.equal(receipt.outcomes[0]._tag, "Accepted");
+      assert.equal(receipt.outcomes[0].messageId, "packed-scheduled-id");
+      const immediate = yield* email.send(message).pipe(Effect.result);
+      assert(Result.isFailure(immediate));
+      assert(immediate.failure instanceof EmailSdk.EmailDeliveryUnknown);
+    }).pipe(Effect.provide(Mailchimp.mailchimpEmailLayer({ apiKey: credential, automaticFooter: "AccountDisabled", keyMode: "Live", messageRules: "AccountDisabled", tagStatistics: statistics }).pipe(Layer.provide(Layer.succeed(EffectHttp.HttpClient.HttpClient, client)))));
+    assert.equal(bodies.length, 2);
+    const wire = yield* Schema.decodeEffect(Schema.fromJsonString(Schema.Struct({ send_at: Schema.String, message: Schema.Struct({ tags: Schema.Array(Schema.String) }) })))(bodies[0] ?? "");
+    assert.deepEqual(wire.message.tags, ["workflow:fictional"]);
+    assert.equal(DateTime.toEpochMillis(DateTime.makeUnsafe(`${wire.send_at.replace(" ", "T")}Z`)), DateTime.toEpochMillis(sendAt));
+    assert(!bodies[1]?.includes('"send_at"'));
+  });
+
+  yield* Effect.gen(function* verifyCommonjsSparkpostScheduling() {
+    const sendAt = DateTime.makeUnsafe(Math.ceil(DateTime.toEpochMillis(yield* DateTime.now) / 1000) * 1000 + 60_000);
+    const email = yield* EmailSdk.Email;
+    const prepared = yield* email.validate({ ...message, sendAt });
+    assert(prepared.sendAt !== undefined);
+    assert.equal(DateTime.toEpochMillis(prepared.sendAt), DateTime.toEpochMillis(sendAt));
+    const invalid = yield* email.send({ ...message, sendAt: DateTime.add(sendAt, { days: 4 }) }).pipe(Effect.result);
+    assert(Result.isFailure(invalid));
+    assert.equal(invalid.failure._tag, "EmailInvalidMessage");
+  }).pipe(Effect.provide(Sparkpost.sparkpostEmailLayer({ apiKey: credential }).pipe(Layer.provide(Layer.succeed(EffectHttp.HttpClient.HttpClient, EffectHttp.HttpClient.make(() => Effect.die("Unexpected packed SparkPost transport")))))));
+
+  yield* Effect.gen(function* verifyCommonjsLettrSchedulingWindow() {
+    const now = yield* DateTime.now;
+    const sendAt = DateTime.add(now, { minutes: 10 });
+    const email = yield* EmailSdk.Email;
+    const prepared = yield* email.validate({ ...message, sendAt });
+    assert(prepared.sendAt !== undefined);
+    assert.equal(DateTime.toEpochMillis(prepared.sendAt), DateTime.toEpochMillis(sendAt));
+    for (const invalidAt of [DateTime.add(now, { minutes: 4 }), DateTime.add(now, { days: 31 })]) {
+      const invalid = yield* email.send({ ...message, sendAt: invalidAt }).pipe(Effect.result);
+      assert(Result.isFailure(invalid));
+      assert(invalid.failure instanceof EmailSdk.EmailInvalidMessage);
+      assert.deepEqual(invalid.failure.issues.map(({ path }) => path), ["sendAt"]);
+    }
+  }).pipe(Effect.provide(Lettr.lettrEmailLayer({ apiKey: Redacted.make("lttr_fictional-packed-key"), submissionMode: "Scheduled" }).pipe(Layer.provide(Layer.succeed(EffectHttp.HttpClient.HttpClient, EffectHttp.HttpClient.make(() => Effect.die("Unexpected packed Lettr transport")))))));
+
+  yield* Effect.gen(function* verifyCommonjsMailersendSchedulingWindow() {
+    const now = yield* DateTime.now;
+    const sendAt = DateTime.makeUnsafe(DateTime.toEpochMillis(now) + 600_123);
+    const email = yield* EmailSdk.Email;
+    const prepared = yield* email.validate({ ...message, sendAt });
+    assert(prepared.sendAt !== undefined);
+    assert.equal(DateTime.toEpochMillis(prepared.sendAt), DateTime.toEpochMillis(sendAt));
+    for (const invalidAt of [DateTime.add(now, { days: -1 }), DateTime.add(now, { hours: 73 })]) {
+      const invalid = yield* email.send({ ...message, sendAt: invalidAt }).pipe(Effect.result);
+      assert(Result.isFailure(invalid));
+      assert(invalid.failure instanceof EmailSdk.EmailInvalidMessage);
+      assert.deepEqual(invalid.failure.issues.map(({ path }) => path), ["sendAt"]);
+    }
+  }).pipe(Effect.provide(Mailersend.mailersendEmailLayer({ apiKey: credential }).pipe(Layer.provide(Layer.succeed(EffectHttp.HttpClient.HttpClient, EffectHttp.HttpClient.make(() => Effect.die("Unexpected packed MailerSend transport")))))));
+
+  yield* Effect.gen(function* verifyCommonjsSendgridSchedulingWindow() {
+    const now = yield* DateTime.now;
+    const sendAt = DateTime.makeUnsafe(Math.ceil(DateTime.toEpochMillis(now) / 1000) * 1000 + 600_000);
+    const email = yield* EmailSdk.Email;
+    const prepared = yield* email.validate({ ...message, sendAt });
+    assert(prepared.sendAt !== undefined);
+    assert.equal(DateTime.toEpochMillis(prepared.sendAt), DateTime.toEpochMillis(sendAt));
+    for (const invalidAt of [DateTime.add(sendAt, { minutes: -20 }), DateTime.add(sendAt, { hours: 73 }), DateTime.makeUnsafe(DateTime.toEpochMillis(sendAt) + 1)]) {
+      const invalid = yield* email.send({ ...message, sendAt: invalidAt }).pipe(Effect.result);
+      assert(Result.isFailure(invalid));
+      assert(invalid.failure instanceof EmailSdk.EmailInvalidMessage);
+      assert.deepEqual(invalid.failure.issues.map(({ path }) => path), ["sendAt"]);
+    }
+  }).pipe(Effect.provide(Sendgrid.sendgridEmailLayer({ apiKey: credential, region: "Europe" }).pipe(Layer.provide(Layer.succeed(EffectHttp.HttpClient.HttpClient, EffectHttp.HttpClient.make(() => Effect.die("Unexpected packed SendGrid transport")))))));
+
+  yield* Effect.gen(function* verifyCommonjsNativeSendgridPersonalization() {
+    const requests: string[] = [];
+    const transport = EffectHttp.HttpClient.make((request) => Effect.sync(() => {
+      assert.equal(request.url, "https://api.eu.sendgrid.com/v3/mail/send");
+      assert.equal(request.body._tag, "Uint8Array");
+      if (request.body._tag !== "Uint8Array") throw new Error("Expected encoded JSON");
+      const text = new TextDecoder().decode(request.body.body);
+      requests.push(text);
+      const wire = Schema.decodeUnknownSync(Schema.fromJsonString(Schema.Struct({ personalizations: Schema.Array(Schema.Struct({ subject: Schema.String, to: Schema.Array(Schema.Struct({ email: Schema.String })) })) })))(text);
+      assert.deepEqual(wire.personalizations.map((entry) => entry.to.map((to) => to.email)), [["first@example.test"], ["second@example.test"]]);
+      assert.deepEqual(wire.personalizations.map((entry) => entry.subject), ["Hello First", "Hello Second"]);
+      return EffectHttp.HttpClientResponse.fromWeb(request, new Response(null, { headers: { "x-message-id": "batch-not-recipient-id" }, status: 202 }));
+    }));
+    const layer: EffectLibrary.Layer.Layer<EmailSdk.Email, EmailSdk.EmailConfigurationError, EffectHttp.HttpClient.HttpClient> = Sendgrid.sendgridPersonalizedEmailLayer({ apiKey: credential, region: "Europe" });
+    const results = yield* Effect.gen(function* sendCommonjsNativeAudience() {
+      return yield* (yield* EmailSdk.Email).sendPersonalized({ message: { body: { html: "<p>%recipient.name%</p>", text: "%recipient.name%" }, from: "host@example.test", subject: "Hello %recipient.name%" }, recipients: [{ to: "first@example.test", variables: { name: "First" } }, { to: "second@example.test", variables: { name: "Second" } }] });
+    }).pipe(Effect.provide(layer.pipe(Layer.provide(Layer.succeed(EffectHttp.HttpClient.HttpClient, transport)))));
+    assert.equal(requests.length, 1);
+    assert.equal(results.length, 2);
+    for (const result of results) {
+      assert(Result.isSuccess(result));
+      assert(EmailSdk.EmailReceiptSchema.guards.Accepted(result.success));
+      assert.equal(result.success.messageId, undefined);
+      const correlation = result.success.submissionId;
+      assert(correlation !== undefined);
+      assert.equal(yield* Schema.encodeEffect(EmailSdk.EmailSubmissionIdSchema)(correlation), "batch-not-recipient-id");
+    }
+  });
+
+  yield* Effect.gen(function* verifyCommonjsNativeMailgunPersonalization() {
+    const requests: string[] = [];
+    const transport = EffectHttp.HttpClient.make((request) => Effect.sync(() => {
+      assert.equal(request.url, "https://api.eu.mailgun.net/v3/mg.example.test/messages");
+      assert.equal(request.body._tag, "FormData");
+      if (request.body._tag !== "FormData") throw new Error("Expected multipart form");
+      const fields = request.body.formData;
+      const variables = Schema.decodeUnknownSync(Schema.fromJsonString(Schema.Record(Schema.String, Schema.Struct({ corven_html: Schema.String, corven_subject: Schema.String, corven_text: Schema.String }))))(fields.get("recipient-variables"));
+      requests.push(String(fields.get("recipient-variables")));
+      assert.deepEqual(fields.getAll("to"), ["first@example.test", "second@example.test"]);
+      assert.deepEqual(Object.keys(variables), ["first@example.test", "second@example.test"]);
+      assert.equal(fields.get("subject"), "%recipient.corven_subject%");
+      assert.equal(fields.get("text"), "%recipient.corven_text%");
+      assert.equal(variables["first@example.test"]?.corven_subject, "Hello <First>");
+      assert.equal(variables["first@example.test"]?.corven_text, "<First> / 0 / false");
+      assert.equal(variables["first@example.test"]?.corven_html, "<p>&lt;First&gt; / 0 / false</p>");
+      return EffectHttp.HttpClientResponse.fromWeb(request, new Response(JSON.stringify({ id: "<batch@mg.example.test>" }), { status: 200 }));
+    }));
+    const layer: EffectLibrary.Layer.Layer<EmailSdk.Email, EmailSdk.EmailConfigurationError, EffectHttp.HttpClient.HttpClient> = Mailgun.mailgunPersonalizedEmailLayer({ apiKey: credential, domain: "mg.example.test", region: "Europe" });
+    const results = yield* Effect.gen(function* sendCommonjsNativeMailgunAudience() {
+      return yield* (yield* EmailSdk.Email).sendPersonalized({ message: { body: { html: "<p>%recipient.name% / %recipient.count% / %recipient.active%</p>", text: "%recipient.name% / %recipient.count% / %recipient.active%" }, from: "host@example.test", subject: "Hello %recipient.name%" }, recipients: [{ to: "first@example.test", variables: { active: false, count: 0, name: "<First>" } }, { to: "second@example.test", variables: { active: true, count: 2, name: "Second" } }] });
+    }).pipe(Effect.provide(layer.pipe(Layer.provide(Layer.succeed(EffectHttp.HttpClient.HttpClient, transport)))));
+    assert.equal(requests.length, 1);
+    assert.equal(results.length, 2);
+    for (const result of results) {
+      assert(Result.isSuccess(result));
+      assert(EmailSdk.EmailReceiptSchema.guards.Accepted(result.success));
+      assert.equal(result.success.messageId, undefined);
+      const correlation = result.success.submissionId;
+      assert(correlation !== undefined);
+      assert.equal(yield* Schema.encodeEffect(EmailSdk.EmailSubmissionIdSchema)(correlation), "<batch@mg.example.test>");
+    }
+  });
+
+  const failed = yield* Effect.gen(function* verifyCommonjsModeledFailure() {
+    return yield* (yield* EmailSdk.Email).send(message);
+  }).pipe(Effect.provide(Testing.failingEmailLayer(new EmailSdk.EmailRejected({ provider: "fictional", reason: "authentication" }))), Effect.result);
+  assert(Result.isFailure(failed));
+  assert(failed.failure instanceof EmailSdk.EmailRejected);
+  assert.equal(failed.failure.provider, "failing");
+});
+
+const provided: EffectLibrary.Effect.Effect<void, EmailSdk.EmailSendError | Agent.EmailAgentApprovalError | EmailSdk.EmailConfigurationError | Capture.EmailCaptureAggregateError | Observations.EmailObservationAggregateError | EffectLibrary.Schema.SchemaError | Webhook.EmailWebhookVerificationError | Webhook.EmailWebhookNormalizationError> = program;
+assert.throws(() => require("@corven/email-sdk/dist/email-http-protocol.js"), { code: "ERR_PACKAGE_PATH_NOT_EXPORTED" });
+for (const leaf of ["email-cli-main.js", "email-cli.js", "email-cli-node.js", "email-bounded-json.js", "loops-transactional-job.js", "email-retry-decision.js", "email-capture-aggregate.js", "email-submission-capture-view.js", "email-operation-observations.js", "email-observation-aggregate.js", "email-observation-aggregate-error.js", "email-submission-observation-view.js", "email-aggregate-sources.js", "email-execution-metadata.js", "email-preflight.js"]) {
+  assert.throws(() => require(`@corven/email-sdk/dist/${leaf}`), { code: "ERR_PACKAGE_PATH_NOT_EXPORTED" });
+}
+Effect.runPromise(provided).catch((failure: unknown) => { throw failure; });

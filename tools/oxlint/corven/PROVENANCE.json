@@ -1,0 +1,10 @@
+{
+  "origin": "../scripts at SDK initialization; unchanged copies",
+  "hashAlgorithm": "sha256",
+  "files": {
+    "oxlint-plugin-boundaries.ts": "5612b1145d50e3c68f3d6260ea59fd480bbcd0119155c785446c17972773ad2a",
+    "oxlint-plugin-effect-tests.ts": "3ea9a15caa387dc670339f3b22c105a754694af711c38e59bbc40b4d9e5c5914",
+    "oxlint-plugin-no-comments.ts": "b030ba176014d5c32b8c35a73c6ec5f1f05ee3db963acfa7b8845307250f3659",
+    "oxlint-plugin-patterns.ts": "82cffd207b0f50e77e4e97fbb87986b005927b77f41daf7e30f0c0eacfa276f4"
+  }
+}

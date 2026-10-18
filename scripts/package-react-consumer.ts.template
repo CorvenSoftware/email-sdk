@@ -1,0 +1,78 @@
+import assert from "node:assert/strict";
+import { Effect, Schema } from "effect";
+import { createElement, Suspense } from "react";
+import type { EmailBody, EmailReceipt } from "@corven/email-sdk";
+import { Email } from "@corven/email-sdk";
+import { EmailRenderError, RenderedReactEmailSchema, reactEmailTheme, renderReactEmail, themedReactEmailComponents } from "@corven/email-sdk/react";
+import type { RenderedReactEmail } from "@corven/email-sdk/react";
+import { RecordedEmails, recordingEmailLayer } from "@corven/email-sdk/testing";
+
+const proveReactDeclarations = (body: RenderedReactEmail): void => {
+  const rendered: Effect.Effect<RenderedReactEmail, EmailRenderError> = renderReactEmail(createElement("p", null, "Fictional"));
+  const ordinary: EmailBody = body;
+  type Components = import("@corven/email-sdk/react").ReactEmailComponents;
+  const componentCall = (components: Components): void => {
+    // @ts-expect-error -- Component actions require a host destination.
+    void createElement(components.EmailAction, { children: "Missing destination" });
+    // @ts-expect-error -- Semantic heading levels remain constrained in installed declarations.
+    void createElement(components.EmailHeading, { level: 4 });
+    void themedReactEmailComponents();
+    void themedReactEmailComponents(reactEmailTheme("dark", { radius: 0 }));
+    // @ts-expect-error -- Installed preset names are closed, not ambient color-scheme discovery.
+    void themedReactEmailComponents("system");
+    // @ts-expect-error -- Theme override radii remain numeric CSS pixels.
+    void reactEmailTheme("light", { radius: "12px" });
+  };
+  void componentCall;
+  // @ts-expect-error -- Both output alternatives are readonly owned strings.
+  body.html = "changed";
+  // @ts-expect-error -- Templates must be host React elements, not untrusted serialized strings.
+  void renderReactEmail("private model template");
+  const submitted: Effect.Effect<EmailReceipt, EmailRenderError | import("@corven/email-sdk").EmailSendError, Email> = rendered.pipe(
+    Effect.flatMap(body => Email.use(email => email.send({ body, from: "sender@example.invalid", subject: "Synthetic", to: "recipient@example.invalid" }))),
+  );
+  void ordinary;
+  void submitted;
+};
+void proveReactDeclarations;
+
+const FailedTemplate = (): never => { throw new Error("private-packed-react-error"); };
+await Effect.runPromise(Effect.gen(function* verifyInstalledReactRendering() {
+  const body = yield* renderReactEmail(createElement("p", null, "Fictional <markup> & native React"));
+  assert.equal(body.text, "Fictional <markup> & native React");
+  assert.ok(body.html.includes("&lt;markup&gt;"));
+  assert.ok(Object.isFrozen(body));
+  yield* Schema.decodeEffect(RenderedReactEmailSchema)(body);
+  const components = themedReactEmailComponents({ accent: "#234c39", accentForeground: "#ffffff", background: "#f5f2e9", border: "#a6aa9d", fontFamily: "Georgia, serif", foreground: "#20291e", mutedForeground: "#4b5547", radius: 12, surface: "#ffffff", surfaceForeground: "#20291e" });
+  const catalog = yield* renderReactEmail(createElement(components.EmailDocument, { preview: "Private packed preview" },
+    createElement(components.EmailCard, null,
+      createElement(components.EmailHeading, null, "Fictional catalog"),
+      createElement(components.EmailParagraph, null, "Fictional catalog content"),
+      createElement(components.EmailAction, { href: "https://example.invalid" }, "Review example"),
+      createElement(components.EmailDivider),
+    ),
+  ));
+  assert.ok(catalog.text.includes("Fictional catalog content"));
+  assert.ok(catalog.text.includes("https://example.invalid"));
+  assert.ok(!catalog.text.includes("Private packed preview"));
+  assert.ok(catalog.html.includes('role="presentation"'));
+  for (const preset of ["light", "dark"] as const) {
+    const family = themedReactEmailComponents(preset);
+    const rendered = yield* renderReactEmail(createElement(family.EmailDocument, null, createElement(family.EmailParagraph, null, "Preset content")));
+    assert.equal(rendered.text, "Preset content");
+    assert.ok(rendered.html.includes(`background-color:${reactEmailTheme(preset).background}`));
+  }
+  const defaults = themedReactEmailComponents();
+  assert.equal((yield* renderReactEmail(createElement(defaults.EmailParagraph, null, "Default content"))).text, "Default content");
+  const email = yield* Email;
+  yield* email.send({ body, from: "sender@example.invalid", subject: "Synthetic React", to: "recipient@example.invalid" });
+  assert.deepEqual((yield* (yield* RecordedEmails).messages)[0]?.body, body);
+  const failure = yield* Effect.flip(renderReactEmail(createElement(Suspense, { fallback: createElement("p", null, "Private fallback") }, createElement(FailedTemplate))));
+  assert.ok(failure instanceof EmailRenderError);
+  assert.equal(failure.reason, "render-failed");
+  assert.ok(!JSON.stringify(failure).includes("private-packed-react-error"));
+}).pipe(Effect.provide(recordingEmailLayer)));
+// @ts-expect-error -- Components are exposed only through the optional React entrypoint.
+await assert.rejects(import("@corven/email-sdk/dist/email-react-components.js"), { code: "ERR_PACKAGE_PATH_NOT_EXPORTED" });
+// @ts-expect-error -- Theme implementation stays behind the optional React entrypoint.
+await assert.rejects(import("@corven/email-sdk/dist/email-react-theme.js"), { code: "ERR_PACKAGE_PATH_NOT_EXPORTED" });

@@ -1,0 +1,37 @@
+import { Effect, Layer } from "effect";
+import { Email, emailLayer, capturedEmailRouterLayer } from "@corven/email-sdk";
+import { EmailCaptureAggregate, capturedEmailSenderLayer } from "@corven/email-sdk/capture";
+import { recordingSenderLayer } from "@corven/email-sdk/testing";
+
+const options = {
+  capacity: 100,
+  maxBytes: 1_048_576,
+  privateData: "AuthorizePayloadCapture",
+} as const;
+
+const primary = emailLayer().pipe(
+  Layer.provideMerge(capturedEmailSenderLayer(Layer.fresh(recordingSenderLayer), options)),
+);
+
+const backup = emailLayer().pipe(
+  Layer.provideMerge(capturedEmailSenderLayer(Layer.fresh(recordingSenderLayer), options)),
+);
+
+const router = capturedEmailRouterLayer(
+  [
+    { layer: primary, name: "primary" },
+    { layer: backup, name: "backup" },
+  ],
+  { fallbacks: ["backup"], primary: "primary" },
+);
+
+export const fictionalAggregateCapture = Effect.gen(function* inspectFictionalAccounts() {
+  yield* (yield* Email).send({
+    body: { text: "A fictional recording example." },
+    from: "sender@fictional.invalid",
+    subject: "Fictional aggregate capture",
+    to: "recipient@fictional.invalid",
+  });
+
+  return yield* (yield* EmailCaptureAggregate).snapshot;
+}).pipe(Effect.provide(router));

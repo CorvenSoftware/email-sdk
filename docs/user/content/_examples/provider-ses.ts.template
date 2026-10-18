@@ -1,0 +1,11 @@
+import { Layer } from "effect";
+import { sesEmailLayer } from "@corven/email-sdk/ses";
+import type { SesEmailOptions } from "@corven/email-sdk/ses";
+import { emailHttpLayer } from "./sending.js";
+
+export const configuredSesAccount = (
+  credentials: Pick<SesEmailOptions, "accessKeyId" | "secretAccessKey" | "sessionToken">,
+) =>
+  sesEmailLayer({ ...credentials, mailFlow: "ProviderUnmodified", region: "us-east-1" }).pipe(
+    Layer.provide(emailHttpLayer),
+  );

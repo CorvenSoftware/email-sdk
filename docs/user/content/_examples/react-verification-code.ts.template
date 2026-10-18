@@ -1,0 +1,11 @@
+import { renderReactEmail } from "@corven/email-sdk/react";
+import { transactionalEmailLayout } from "./react-layout.js";
+
+export const verificationCodeEmail = (input: { code: string; expiresIn: string }) =>
+  renderReactEmail(
+    transactionalEmailLayout({
+      heading: "Verify your email",
+      preview: "Your verification code",
+      paragraphs: [`Your verification code is ${input.code}.`, `It expires in ${input.expiresIn}.`],
+    }),
+  );

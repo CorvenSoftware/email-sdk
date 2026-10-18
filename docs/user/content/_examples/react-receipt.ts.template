@@ -1,0 +1,16 @@
+import { renderReactEmail } from "@corven/email-sdk/react";
+import { transactionalEmailLayout } from "./react-layout.js";
+
+export const paymentReceiptEmail = (input: {
+  reference: string;
+  amount: string;
+  detailsUrl: string;
+}) =>
+  renderReactEmail(
+    transactionalEmailLayout({
+      heading: "Payment receipt",
+      preview: "Your payment receipt is available.",
+      paragraphs: [`Payment reference: ${input.reference}.`, `Amount: ${input.amount}.`],
+      action: { href: input.detailsUrl, label: "View receipt" },
+    }),
+  );

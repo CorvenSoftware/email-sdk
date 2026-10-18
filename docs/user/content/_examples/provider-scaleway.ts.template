@@ -1,0 +1,11 @@
+import { Layer } from "effect";
+import type { Redacted } from "effect";
+import { scalewayEmailLayer } from "@corven/email-sdk/scaleway";
+import { emailHttpLayer } from "./sending.js";
+
+export const configuredScalewayAccount = (secretKey: Redacted.Redacted) =>
+  scalewayEmailLayer({
+    secretKey,
+    projectId: "00000000-0000-4000-8000-000000000001",
+    tracking: "ProviderDisabled",
+  }).pipe(Layer.provide(emailHttpLayer));

@@ -1,0 +1,38 @@
+import { Effect } from "effect";
+import type { Redacted } from "effect";
+import {
+  MailgunWebhookEventSchema,
+  MailgunWebhookVerifier,
+  mailgunWebhookLayer,
+  parseMailgunWebhookEvent,
+} from "@corven/email-sdk/mailgun-webhook";
+import type { MailgunWebhookSignature } from "@corven/email-sdk/mailgun-webhook";
+
+export const verifyIncomingMailgunSignature = Effect.fnUntraced(
+  function* verifyIncomingMailgunSignature(signature: MailgunWebhookSignature) {
+    const verifier = yield* MailgunWebhookVerifier;
+
+    return yield* verifier.verifySignature(signature);
+  },
+);
+
+export const parseIncomingMailgunReport = Effect.fnUntraced(function* parseIncomingMailgunReport(
+  rawBody: string,
+) {
+  const event = yield* parseMailgunWebhookEvent(rawBody);
+
+  const category = MailgunWebhookEventSchema.match(event, {
+    Complained: () => "ComplaintReport" as const,
+    Delivered: () => "RecipientServerAcceptanceReport" as const,
+    Failed: ({ severity }) =>
+      severity === "permanent"
+        ? ("PermanentFailureReport" as const)
+        : ("TemporaryFailureReport" as const),
+    Other: () => "UnclassifiedReport" as const,
+  });
+
+  return { category, provenance: event.provenance };
+});
+
+export const incomingMailgunWebhookLayer = (signingKey: Redacted.Redacted) =>
+  mailgunWebhookLayer({ signatureField: "signature", signingSecrets: [signingKey] });

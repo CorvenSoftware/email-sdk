@@ -1,0 +1,21 @@
+import { Duration, Effect } from "effect";
+import { Email } from "@corven/email-sdk";
+
+export const submitWithSingleAttempt = Effect.gen(function* submitWithSingleAttempt() {
+  const email = yield* Email;
+  return yield* email.send(
+    {
+      body: { text: "Your notification is ready." },
+      from: "sender@example.test",
+      subject: "Notification",
+      to: "recipient@example.test",
+    },
+    {
+      policy: {
+        deadline: Duration.seconds(10),
+        initialDelay: Duration.millis(100),
+        maxAttempts: 1,
+      },
+    },
+  );
+});

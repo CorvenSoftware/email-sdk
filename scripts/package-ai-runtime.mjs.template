@@ -1,0 +1,28 @@
+import assert from "node:assert/strict";
+import { asSchema, generateText, stepCountIs } from "ai";
+import { MockLanguageModelV4 } from "ai/test";
+import { Effect, Layer } from "effect";
+import { EmailAgentApproval, emailAgentLayer } from "@corven/email-sdk/agent";
+import { emailAiTool } from "@corven/email-sdk/ai";
+import { RecordedEmails, recordingEmailLayer } from "@corven/email-sdk/testing";
+
+const layers = emailAgentLayer({ from: "host@example.test" }).pipe(
+  Layer.provide(Layer.succeed(EmailAgentApproval, EmailAgentApproval.of({ review: () => Effect.succeed("Approved") }))),
+  Layer.provideMerge(recordingEmailLayer),
+);
+await Effect.runPromise(Effect.scoped(Effect.gen(function* verifyNativeAiRuntime() {
+  const sendEmail = yield* emailAiTool(Effect.runPromise);
+  const input = { body: { text: "Fictional packed framework content" }, subject: "Synthetic AI", to: "recipient@example.test" };
+  const schema = asSchema(sendEmail.inputSchema);
+  const invalid = yield* Effect.promise(() => schema.validate({ ...input, approved: true }));
+  assert.equal(invalid.success, false);
+  const model = new MockLanguageModelV4({ doGenerate: {
+    content: [{ type: "tool-call", toolCallId: "fictional-call", toolName: "sendEmail", input: JSON.stringify(input) }],
+    finishReason: { unified: "tool-calls", raw: undefined },
+    usage: { inputTokens: { total: 1, noCache: 1, cacheRead: 0, cacheWrite: 0 }, outputTokens: { total: 1, text: 1, reasoning: 0 } },
+    warnings: [],
+  } });
+  const result = yield* Effect.promise(() => generateText({ model, maxRetries: 0, prompt: "Fictional local model", stopWhen: stepCountIs(1), tools: { sendEmail } }));
+  assert.deepEqual(result.toolResults[0]?.output, { receiptKind: "Recorded" });
+  assert.equal((yield* (yield* RecordedEmails).messages)[0]?.body.text, input.body.text);
+})).pipe(Effect.provide(layers)));

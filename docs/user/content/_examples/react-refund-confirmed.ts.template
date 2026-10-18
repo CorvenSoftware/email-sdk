@@ -1,0 +1,19 @@
+import { renderReactEmail } from "@corven/email-sdk/react";
+import { transactionalEmailLayout } from "./react-layout.js";
+
+export const refundConfirmedEmail = (input: {
+  reference: string;
+  amount: string;
+  detailsUrl: string;
+}) =>
+  renderReactEmail(
+    transactionalEmailLayout({
+      heading: "Refund confirmation",
+      preview: "Your refund has been recorded.",
+      paragraphs: [
+        `Refund reference: ${input.reference}.`,
+        `Amount: ${input.amount}. Your payment method may take additional time to show it.`,
+      ],
+      action: { href: input.detailsUrl, label: "View refund" },
+    }),
+  );

@@ -1,0 +1,291 @@
+{
+  "name": "@corven/email-sdk",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Effect-native transactional email with explicit submission evidence and replay safety.",
+  "bin": {
+    "corven-email": "./dist/email-cli-main.js"
+  },
+  "files": [
+    "dist",
+    "README.md"
+  ],
+  "type": "module",
+  "sideEffects": false,
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js",
+      "require": "./dist/index.js"
+    },
+    "./provider": {
+      "types": "./dist/email-provider.d.ts",
+      "import": "./dist/email-provider.js",
+      "require": "./dist/email-provider.js"
+    },
+    "./resend": {
+      "types": "./dist/resend-email-sender.d.ts",
+      "import": "./dist/resend-email-sender.js",
+      "require": "./dist/resend-email-sender.js"
+    },
+    "./postmark": {
+      "types": "./dist/postmark-email-sender.d.ts",
+      "import": "./dist/postmark-email-sender.js",
+      "require": "./dist/postmark-email-sender.js"
+    },
+    "./sendgrid": {
+      "types": "./dist/sendgrid-email-sender.d.ts",
+      "import": "./dist/sendgrid-email-sender.js",
+      "require": "./dist/sendgrid-email-sender.js"
+    },
+    "./mailgun": {
+      "types": "./dist/mailgun-email-sender.d.ts",
+      "import": "./dist/mailgun-email-sender.js",
+      "require": "./dist/mailgun-email-sender.js"
+    },
+    "./mailersend": {
+      "types": "./dist/mailersend-email-sender.d.ts",
+      "import": "./dist/mailersend-email-sender.js",
+      "require": "./dist/mailersend-email-sender.js"
+    },
+    "./mailpace": {
+      "types": "./dist/mailpace-email-sender.d.ts",
+      "import": "./dist/mailpace-email-sender.js",
+      "require": "./dist/mailpace-email-sender.js"
+    },
+    "./unosend": {
+      "types": "./dist/unosend-email-sender.d.ts",
+      "import": "./dist/unosend-email-sender.js",
+      "require": "./dist/unosend-email-sender.js"
+    },
+    "./lettermint": {
+      "types": "./dist/lettermint-email-sender.d.ts",
+      "import": "./dist/lettermint-email-sender.js",
+      "require": "./dist/lettermint-email-sender.js"
+    },
+    "./plunk": {
+      "types": "./dist/plunk-email-sender.d.ts",
+      "import": "./dist/plunk-email-sender.js",
+      "require": "./dist/plunk-email-sender.js"
+    },
+    "./helo": {
+      "types": "./dist/helo-email-sender.d.ts",
+      "import": "./dist/helo-email-sender.js",
+      "require": "./dist/helo-email-sender.js"
+    },
+    "./jetemail": {
+      "types": "./dist/jetemail-email-sender.d.ts",
+      "import": "./dist/jetemail-email-sender.js",
+      "require": "./dist/jetemail-email-sender.js"
+    },
+    "./lettr": {
+      "types": "./dist/lettr-email-sender.d.ts",
+      "import": "./dist/lettr-email-sender.js",
+      "require": "./dist/lettr-email-sender.js"
+    },
+    "./sparkpost": {
+      "types": "./dist/sparkpost-email-sender.d.ts",
+      "import": "./dist/sparkpost-email-sender.js",
+      "require": "./dist/sparkpost-email-sender.js"
+    },
+    "./primitive": {
+      "types": "./dist/primitive-email-sender.d.ts",
+      "import": "./dist/primitive-email-sender.js",
+      "require": "./dist/primitive-email-sender.js"
+    },
+    "./mailtrap": {
+      "types": "./dist/mailtrap-email-sender.d.ts",
+      "import": "./dist/mailtrap-email-sender.js",
+      "require": "./dist/mailtrap-email-sender.js"
+    },
+    "./mailchimp": {
+      "types": "./dist/mailchimp-email-sender.d.ts",
+      "import": "./dist/mailchimp-email-sender.js",
+      "require": "./dist/mailchimp-email-sender.js"
+    },
+    "./scaleway": {
+      "types": "./dist/scaleway-email-sender.d.ts",
+      "import": "./dist/scaleway-email-sender.js",
+      "require": "./dist/scaleway-email-sender.js"
+    },
+    "./zeptomail": {
+      "types": "./dist/zeptomail-email-sender.d.ts",
+      "import": "./dist/zeptomail-email-sender.js",
+      "require": "./dist/zeptomail-email-sender.js"
+    },
+    "./cloudflare": {
+      "types": "./dist/cloudflare-email-sender.d.ts",
+      "import": "./dist/cloudflare-email-sender.js",
+      "require": "./dist/cloudflare-email-sender.js"
+    },
+    "./ses": {
+      "types": "./dist/ses-email-sender.d.ts",
+      "import": "./dist/ses-email-sender.js",
+      "require": "./dist/ses-email-sender.js"
+    },
+    "./graph": {
+      "types": "./dist/graph-email-sender.d.ts",
+      "import": "./dist/graph-email-sender.js",
+      "require": "./dist/graph-email-sender.js"
+    },
+    "./smtp": {
+      "types": "./dist/smtp-email-sender.d.ts",
+      "import": "./dist/smtp-email-sender.js",
+      "require": "./dist/smtp-email-sender.js"
+    },
+    "./brevo": {
+      "types": "./dist/brevo-email-sender.d.ts",
+      "import": "./dist/brevo-email-sender.js",
+      "require": "./dist/brevo-email-sender.js"
+    },
+    "./sequenzy": {
+      "types": "./dist/sequenzy-email-sender.d.ts",
+      "import": "./dist/sequenzy-email-sender.js",
+      "require": "./dist/sequenzy-email-sender.js"
+    },
+    "./sendheron": {
+      "types": "./dist/sendheron-email-sender.d.ts",
+      "import": "./dist/sendheron-email-sender.js",
+      "require": "./dist/sendheron-email-sender.js"
+    },
+    "./iterable": {
+      "types": "./dist/iterable-campaign-email.d.ts",
+      "import": "./dist/iterable-campaign-email.js",
+      "require": "./dist/iterable-campaign-email.js"
+    },
+    "./iterable-defaults": {
+      "types": "./dist/iterable-campaign-defaults.d.ts",
+      "import": "./dist/iterable-campaign-defaults.js",
+      "require": "./dist/iterable-campaign-defaults.js"
+    },
+    "./loops": {
+      "types": "./dist/loops-transactional-email.d.ts",
+      "import": "./dist/loops-transactional-email.js",
+      "require": "./dist/loops-transactional-email.js"
+    },
+    "./loops-defaults": {
+      "types": "./dist/loops-transactional-defaults.d.ts",
+      "import": "./dist/loops-transactional-defaults.js",
+      "require": "./dist/loops-transactional-defaults.js"
+    },
+    "./postmark-webhook": {
+      "types": "./dist/postmark-webhook-event.d.ts",
+      "import": "./dist/postmark-webhook-event.js",
+      "require": "./dist/postmark-webhook-event.js"
+    },
+    "./mailgun-webhook": {
+      "types": "./dist/mailgun-webhook-verifier.d.ts",
+      "import": "./dist/mailgun-webhook-verifier.js",
+      "require": "./dist/mailgun-webhook-verifier.js"
+    },
+    "./resend-webhook": {
+      "types": "./dist/resend-webhook-verifier.d.ts",
+      "import": "./dist/resend-webhook-verifier.js",
+      "require": "./dist/resend-webhook-verifier.js"
+    },
+    "./react": {
+      "types": "./dist/email-react.d.ts",
+      "import": "./dist/email-react.js",
+      "require": "./dist/email-react.js"
+    },
+    "./ai": {
+      "types": "./dist/email-ai-tool.d.ts",
+      "import": "./dist/email-ai-tool.js",
+      "require": "./dist/email-ai-tool.js"
+    },
+    "./agent": {
+      "types": "./dist/email-agent.d.ts",
+      "import": "./dist/email-agent.js",
+      "require": "./dist/email-agent.js"
+    },
+    "./defaults": {
+      "types": "./dist/email-defaults.d.ts",
+      "import": "./dist/email-defaults.js",
+      "require": "./dist/email-defaults.js"
+    },
+    "./capture": {
+      "types": "./dist/email-submission-capture.d.ts",
+      "import": "./dist/email-submission-capture.js",
+      "require": "./dist/email-submission-capture.js"
+    },
+    "./native-capture": {
+      "types": "./dist/email-native-capture.d.ts",
+      "import": "./dist/email-native-capture.js",
+      "require": "./dist/email-native-capture.js"
+    },
+    "./native-observations": {
+      "types": "./dist/email-native-observations.d.ts",
+      "import": "./dist/email-native-observations.js",
+      "require": "./dist/email-native-observations.js"
+    },
+    "./observations": {
+      "types": "./dist/email-submission-observations.d.ts",
+      "import": "./dist/email-submission-observations.js",
+      "require": "./dist/email-submission-observations.js"
+    },
+    "./testing": {
+      "types": "./dist/email-testing.d.ts",
+      "import": "./dist/email-testing.js",
+      "require": "./dist/email-testing.js"
+    },
+    "./package.json": "./package.json"
+  },
+  "scripts": {
+    "check": "pnpm lint && pnpm typecheck && pnpm check:examples && pnpm docs:check",
+    "lint": "oxlint --type-aware --deny-warnings && oxfmt --check",
+    "fix": "oxfmt && oxlint --fix",
+    "typecheck": "tsc --noEmit -p tsconfig.json",
+    "check:examples": "tsc --noEmit -p examples/tsconfig.json",
+    "test": "vitest run",
+    "build": "bash scripts/build.sh",
+    "check:package": "bash scripts/check-package.sh",
+    "docs:dev": "cd docs/user && ASTRO_TELEMETRY_DISABLED=1 blume dev",
+    "docs:build": "cd docs/user && ASTRO_TELEMETRY_DISABLED=1 blume build",
+    "docs:check": "cd docs/user && blume doctor && blume validate --strict",
+    "docs:preview": "cd docs/user && ASTRO_TELEMETRY_DISABLED=1 blume preview",
+    "prepare": "effect-tsgo patch"
+  },
+  "devDependencies": {
+    "@effect/tsgo": "0.51.1",
+    "@effect/vitest": "4.0.3",
+    "@oxlint/plugins": "1.87.0",
+    "@react-email/render": "2.1.0",
+    "@types/json-schema": "7.0.15",
+    "@types/node": "24.13.6",
+    "@types/react": "19.3.0",
+    "ai": "7.0.140",
+    "blume": "2.2.4",
+    "effect": "4.0.3",
+    "oxfmt": "0.72.0",
+    "oxlint": "1.87.0",
+    "oxlint-tsgolint": "7.0.2004",
+    "react": "19.3.1",
+    "react-dom": "19.3.1",
+    "react-email": "6.11.2",
+    "turbo": "2.11.7",
+    "typescript": "7.0.2",
+    "ultracite": "7.12.0",
+    "vitest": "5.0.4"
+  },
+  "peerDependencies": {
+    "@react-email/render": "2.1.0",
+    "effect": "4.0.3",
+    "react": "19.3.1",
+    "react-dom": "19.3.1"
+  },
+  "peerDependenciesMeta": {
+    "@react-email/render": {
+      "optional": true
+    },
+    "react": {
+      "optional": true
+    },
+    "react-dom": {
+      "optional": true
+    }
+  },
+  "engines": {
+    "node": ">=24.18.0"
+  },
+  "packageManager": "pnpm@11.3.0"
+}

@@ -1,0 +1,12 @@
+import { Layer } from "effect";
+import type { Redacted } from "effect";
+import { sendheronEmailLayer } from "@corven/email-sdk/sendheron";
+import { emailHttpLayer } from "./sending.js";
+
+export const configuredSendheronAccount = (apiKey: Redacted.Redacted) =>
+  sendheronEmailLayer({
+    apiKey,
+    attachments: "Disabled",
+    submissionMode: "TransactionalOnly",
+    tracking: "AuthorizeProviderTracking",
+  }).pipe(Layer.provide(emailHttpLayer));

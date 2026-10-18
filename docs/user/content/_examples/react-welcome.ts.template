@@ -1,0 +1,12 @@
+import { renderReactEmail } from "@corven/email-sdk/react";
+import { transactionalEmailLayout } from "./react-layout.js";
+
+export const welcomeEmail = (input: { name: string; startUrl: string }) =>
+  renderReactEmail(
+    transactionalEmailLayout({
+      heading: "Welcome",
+      preview: "Your account is ready.",
+      paragraphs: [`Hello ${input.name}, your account is ready.`, "Choose your first step below."],
+      action: { href: input.startUrl, label: "Get started" },
+    }),
+  );

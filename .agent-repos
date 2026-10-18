@@ -1,0 +1,4 @@
+# agent-repos manifest
+# name	prefix	url	branch	squash
+effect	repos/effect	https://github.com/Effect-TS/effect.git	967a7dc5963a23d3705259d60ccac1ce9f060a3b	true
+novu	repos/novu	https://github.com/novuhq/novu.git	e433a078f71e6636f0a14e8360feb444d8dd6f7d	true

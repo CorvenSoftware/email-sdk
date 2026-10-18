@@ -1,0 +1,66 @@
+import { Effect, Redacted, Schema } from "effect";
+import { HttpClientRequest } from "effect/http";
+import {
+  EmailDeliveryUnknown,
+  EmailMessageIdSchema,
+  EmailReceiptSchema,
+  EmailRejected,
+  EmailSenderIdempotencySchema,
+} from "@corven/email-sdk";
+import {
+  defineEmailHttpProvider,
+  EmailHttpCredentialSchema,
+  readEmailHttpJson,
+} from "@corven/email-sdk/provider";
+
+const exampleAcknowledgement = Schema.Struct({ id: EmailMessageIdSchema });
+
+export const exampleHttpProvider = defineEmailHttpProvider({
+  configuration: Schema.Struct({ apiKey: EmailHttpCredentialSchema }),
+  makeProtocol: ({ apiKey }) =>
+    Effect.succeed({
+      request: (submission) =>
+        HttpClientRequest.post("https://mail.example.invalid/messages").pipe(
+          HttpClientRequest.bearerToken(Redacted.value(apiKey)),
+          HttpClientRequest.bodyJson({ message: submission.message }),
+          Effect.mapError(
+            () => new EmailRejected({ provider: "example", reason: "invalid-message" }),
+          ),
+        ),
+      respond: (response) => {
+        if (response.status !== 202) {
+          return Effect.fail(
+            new EmailDeliveryUnknown({
+              provider: "example",
+              reason: "unexpected-status",
+              status: response.status,
+            }),
+          );
+        }
+        return readEmailHttpJson(response, "example").pipe(
+          Effect.flatMap(Schema.decodeUnknownEffect(exampleAcknowledgement)),
+          Effect.mapError(
+            () => new EmailDeliveryUnknown({ provider: "example", reason: "invalid-response" }),
+          ),
+          Effect.map(({ id }) =>
+            EmailReceiptSchema.cases.Accepted.make({ provider: "example", messageId: id }),
+          ),
+        );
+      },
+    }),
+  profile: {
+    capabilities: {
+      attachmentContentTypes: "None",
+      attachments: false,
+      headers: "None",
+      inlineAttachments: false,
+      metadata: false,
+      scheduling: false,
+      tags: { asciiOnly: false, maxCount: 0 },
+    },
+    idempotency: EmailSenderIdempotencySchema.cases.None.make({}),
+    provider: "example",
+    validate: () => Effect.void,
+  },
+  span: "ExampleMail.submit",
+});

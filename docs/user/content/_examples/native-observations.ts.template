@@ -1,0 +1,37 @@
+import { Effect, Redacted } from "effect";
+import {
+  EmailNativeObservations,
+  observedLoopsTransactionalLayer,
+} from "@corven/email-sdk/native-observations";
+import type {
+  EmailNativeObserver,
+  EmailNativeStartingObserver,
+} from "@corven/email-sdk/native-observations";
+import { LoopsTransactionalEmail, loopsTransactionalLayer } from "@corven/email-sdk/loops";
+
+export const observedNativeLoopsLayer = (
+  observer: EmailNativeObserver,
+  startingObserver?: EmailNativeStartingObserver,
+) =>
+  observedLoopsTransactionalLayer(
+    loopsTransactionalLayer({
+      apiKey: Redacted.make("fictional-unused-key"),
+      attachments: "Disabled",
+      templateAuthority: "ProviderManaged",
+    }),
+    { capacity: 100 },
+    observer,
+    startingObserver,
+  );
+
+export const inspectNativeOperationFacts = Effect.gen(function* inspectNativeOperationFacts() {
+  const loops = yield* LoopsTransactionalEmail;
+  const view = yield* EmailNativeObservations;
+
+  const preview = yield* loops.validate({
+    email: "recipient@fictional.invalid",
+    transactionalId: "fictional-template",
+  });
+
+  return { observations: yield* view.snapshot, preview };
+});

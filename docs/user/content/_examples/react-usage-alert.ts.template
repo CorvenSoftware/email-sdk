@@ -1,0 +1,15 @@
+import { renderReactEmail } from "@corven/email-sdk/react";
+import { transactionalEmailLayout } from "./react-layout.js";
+
+export const usageAlertEmail = (input: { usage: string; limit: string; reviewUrl: string }) =>
+  renderReactEmail(
+    transactionalEmailLayout({
+      heading: "Review your usage",
+      preview: "Your account is approaching a usage limit.",
+      paragraphs: [
+        `Current usage: ${input.usage}. Limit: ${input.limit}.`,
+        "Review usage and available options.",
+      ],
+      action: { href: input.reviewUrl, label: "View usage" },
+    }),
+  );

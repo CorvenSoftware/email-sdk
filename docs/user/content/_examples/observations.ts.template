@@ -1,0 +1,33 @@
+import { Effect, Layer } from "effect";
+import { Email, emailLayer } from "@corven/email-sdk";
+import type { EmailMessageInput } from "@corven/email-sdk";
+import {
+  EmailSubmissionObservations,
+  observedEmailSenderLayer,
+} from "@corven/email-sdk/observations";
+import type {
+  EmailSubmissionObserver,
+  EmailSubmissionStartingObserver,
+} from "@corven/email-sdk/observations";
+import { recordingSenderLayer } from "@corven/email-sdk/testing";
+
+export const submitAndInspectSyntheticEmail = Effect.fnUntraced(
+  function* submitAndInspectSyntheticEmail(message: EmailMessageInput) {
+    const email = yield* Email;
+    const observations = yield* EmailSubmissionObservations;
+    const receipt = yield* email.send(message);
+    const snapshot = yield* observations.snapshot;
+
+    return { receipt, snapshot };
+  },
+);
+
+export const observedSyntheticEmailLayer = (
+  observer: EmailSubmissionObserver,
+  startingObserver?: EmailSubmissionStartingObserver,
+) =>
+  emailLayer().pipe(
+    Layer.provideMerge(
+      observedEmailSenderLayer(recordingSenderLayer, { capacity: 10 }, observer, startingObserver),
+    ),
+  );

@@ -1,0 +1,17 @@
+import { renderReactEmail } from "@corven/email-sdk/react";
+import { transactionalEmailLayout } from "./react-layout.js";
+
+export const invoiceDueEmail = (input: {
+  invoice: string;
+  amount: string;
+  dueAt: string;
+  paymentUrl: string;
+}) =>
+  renderReactEmail(
+    transactionalEmailLayout({
+      heading: "Invoice due",
+      preview: "An invoice is ready for review.",
+      paragraphs: [`Invoice ${input.invoice}: ${input.amount}.`, `Due: ${input.dueAt}.`],
+      action: { href: input.paymentUrl, label: "Review invoice" },
+    }),
+  );

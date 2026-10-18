@@ -1,0 +1,9 @@
+import { Layer } from "effect";
+import type { Redacted } from "effect";
+import { mailgunEmailLayer } from "@corven/email-sdk/mailgun";
+import { emailHttpLayer } from "./sending.js";
+
+export const configuredMailgunAccount = (apiKey: Redacted.Redacted) =>
+  mailgunEmailLayer({ apiKey, domain: "mail.example.test", region: "UnitedStates" }).pipe(
+    Layer.provide(emailHttpLayer),
+  );

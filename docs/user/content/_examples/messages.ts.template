@@ -1,0 +1,17 @@
+import { Effect } from "effect";
+import { emailAttachmentFromBytes, parseEmailMessage } from "@corven/email-sdk";
+
+export const prepareNotification = Effect.gen(function* prepareNotification() {
+  const attachment = yield* emailAttachmentFromBytes(
+    new TextEncoder().encode("Fictional receipt"),
+    { contentType: "text/plain", filename: "receipt.txt" },
+  );
+
+  return yield* parseEmailMessage({
+    attachments: [attachment],
+    body: { html: "<p>Your receipt is attached.</p>", text: "Your receipt is attached." },
+    from: { address: "sender@example.test", name: "Example Shop" },
+    subject: "Receipt",
+    to: "Example Customer <recipient@example.test>",
+  });
+});

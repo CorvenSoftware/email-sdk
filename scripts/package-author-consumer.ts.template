@@ -1,0 +1,120 @@
+import assert from "node:assert/strict";
+import { Effect, Layer, Redacted, Ref, Schema, Scope } from "effect";
+import { HttpClient, HttpClientRequest, HttpClientResponse } from "effect/http";
+import {
+  Email, EmailConfigurationError, EmailDeliveryUnknown, EmailInvalidMessage,
+  EmailMessageIdSchema, EmailReceiptSchema, EmailRejected, EmailSenderIdempotencySchema,
+  formatEmailMailbox,
+} from "@corven/email-sdk";
+import type { EmailSubmission } from "@corven/email-sdk";
+import { defineEmailHttpProvider, EmailHttpCredentialSchema, readEmailHttpJson } from "@corven/email-sdk/provider";
+import type { EmailHttpExchange } from "@corven/email-sdk/provider";
+
+export const verifyAuthoredProvider = (define: typeof defineEmailHttpProvider) =>
+  Effect.gen(function* verifyExternalAuthor() {
+    const active = yield* Ref.make(false);
+    const acknowledgements = Schema.Struct({ receipt: EmailMessageIdSchema });
+    const provider = define({
+      configuration: Schema.Struct({ apiKey: EmailHttpCredentialSchema }),
+      makeProtocol: ({ apiKey }) => Effect.gen(function* acquireExternalAccount() {
+        const token = yield* Effect.acquireRelease(
+          Ref.set(active, true).pipe(Effect.as(apiKey)),
+          () => Ref.set(active, false),
+        );
+        const exchange: EmailHttpExchange = {
+          request: (submission) => {
+            const { message } = submission;
+            const request = HttpClientRequest.post("https://external-author.invalid/send").pipe(
+              HttpClientRequest.bearerToken(Redacted.value(token)),
+            );
+            const keyed = submission.idempotencyKey === undefined
+              ? request
+              : HttpClientRequest.setHeader(request, "Idempotency-Key", submission.idempotencyKey);
+            return keyed.pipe(
+              HttpClientRequest.bodyJson({
+                bcc: message.bcc?.map(formatEmailMailbox),
+                body: message.body,
+                cc: message.cc?.map(formatEmailMailbox),
+                from: formatEmailMailbox(message.from),
+                metadata: message.metadata,
+                replyTo: message.replyTo?.map(formatEmailMailbox),
+                subject: message.subject,
+                to: message.to.map(formatEmailMailbox),
+              }),
+              Effect.mapError(() => new EmailRejected({ provider: "external-author", reason: "invalid-message" })),
+            );
+          },
+          respond: (response) => {
+            if (response.status !== 202) {
+              return Effect.fail(new EmailDeliveryUnknown({ provider: "external-author", reason: "unexpected-status", status: response.status }));
+            }
+            return readEmailHttpJson(response, "external-author").pipe(
+              Effect.flatMap(Schema.decodeUnknownEffect(acknowledgements)),
+              Effect.mapError(() => new EmailDeliveryUnknown({ provider: "external-author", reason: "invalid-response" })),
+              Effect.map(({ receipt }) => EmailReceiptSchema.cases.Accepted.make({ provider: "external-author", messageId: receipt })),
+            );
+          },
+        };
+        return exchange;
+      }),
+      profile: {
+        capabilities: {
+          attachmentContentTypes: "None", attachments: false, headers: "None",
+          inlineAttachments: false, metadata: true, scheduling: false,
+          tags: { asciiOnly: false, maxCount: 0 },
+        },
+        idempotency: EmailSenderIdempotencySchema.cases.KeyForwarding.make({}),
+        provider: "external-author",
+        validate: () => Effect.void,
+      },
+      span: "ExternalAuthor.submit",
+    });
+    const options = { apiKey: Redacted.make("explicit-external-credential") };
+    const layer: Layer.Layer<Email, EmailConfigurationError, HttpClient.HttpClient> = provider.emailLayer(options);
+    const message = {
+      body: { text: "external-body", html: "<p>external-body</p>" },
+      from: "sender@example.test", subject: "external-subject", to: ["recipient@example.test"],
+      metadata: { "Opaque.Key": "preserved" },
+    } as const;
+    const proveRejectedAuthorCalls = (): void => {
+      // @ts-expect-error -- The external author requires Redacted credentials.
+      void provider.senderLayer({ apiKey: "not-redacted" });
+      // @ts-expect-error -- Required configuration cannot disappear through inferred constructors.
+      void provider.emailLayer({});
+      const unclosed = {
+        request: (_submission: EmailSubmission) => Effect.as(Scope.Scope, HttpClientRequest.post("https://external-author.invalid/send")),
+        respond: () => Effect.fail(new EmailRejected({ provider: "external-author", reason: "rejected" })),
+      };
+      // @ts-expect-error -- Submission callbacks cannot leak acquisition requirements.
+      const rejectedHooks: EmailHttpExchange = unclosed;
+      void rejectedHooks;
+    };
+    void proveRejectedAuthorCalls;
+    const preview = yield* provider.preflight(message, { idempotencyKey: "stable-external-key" });
+    assert.equal(preview.metadata?.["Opaque.Key"], "preserved");
+    assert.equal(yield* Ref.get(active), false);
+    const unsupported = yield* provider.preflight({ ...message, headers: [{ name: "X-Intent", value: "must-not-drop" }] }).pipe(Effect.flip);
+    assert(unsupported instanceof EmailInvalidMessage);
+    const transport = HttpClient.make((request) => Effect.gen(function* inspectExternalRequest() {
+      assert.equal(yield* Ref.get(active), true);
+      assert.equal(request.method, "POST");
+      assert.equal(request.url, "https://external-author.invalid/send");
+      assert.equal(request.headers.authorization, "Bearer explicit-external-credential");
+      assert.equal(request.headers["idempotency-key"], "stable-external-key");
+      assert(request.body._tag === "Uint8Array");
+      const body = yield* Schema.decodeEffect(Schema.fromJsonString(Schema.Json))(new TextDecoder().decode(request.body.body)).pipe(Effect.orDie);
+      assert.deepEqual(body, {
+        body: { text: "external-body", html: "<p>external-body</p>" },
+        from: "sender@example.test", metadata: { "Opaque.Key": "preserved" },
+        subject: "external-subject", to: ["recipient@example.test"],
+      });
+      return HttpClientResponse.fromWeb(request, new Response('{"receipt":"external-receipt"}', { status: 202 }));
+    }));
+    const receipt = yield* Effect.gen(function* submitExternalProvider() {
+      const email = yield* Email;
+      return yield* email.send(message, { idempotencyKey: "stable-external-key" });
+    }).pipe(Effect.provide(layer.pipe(Layer.provide(Layer.succeed(HttpClient.HttpClient, transport)))));
+    assert(receipt._tag === "Accepted");
+    assert.equal(receipt.messageId, "external-receipt");
+    assert.equal(yield* Ref.get(active), false);
+  });

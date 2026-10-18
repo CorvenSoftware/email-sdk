@@ -1,0 +1,120 @@
+import assert from "node:assert/strict";
+import { spawnSync } from "node:child_process";
+import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { fileURLToPath } from "node:url";
+
+const fixture = fileURLToPath(new URL("./cli-fixture/", import.meta.url));
+mkdirSync(fixture);
+writeFileSync(new URL("./cli-fixture/.env", import.meta.url), "RESEND_API_KEY=fictional-private-cli-token\n");
+writeFileSync(new URL("./cli-fixture/email-sdk.json", import.meta.url), '{"private-cli-config":"fictional-do-not-read"}');
+const bin = fileURLToPath(new URL("./node_modules/.bin/corven-email", import.meta.url));
+const manifest = JSON.parse(readFileSync(new URL("./node_modules/@corven/email-sdk/package.json", import.meta.url), "utf8"));
+const environment = {
+  PATH: process.env.PATH,
+  HOME: fixture,
+  RESEND_API_KEY: "fictional-private-cli-token",
+};
+
+const invoke = (args, input) => spawnSync(bin, args, {
+  cwd: fixture,
+  encoding: "utf8",
+  env: environment,
+  input,
+  maxBuffer: 1_048_576,
+  timeout: 10_000,
+});
+const refuse = (args, input, reason, status = 1) => {
+  const result = invoke(args, input);
+  assert.equal(result.status, status);
+  assert.equal(result.stdout, "");
+  assert.deepEqual(JSON.parse(result.stderr), { error: "EmailCliError", reason, submission: "NotAttempted" });
+  assert(!result.stderr.includes("private-cli"));
+};
+
+const help = invoke([]);
+assert.equal(help.status, 0);
+assert.equal(help.stderr, "");
+assert(help.stdout.includes("NOT CHECKED"));
+const discovery = invoke(["discover"]);
+assert.equal(discovery.status, 0);
+assert.equal(discovery.stderr, "");
+const discovered = JSON.parse(discovery.stdout);
+assert.equal(discovered.name, manifest.name);
+assert.equal(discovered.version, manifest.version);
+assert.deepEqual(discovered.entrypoints, Object.keys(manifest.exports).filter((name) => name !== "./package.json").toSorted());
+assert.equal(discovered.providerCapabilities, "NotChecked");
+assert(!discovery.stdout.includes("private-cli"));
+const profiles = invoke(["providers"]);
+assert.equal(profiles.status, 0);
+const inventory = JSON.parse(profiles.stdout);
+assert.equal(inventory.coverage, "SelectedProfiles");
+assert.equal(inventory.providers.find((provider) => provider.name === "postmark").capabilities.scheduling, false);
+assert.equal(inventory.authentication, "NotChecked");
+const schema = invoke(["schema"]);
+assert.equal(schema.status, 0);
+assert.equal(schema.stderr, "");
+const projected = JSON.parse(schema.stdout);
+assert.equal(projected.constraints, "PartialProjection");
+assert.equal(projected.validationAuthority, "corven-email validate");
+assert.equal(projected.document.dialect, "draft-2020-12");
+assert.equal(projected.document.schema.type, "object");
+
+const message = {
+  from: "sender@example.invalid",
+  to: "recipient@example.invalid",
+  bcc: ["private-cli-hidden@example.invalid"],
+  body: { html: "<p>private-cli-content 🦉</p>" },
+  subject: "private-cli-subject",
+  attachments: [{ filename: "private-cli-file.txt", contentType: "text/plain", contentBase64: "SGVsbG8=" }],
+  metadata: { private: "private-cli-metadata" },
+  sendAt: "2030-01-02T03:04:05.000Z",
+};
+const valid = invoke(["validate"], JSON.stringify({ message, options: { executionMetadata: { nested: { value: "private-cli-context", values: [0, false, null] } }, idempotencyKey: "private-cli-key", policy: { deadline: { _tag: "Millis", value: 30000 }, initialDelay: { _tag: "Millis", value: 100 }, maxAttempts: 3 } } }));
+assert.equal(valid.status, 0);
+assert.equal(valid.stderr, "");
+assert.deepEqual(JSON.parse(valid.stdout), { authentication: "NotChecked", checks: "CommonRequestOnly", delivery: "NotChecked", providerPreflight: "NotChecked", submission: "NotAttempted", valid: true });
+assert(!valid.stdout.includes("private-cli"));
+assert(!valid.stdout.includes("example.invalid"));
+const localMessage = { from: message.from, to: message.to, subject: message.subject, body: message.body };
+for (const provider of ["resend", "postmark", "sendgrid", "mailgun", "mailersend", "mailpace", "unosend"]) {
+  const inspected = invoke(["validate", provider], JSON.stringify({ message: localMessage }));
+  assert.equal(inspected.status, 0);
+  assert.equal(inspected.stderr, "");
+  const report = JSON.parse(inspected.stdout);
+  assert.equal(report.checks, "ProviderLocalPreflight");
+  assert.equal(report.provider, provider);
+  assert.equal(report.providerPreflight, "LocalOnly");
+  assert.equal(report.authentication, "NotChecked");
+  assert.equal(report.submission, "NotAttempted");
+  assert(!inspected.stdout.includes("private-cli"));
+}
+refuse(["validate", "postmark"], JSON.stringify({ message }), "invalid-request");
+refuse(["validate", "resend"], JSON.stringify({ message: { ...localMessage, metadata: message.metadata } }), "invalid-request");
+refuse(["validate", "postmark"], JSON.stringify({ message: localMessage, options: { idempotencyKey: "private-cli-key" } }), "invalid-request");
+refuse(["validate", "primitive"], undefined, "usage", 2);
+for (const provider of ["sendgrid", "mailgun", "mailersend", "mailpace", "unosend"]) {
+  refuse(["validate", provider], JSON.stringify({ message: localMessage, options: { idempotencyKey: "private-cli-key" } }), "invalid-request");
+}
+refuse(["validate", "sendgrid"], JSON.stringify({ message: { ...localMessage, metadata: {} } }), "invalid-request");
+refuse(["validate", "mailgun"], JSON.stringify({ message: { ...localMessage, headers: [{ name: "X-Mailgun-Variables", value: "private-cli-override" }] } }), "invalid-request");
+refuse(["validate", "mailersend"], JSON.stringify({ message: { ...localMessage, replyTo: ["one@example.invalid", "two@example.invalid"] } }), "invalid-request");
+refuse(["validate", "mailpace"], JSON.stringify({ message: { ...localMessage, headers: [{ name: "X-Private", value: "private-cli-unsupported" }] } }), "invalid-request");
+refuse(["validate", "unosend"], JSON.stringify({ message: { ...localMessage, attachments: [{ filename: "private.bin", contentBase64: "SGVsbG8=", contentType: "application/x-private" }] } }), "invalid-request");
+const offset = invoke(["validate"], JSON.stringify({ message: { ...message, from: "Sender <sender@example.invalid>", sendAt: "2030-01-02T08:34:05.123+05:30" } }));
+assert.equal(offset.status, 0);
+assert.deepEqual(JSON.parse(offset.stdout), JSON.parse(valid.stdout));
+refuse(["validate"], JSON.stringify({ message: { ...message, sendAt: "2030-02-30T08:34:05+05:30" } }), "invalid-request");
+refuse(["validate"], JSON.stringify({ message: { ...message, sendAt: "2030-01-02T08:34:05-00:00" } }), "invalid-request");
+refuse(["validate"], JSON.stringify({ message: { ...message, from: "Sender <sender@example.invalid>, Hidden <hidden@example.invalid>" } }), "invalid-request");
+refuse(["validate"], JSON.stringify({ message: { ...message, body: {} } }), "invalid-request");
+const contextBranch = Object.fromEntries(Array.from({ length: 7 }, (_, index) => [`key${index}`, "private-cli-context"]));
+refuse(["validate"], JSON.stringify({ message, options: { executionMetadata: { values: Array.from({ length: 32 }, () => contextBranch) } } }), "invalid-request");
+refuse(["validate"], JSON.stringify({ message: { ...message, sendAt: "2030-02-30T00:00:00.000Z" } }), "invalid-request");
+refuse(["validate"], JSON.stringify({ message: { ...message, "private-cli-field": true } }), "invalid-request");
+refuse(["validate"], '{"message":{},"mess\\u0061ge":{}}', "invalid-json");
+refuse(["validate"], "", "invalid-json");
+refuse(["validate"], Buffer.from([0xc3, 0x28]), "invalid-utf8");
+for (const args of [["send"], ["auth"], ["doctor"], ["--dry-run"], ["validate", "--api-key", "fictional-private-cli-token"]]) {
+  refuse(args, undefined, "usage", 2);
+}
+console.log("Installed CLI: help, manifest discovery, partial schema, strict private validation, UTF-8/ambiguity refusal and unsupported live-command refusal passed.");

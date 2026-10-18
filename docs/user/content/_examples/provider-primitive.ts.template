@@ -1,0 +1,9 @@
+import { Layer } from "effect";
+import type { Redacted } from "effect";
+import { primitiveEmailLayer } from "@corven/email-sdk/primitive";
+import { emailHttpLayer } from "./sending.js";
+
+export const configuredPrimitiveAccount = (apiKey: Redacted.Redacted) =>
+  primitiveEmailLayer({ apiKey, keylessSends: "Reject", tracking: "ProviderDisabled" }).pipe(
+    Layer.provide(emailHttpLayer),
+  );

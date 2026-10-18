@@ -1,0 +1,22 @@
+import { Effect, Redacted } from "effect";
+import { IterableCampaignEmail, iterableCampaignLayer } from "@corven/email-sdk/iterable";
+
+export const fictionalIterableLayer = iterableCampaignLayer({
+  apiKey: Redacted.make("fictional-unused-key"),
+  campaignAuthority: "AuthorizeProviderManagedCampaign",
+  contactWrites: "AuthorizeProfileCreation",
+  dataRetention: "AuthorizePersistedSendData",
+  projectIdentity: "EmailBased",
+  region: "US",
+  tracking: "AuthorizeCampaignTracking",
+});
+
+export const fictionalIterableNotification = Effect.gen(
+  function* submitFictionalIterableCampaign() {
+    return yield* (yield* IterableCampaignEmail).send({
+      campaignId: 123,
+      dataFields: { count: 0, firstName: "Fictional" },
+      recipientEmail: "recipient@fictional.invalid",
+    });
+  },
+);

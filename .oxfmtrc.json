@@ -1,0 +1,13 @@
+{
+  "printWidth": 100,
+  "ignorePatterns": [
+    "repos/**",
+    "**/.blume/**",
+    "**/.blume-verify/**",
+    "tools/oxlint/anti-slop/**",
+    "tools/oxlint/corven/**",
+    "pnpm-lock.yaml",
+    "dist/**",
+    "docs/user/dist/**"
+  ]
+}

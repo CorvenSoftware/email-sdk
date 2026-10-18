@@ -1,0 +1,10 @@
+node_modules/
+/repos/novu/
+dist/
+.turbo/
+.blume/
+.blume-verify/
+coverage/
+*.tgz
+.env
+.env.*

@@ -1,0 +1,24 @@
+import { Effect, Layer } from "effect";
+import type { Redacted } from "effect";
+import { EmailAgent, EmailAgentApproval, emailAgentLayer } from "../src/email-agent.js";
+import type { IEmailAgentApproval } from "../src/email-agent.js";
+import { postmarkEmailLayer } from "../src/postmark-email-sender.js";
+
+export const hostApprovedAgentLayer = (
+  serverToken: Redacted.Redacted,
+  review: IEmailAgentApproval["review"],
+) =>
+  emailAgentLayer({ from: { address: "host@fictional.invalid", name: "Fictional host" } }).pipe(
+    Layer.provide(Layer.succeed(EmailAgentApproval, EmailAgentApproval.of({ review }))),
+    Layer.provide(postmarkEmailLayer({ serverToken })),
+  );
+
+export const fictionalAgentSubmission = Effect.gen(function* submitHostReviewedNotification() {
+  const agent = yield* EmailAgent;
+
+  return yield* agent.submit({
+    body: { text: "Fictional content for the host to review, compiled but not executed." },
+    subject: "Fictional agent notification",
+    to: "recipient@fictional.invalid",
+  });
+});

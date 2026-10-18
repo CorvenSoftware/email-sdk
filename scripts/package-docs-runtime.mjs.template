@@ -1,0 +1,16 @@
+import assert from "node:assert/strict";
+import { Effect, Result } from "effect";
+import { recordNotification } from "./docs-examples/recording.ts";
+import { inspectUncertainSubmission } from "./docs-examples/failing-workflow.ts";
+
+const recorded = await Effect.runPromise(recordNotification);
+assert.equal(recorded.receipt._tag, "Recorded");
+assert.equal(recorded.messages.length, 1);
+assert.equal(recorded.messages[0].subject, "Order ready");
+const uncertain = await Effect.runPromise(inspectUncertainSubmission);
+assert(Result.isFailure(uncertain.result));
+assert.equal(uncertain.result.failure._tag, "EmailDeliveryUnknown");
+assert.equal(uncertain.attempts.length, 1);
+console.log(
+  "User documentation examples: strict public imports, offline recording and unknown-outcome/no-replay workflows passed.",
+);

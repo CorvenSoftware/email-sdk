@@ -1,0 +1,133 @@
+{
+  "compilerOptions": {
+    "target": "ES2023",
+    "lib": ["ES2024", "DOM"],
+    "module": "NodeNext",
+    "moduleResolution": "NodeNext",
+    "strict": true,
+    "noUncheckedIndexedAccess": true,
+    "exactOptionalPropertyTypes": true,
+    "noImplicitOverride": true,
+    "noFallthroughCasesInSwitch": true,
+    "verbatimModuleSyntax": true,
+    "isolatedModules": true,
+    "resolveJsonModule": true,
+    "erasableSyntaxOnly": true,
+    "skipLibCheck": true,
+    "noEmit": true,
+    "types": ["node"],
+    "plugins": [
+      {
+        "name": "@effect/language-service",
+        "overrides": [
+          {
+            "include": ["src/**/*.test.ts"],
+            "options": { "allowedUnstableApis": ["@effect/vitest#it"] }
+          },
+          {
+            "include": [
+              "src/resend-email-sender.test.ts",
+              "src/postmark-email-sender.test.ts",
+              "src/sendgrid-email-sender.test.ts",
+              "src/mailgun-email-sender.test.ts",
+              "src/mailersend-email-sender.test.ts",
+              "src/mailpace-email-sender.test.ts",
+              "src/unosend-email-sender.test.ts",
+              "src/lettermint-email-sender.test.ts",
+              "src/plunk-email-sender.test.ts",
+              "src/helo-email-sender.test.ts",
+              "src/jetemail-email-sender.test.ts",
+              "src/lettr-email-sender.test.ts",
+              "src/sparkpost-email-sender.test.ts",
+              "src/primitive-email-sender.test.ts",
+              "src/mailtrap-email-sender.test.ts",
+              "src/mailchimp-email-sender.test.ts",
+              "src/scaleway-email-sender.test.ts",
+              "src/zeptomail-email-sender.test.ts",
+              "src/graph-email-sender.test.ts",
+              "src/cloudflare-email-sender.test.ts",
+              "src/ses-email-sender.test.ts",
+              "src/loops-transactional-email.test.ts",
+              "src/loops-transactional-batch.test.ts",
+              "src/email-http-conformance.test.ts",
+              "src/email-provider.test.ts"
+            ],
+            "options": { "allowedUnstableApis": ["@effect/vitest#it", "effect/http"] }
+          },
+          {
+            "include": [
+              "src/resend-email-sender.ts",
+              "src/postmark-email-sender.ts",
+              "src/sendgrid-email-sender.ts",
+              "src/mailgun-email-sender.ts",
+              "src/mailersend-email-sender.ts",
+              "src/mailpace-email-sender.ts",
+              "src/unosend-email-sender.ts",
+              "src/lettermint-email-sender.ts",
+              "src/plunk-email-sender.ts",
+              "src/helo-email-sender.ts",
+              "src/jetemail-email-sender.ts",
+              "src/lettr-email-sender.ts",
+              "src/sparkpost-email-sender.ts",
+              "src/primitive-email-sender.ts",
+              "src/mailtrap-email-sender.ts",
+              "src/mailchimp-email-sender.ts",
+              "src/scaleway-email-sender.ts",
+              "src/zeptomail-email-sender.ts",
+              "src/graph-email-sender.ts",
+              "src/cloudflare-email-sender.ts",
+              "src/ses-email-sender.ts",
+              "src/sendheron-email-sender.ts",
+              "src/brevo-email-sender.ts",
+              "src/sequenzy-email-sender.ts",
+              "src/loops-transactional-email.ts",
+              "src/iterable-campaign-email.ts",
+              "src/email-http-response.ts",
+              "src/email-http-protocol.ts",
+              "src/email-provider.ts",
+              "test/email-http-fixture.ts",
+              "examples/resend.ts",
+              "examples/postmark.ts",
+              "examples/loops.ts",
+              "test/email-contracts.tst.ts"
+            ],
+            "options": { "allowedUnstableApis": ["effect/http"] }
+          }
+        ],
+        "diagnosticSeverity": {
+          "anyUnknownInErrorContext": "error",
+          "unsafeEffectTypeAssertion": "error",
+          "floatingEffect": "error",
+          "floatingEffectInVitest": "error",
+          "missingEffectContext": "error",
+          "missingEffectError": "error",
+          "missingLayerContext": "error",
+          "leakingRequirements": "error",
+          "globalErrorInEffectCatch": "error",
+          "globalErrorInEffectFailure": "error",
+          "unknownInEffectCatch": "error",
+          "tryCatchInEffectGen": "error",
+          "returnEffectInGen": "error",
+          "runEffectInsideEffect": "error",
+          "schemaSyncInEffect": "error",
+          "newPromise": "error",
+          "asyncFunction": "error",
+          "globalConsole": "error",
+          "globalDate": "error",
+          "globalFetch": "error",
+          "globalRandom": "error",
+          "globalTimers": "error"
+        }
+      }
+    ]
+  },
+  "include": [
+    "src",
+    "test",
+    "examples",
+    "docs/user/blume.config.ts",
+    "vitest.config.ts",
+    "oxlint.config.ts"
+  ],
+  "exclude": ["node_modules", "dist", "repos", "tools"]
+}
