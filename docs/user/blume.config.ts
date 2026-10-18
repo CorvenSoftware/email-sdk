@@ -1,5 +1,6 @@
 import { defineConfig } from "blume";
 import sdkPackage from "../../package.json" with { type: "json" };
+import docsDeployment from "./deployment.json" with { type: "json" };
 
 export default defineConfig({
   agents: {
@@ -23,6 +24,7 @@ Use the [quickstart](/quickstart) to install the package and record an email off
   },
   ai: { assistant: { enabled: false }, openInChat: false },
   content: { root: "content" },
+  deployment: { site: `https://${docsDeployment.hostname}` },
   description:
     "Send transactional email with Effect. Configure provider Layers, validate messages and handle typed submission outcomes.",
   feedback: false,

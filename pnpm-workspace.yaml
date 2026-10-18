@@ -1,5 +1,10 @@
 packages: []
 verifyDepsBeforeRun: error
 minimumReleaseAge: 0
+overrides:
+  "@effect/platform-node-shared": "$effect"
+  "@effect/sql-d1": "$effect"
+  "@effect/sql-sqlite-do": "$effect"
 allowBuilds:
   esbuild: true
+  workerd: true

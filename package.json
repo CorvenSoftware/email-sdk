@@ -241,11 +241,13 @@
     "check:package": "bash scripts/check-package.sh",
     "docs:dev": "cd docs/user && ASTRO_TELEMETRY_DISABLED=1 blume dev",
     "docs:build": "cd docs/user && ASTRO_TELEMETRY_DISABLED=1 blume build",
+    "docs:deploy": "ALCHEMY_TELEMETRY_DISABLED=1 alchemy deploy --stage prod",
     "docs:check": "cd docs/user && blume doctor && blume validate --strict",
     "docs:preview": "cd docs/user && ASTRO_TELEMETRY_DISABLED=1 blume preview",
     "prepare": "effect-tsgo patch"
   },
   "devDependencies": {
+    "@effect/platform-node": "4.0.3",
     "@effect/tsgo": "0.51.1",
     "@effect/vitest": "4.0.3",
     "@oxlint/plugins": "1.87.0",
@@ -254,6 +256,7 @@
     "@types/node": "24.13.6",
     "@types/react": "19.3.0",
     "ai": "7.0.140",
+    "alchemy": "2.0.0-beta.83",
     "blume": "2.2.4",
     "effect": "4.0.3",
     "oxfmt": "0.72.0",

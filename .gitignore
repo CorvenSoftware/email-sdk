@@ -2,6 +2,7 @@ node_modules/
 /repos/novu/
 dist/
 .turbo/
+.alchemy/
 .blume/
 .blume-verify/
 coverage/

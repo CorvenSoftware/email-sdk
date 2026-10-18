@@ -10,7 +10,8 @@ Effect-native email library.
 - [Usage examples](examples/) — compiled, not executed.
 - [HTTP provider authoring](docs/contributing/provider-authoring.md) — public contract and installed example.
 - [Installed-package verification](scripts/check-package.sh)
+- [Documentation deployment](docs/contributing/docs-deployment.md) — Alchemy and GitHub Actions setup.
 - [Contributor instructions](AGENTS.md)
 - [Reference sources](.agent-repos) — pinned source revisions for contributor research.
 
-Preview the user documentation with `pnpm docs:dev`. Check content and links with `pnpm docs:check`, then build static HTML, search and LLM-readable output with `pnpm docs:build`. Output lives in `docs/user/dist/`, not the SDK's `dist/`. No deployment target is configured.
+Preview the user documentation with `pnpm docs:dev`. Check content and links with `pnpm docs:check`, then build static HTML, search and LLM-readable output with `pnpm docs:build`. Output lives in `docs/user/dist/`, not the SDK's `dist/`. The Alchemy stack targets the hostname in [deployment.json](docs/user/deployment.json); deployment requires Cloudflare credentials and approval.
