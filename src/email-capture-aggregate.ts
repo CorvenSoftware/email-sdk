@@ -41,7 +41,7 @@ export interface IEmailCaptureAggregate {
 export class EmailCaptureAggregate extends Context.Service<
   EmailCaptureAggregate,
   IEmailCaptureAggregate
->()("@corven/email-sdk/EmailCaptureAggregate") {}
+>()("@corvencore/email-sdk/EmailCaptureAggregate") {}
 
 export type EmailCaptureBinding<E, R> =
   | {

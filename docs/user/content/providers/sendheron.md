@@ -3,7 +3,7 @@ title: SendHeron
 description: Choose SendHeron attachment policy and its corresponding replay guarantees.
 ---
 
-Import `sendheronEmailLayer` from `@corven/email-sdk/sendheron` to provide the common `Email` service for this account.
+Import `sendheronEmailLayer` from `@corvencore/email-sdk/sendheron` to provide the common `Email` service for this account.
 
 ## Configure the account
 

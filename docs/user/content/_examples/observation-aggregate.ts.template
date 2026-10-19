@@ -1,10 +1,10 @@
 import { Effect, Layer } from "effect";
-import { EmailRouter, emailLayer, observedEmailRouterLayer } from "@corven/email-sdk";
+import { EmailRouter, emailLayer, observedEmailRouterLayer } from "@corvencore/email-sdk";
 import {
   EmailObservationAggregate,
   observedEmailSenderLayer,
-} from "@corven/email-sdk/observations";
-import { recordingSenderLayer } from "@corven/email-sdk/testing";
+} from "@corvencore/email-sdk/observations";
+import { recordingSenderLayer } from "@corvencore/email-sdk/testing";
 
 const first = emailLayer().pipe(
   Layer.provideMerge(observedEmailSenderLayer(Layer.fresh(recordingSenderLayer), { capacity: 2 })),

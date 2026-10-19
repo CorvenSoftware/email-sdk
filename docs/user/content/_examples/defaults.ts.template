@@ -1,7 +1,7 @@
 import { Effect, Redacted } from "effect";
-import { Email } from "@corven/email-sdk";
-import { defaultedEmailLayer } from "@corven/email-sdk/defaults";
-import { resendEmailLayer } from "@corven/email-sdk/resend";
+import { Email } from "@corvencore/email-sdk";
+import { defaultedEmailLayer } from "@corvencore/email-sdk/defaults";
+import { resendEmailLayer } from "@corvencore/email-sdk/resend";
 
 const account = resendEmailLayer({ apiKey: Redacted.make("fictional-unused-key") });
 

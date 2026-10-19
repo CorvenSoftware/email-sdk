@@ -7,13 +7,13 @@ Use Node.js **{{nodeVersion}}** and Effect **{{effectVersion}}**. The SDK is cur
 
 ## Choose an entrypoint
 
-Import `Email` and common message types from `@corven/email-sdk`. Import provider Layers from their explicit subpaths, such as `@corven/email-sdk/resend`. Optional rendering, agent and webhook integrations have their own entrypoints; [package reference](/reference) lists their purposes.
+Import `Email` and common message types from `@corvencore/email-sdk`. Import provider Layers from their explicit subpaths, such as `@corvencore/email-sdk/resend`. Optional rendering, agent and webhook integrations have their own entrypoints; [package reference](/reference) lists their purposes.
 
 The package is ESM. On supported Node versions, synchronous CommonJS consumers can load the same ESM graph. There is no separate CommonJS build and no compatibility guarantee for older Node, browsers, Bun or edge runtimes. In particular, an HTTP provider name does not prove that the whole package can run in a Worker.
 
 ## Add React rendering
 
-Core sending does not require React. For `@corven/email-sdk/react`, install the matching optional peers:
+Core sending does not require React. For `@corvencore/email-sdk/react`, install the matching optional peers:
 
 ```sh
 pnpm add react@{{reactVersion}} react-dom@{{reactDomVersion}} @react-email/render@{{reactEmailRenderVersion}}

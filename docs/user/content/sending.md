@@ -31,7 +31,7 @@ You can reuse a transport Layer across provider accounts. Idempotency remains sp
 
 ## Change providers
 
-For Postmark, import `postmarkEmailLayer` from `@corven/email-sdk/postmark` and supply its `serverToken`. The application still uses `Email`, but the provider must support every field and option you request.
+For Postmark, import `postmarkEmailLayer` from `@corvencore/email-sdk/postmark` and supply its `serverToken`. The application still uses `Email`, but the provider must support every field and option you request.
 
 Postmark does not support idempotency keys in this SDK, so the keyed Resend example fails local validation. Select a provider that supports keys if your workflow requires them. Scheduling, attachments and recipient results also vary by provider. Check [providers and validation](./providers) before switching. Handle unsupported fields as validation errors; do not drop them automatically.
 

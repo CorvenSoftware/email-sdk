@@ -1,6 +1,6 @@
 import { Layer } from "effect";
 import type { Redacted } from "effect";
-import { sendgridEmailLayer } from "@corven/email-sdk/sendgrid";
+import { sendgridEmailLayer } from "@corvencore/email-sdk/sendgrid";
 import { emailHttpLayer } from "./sending.js";
 
 export const configuredSendgridAccount = (apiKey: Redacted.Redacted) =>

@@ -3,7 +3,7 @@ title: Approve agent-requested email
 description: Let a model propose content while the host owns sender, account, keys, policy and approval.
 ---
 
-Use `EmailAgent` from `@corven/email-sdk/agent` to expose a constrained proposal boundary. Model input contains `to`, `subject` and `body`. The host supplies the sender and the configured `Email` service.
+Use `EmailAgent` from `@corvencore/email-sdk/agent` to expose a constrained proposal boundary. Model input contains `to`, `subject` and `body`. The host supplies the sender and the configured `Email` service.
 
 <include lang="ts">/_examples/agent.ts.template</include>
 

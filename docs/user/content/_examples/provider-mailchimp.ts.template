@@ -1,6 +1,6 @@
 import { Layer } from "effect";
 import type { Redacted } from "effect";
-import { mailchimpEmailLayer } from "@corven/email-sdk/mailchimp";
+import { mailchimpEmailLayer } from "@corvencore/email-sdk/mailchimp";
 import { emailHttpLayer } from "./sending.js";
 
 export const configuredMailchimpAccount = (apiKey: Redacted.Redacted) =>

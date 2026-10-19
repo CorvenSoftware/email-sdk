@@ -77,7 +77,7 @@ export interface IIterableCampaignEmail {
 export class IterableCampaignEmail extends Context.Service<
   IterableCampaignEmail,
   IIterableCampaignEmail
->()("@corven/email-sdk/IterableCampaignEmail") {}
+>()("@corvencore/email-sdk/IterableCampaignEmail") {}
 
 interface PreparedIterableSubmission {
   readonly job: IterableCampaignJob;

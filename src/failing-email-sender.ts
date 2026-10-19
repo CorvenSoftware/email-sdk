@@ -24,7 +24,7 @@ export interface IFailedEmailSubmissions {
 export class FailedEmailSubmissions extends Context.Service<
   FailedEmailSubmissions,
   IFailedEmailSubmissions
->()("@corven/email-sdk/FailedEmailSubmissions") {}
+>()("@corvencore/email-sdk/FailedEmailSubmissions") {}
 
 export const failingSenderLayer = (failure: EmailSubmissionError) =>
   Layer.effectContext(

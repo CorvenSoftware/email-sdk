@@ -3,7 +3,7 @@ title: SparkPost
 description: Configure SparkPost transmissions with count-aware acknowledgment and regional transport.
 ---
 
-Import `sparkpostEmailLayer` from `@corven/email-sdk/sparkpost` to provide the common `Email` service for this account.
+Import `sparkpostEmailLayer` from `@corvencore/email-sdk/sparkpost` to provide the common `Email` service for this account.
 
 ## Configure the account
 

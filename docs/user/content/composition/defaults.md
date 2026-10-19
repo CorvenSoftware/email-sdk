@@ -3,7 +3,7 @@ title: Message defaults
 description: Apply shared reply-to, header, tag, metadata and key-prefix settings before provider validation.
 ---
 
-Wrap an account with `defaultedEmailLayer` from `@corven/email-sdk/defaults`:
+Wrap an account with `defaultedEmailLayer` from `@corvencore/email-sdk/defaults`:
 
 <include lang="ts">/_examples/defaults.ts.template</include>
 

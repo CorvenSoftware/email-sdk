@@ -1,6 +1,6 @@
 import type { Redacted } from "effect";
-import type { EmailRetryObserver, EmailRetryRestriction } from "@corven/email-sdk";
-import { resendEmailLayer } from "@corven/email-sdk/resend";
+import type { EmailRetryObserver, EmailRetryRestriction } from "@corvencore/email-sdk";
+import { resendEmailLayer } from "@corvencore/email-sdk/resend";
 
 export const accountWithRetryCallbacks = (
   apiKey: Redacted.Redacted,

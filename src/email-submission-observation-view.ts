@@ -32,4 +32,4 @@ export interface IEmailSubmissionObservations {
 export class EmailSubmissionObservations extends Context.Service<
   EmailSubmissionObservations,
   IEmailSubmissionObservations
->()("@corven/email-sdk/EmailSubmissionObservations") {}
+>()("@corvencore/email-sdk/EmailSubmissionObservations") {}

@@ -1,6 +1,6 @@
 # Authoring HTTP email providers
 
-Import `defineEmailHttpProvider` and the authoring types/helpers from `@corven/email-sdk/provider`. The [installed author example](../../scripts/package-author-consumer.ts.template) defines a provider using only public imports; [package verification](../../scripts/check-package.sh) compiles and runs it from both ESM and CommonJS consumers.
+Import `defineEmailHttpProvider` and the authoring types/helpers from `@corvencore/email-sdk/provider`. The [installed author example](../../scripts/package-author-consumer.ts.template) defines a provider using only public imports; [package verification](../../scripts/check-package.sh) compiles and runs it from both ESM and CommonJS consumers.
 
 A definition supplies a configuration Schema, a credential-free profile, a static non-private span label, and an Effect that acquires request/response hooks. The result provides `profile`, `preflight`, `senderLayer` and `emailLayer`. Configuration and acquisition error/requirement types are inferred; the convenience email Layer also supports acquired retry observers and restrictions.
 

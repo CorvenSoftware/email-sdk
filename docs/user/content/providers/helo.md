@@ -3,7 +3,7 @@ title: Helo
 description: Send through a Helo channel with explicit live or sandbox mode.
 ---
 
-Import `heloEmailLayer` from `@corven/email-sdk/helo` to provide the common `Email` service for this account.
+Import `heloEmailLayer` from `@corvencore/email-sdk/helo` to provide the common `Email` service for this account.
 
 ## Configure the account
 

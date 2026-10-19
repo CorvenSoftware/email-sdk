@@ -3,7 +3,7 @@ title: SMTP
 description: Send MIME email over explicit TLS SMTP with protocol-level recipient outcomes.
 ---
 
-Import `smtpEmailLayer` from `@corven/email-sdk/smtp` to provide the common `Email` service for this account.
+Import `smtpEmailLayer` from `@corvencore/email-sdk/smtp` to provide the common `Email` service for this account.
 
 ## Configure the account
 

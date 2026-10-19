@@ -3,7 +3,7 @@ title: Lettr
 description: Choose Lettr immediate or scheduled submission and preserve count-only outcomes.
 ---
 
-Import `lettrEmailLayer` from `@corven/email-sdk/lettr` to provide the common `Email` service for this account.
+Import `lettrEmailLayer` from `@corvencore/email-sdk/lettr` to provide the common `Email` service for this account.
 
 ## Configure the account
 

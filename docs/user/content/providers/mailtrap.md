@@ -3,7 +3,7 @@ title: Mailtrap
 description: Send through Mailtrap Email Sending while preserving all acknowledgment IDs.
 ---
 
-Import `mailtrapEmailLayer` from `@corven/email-sdk/mailtrap` to provide the common `Email` service for this account.
+Import `mailtrapEmailLayer` from `@corvencore/email-sdk/mailtrap` to provide the common `Email` service for this account.
 
 ## Configure the account
 

@@ -108,7 +108,7 @@ export interface IResendWebhookVerifier {
 export class ResendWebhookVerifier extends Context.Service<
   ResendWebhookVerifier,
   IResendWebhookVerifier
->()("@corven/email-sdk/ResendWebhookVerifier") {}
+>()("@corvencore/email-sdk/ResendWebhookVerifier") {}
 
 const parseResendSigningHeaders = Effect.fnUntraced(function* parseResendSigningHeaders(
   headers: typeof ResendWebhookRequestSchema.Type.headers,

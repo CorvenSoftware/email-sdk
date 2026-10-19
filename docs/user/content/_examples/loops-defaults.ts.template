@@ -1,7 +1,7 @@
 import type { Layer } from "effect";
 import { Effect } from "effect";
-import { defaultedLoopsTransactionalLayer } from "@corven/email-sdk/loops-defaults";
-import { LoopsTransactionalEmail } from "@corven/email-sdk/loops";
+import { defaultedLoopsTransactionalLayer } from "@corvencore/email-sdk/loops-defaults";
+import { LoopsTransactionalEmail } from "@corvencore/email-sdk/loops";
 
 export const fictionalDefaultedLoopsSubmission = <E, R>(
   account: Layer.Layer<LoopsTransactionalEmail, E, R>,

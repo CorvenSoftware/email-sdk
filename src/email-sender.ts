@@ -85,5 +85,5 @@ export interface IEmailSender {
 }
 
 export class EmailSender extends Context.Service<EmailSender, IEmailSender>()(
-  "@corven/email-sdk/EmailSender",
+  "@corvencore/email-sdk/EmailSender",
 ) {}

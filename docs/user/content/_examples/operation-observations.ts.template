@@ -1,8 +1,8 @@
 import { Effect } from "effect";
-import { Email, observedEmailOperationLayer } from "@corven/email-sdk";
-import type { EmailOperationObserver } from "@corven/email-sdk";
-import { defaultedEmailLayer } from "@corven/email-sdk/defaults";
-import { recordingEmailLayer } from "@corven/email-sdk/testing";
+import { Email, observedEmailOperationLayer } from "@corvencore/email-sdk";
+import type { EmailOperationObserver } from "@corvencore/email-sdk";
+import { defaultedEmailLayer } from "@corvencore/email-sdk/defaults";
+import { recordingEmailLayer } from "@corvencore/email-sdk/testing";
 
 export const fictionalObservedSubmission = (observer: EmailOperationObserver) =>
   Effect.gen(function* executeObservedNotification() {

@@ -1,6 +1,6 @@
 import { Layer } from "effect";
 import type { Redacted } from "effect";
-import { cloudflareEmailLayer } from "@corven/email-sdk/cloudflare";
+import { cloudflareEmailLayer } from "@corvencore/email-sdk/cloudflare";
 import { emailHttpLayer } from "./sending.js";
 
 export const configuredCloudflareAccount = (apiToken: Redacted.Redacted) =>

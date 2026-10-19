@@ -1,9 +1,9 @@
 import assert = require("node:assert/strict");
 import EffectLibrary = require("effect");
 import React = require("react");
-import EmailSdk = require("@corven/email-sdk");
-import ReactEmail = require("@corven/email-sdk/react");
-import Testing = require("@corven/email-sdk/testing");
+import EmailSdk = require("@corvencore/email-sdk");
+import ReactEmail = require("@corvencore/email-sdk/react");
+import Testing = require("@corvencore/email-sdk/testing");
 
 const { Effect } = EffectLibrary;
 const proveCommonjsReact = (body: ReactEmail.RenderedReactEmail): void => {
@@ -50,7 +50,7 @@ void Effect.runPromise(Effect.gen(function* verifyCommonjsReactRendering() {
   assert.ok(catalog.text.includes("https://example.invalid"));
   assert.ok(!catalog.text.includes("Private CommonJS preview"));
   assert.ok(catalog.html.includes("<h2"));
-  yield* Effect.sync(() => assert.throws(() => require("@corven/email-sdk/dist/email-react-components.js"), { code: "ERR_PACKAGE_PATH_NOT_EXPORTED" }));
+  yield* Effect.sync(() => assert.throws(() => require("@corvencore/email-sdk/dist/email-react-components.js"), { code: "ERR_PACKAGE_PATH_NOT_EXPORTED" }));
   for (const preset of ["light", "dark"] as const) {
     const family = ReactEmail.themedReactEmailComponents(preset);
     const rendered = yield* ReactEmail.renderReactEmail(React.createElement(family.EmailDocument, null, React.createElement(family.EmailParagraph, null, "Preset content")));
@@ -59,7 +59,7 @@ void Effect.runPromise(Effect.gen(function* verifyCommonjsReactRendering() {
   }
   const defaults = ReactEmail.themedReactEmailComponents();
   assert.equal((yield* ReactEmail.renderReactEmail(React.createElement(defaults.EmailParagraph, null, "Default content"))).text, "Default content");
-  yield* Effect.sync(() => assert.throws(() => require("@corven/email-sdk/dist/email-react-theme.js"), { code: "ERR_PACKAGE_PATH_NOT_EXPORTED" }));
+  yield* Effect.sync(() => assert.throws(() => require("@corvencore/email-sdk/dist/email-react-theme.js"), { code: "ERR_PACKAGE_PATH_NOT_EXPORTED" }));
   const email = yield* EmailSdk.Email;
   yield* email.send({ body, from: "sender@example.invalid", subject: "Synthetic CommonJS React", to: "recipient@example.invalid" });
   assert.deepEqual((yield* (yield* Testing.RecordedEmails).messages)[0]?.body, body);

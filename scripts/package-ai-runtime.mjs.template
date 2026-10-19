@@ -2,9 +2,9 @@ import assert from "node:assert/strict";
 import { asSchema, generateText, stepCountIs } from "ai";
 import { MockLanguageModelV4 } from "ai/test";
 import { Effect, Layer } from "effect";
-import { EmailAgentApproval, emailAgentLayer } from "@corven/email-sdk/agent";
-import { emailAiTool } from "@corven/email-sdk/ai";
-import { RecordedEmails, recordingEmailLayer } from "@corven/email-sdk/testing";
+import { EmailAgentApproval, emailAgentLayer } from "@corvencore/email-sdk/agent";
+import { emailAiTool } from "@corvencore/email-sdk/ai";
+import { RecordedEmails, recordingEmailLayer } from "@corvencore/email-sdk/testing";
 
 const layers = emailAgentLayer({ from: "host@example.test" }).pipe(
   Layer.provide(Layer.succeed(EmailAgentApproval, EmailAgentApproval.of({ review: () => Effect.succeed("Approved") }))),

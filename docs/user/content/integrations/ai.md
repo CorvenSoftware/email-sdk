@@ -3,7 +3,7 @@ title: Add an AI email tool
 description: Expose a Standard Schema tool backed by the scoped host-approved EmailAgent service.
 ---
 
-`emailAiTool` from `@corven/email-sdk/ai` creates an Effect requiring `EmailAgent` and `Scope`. It does not acquire a model client or provider account.
+`emailAiTool` from `@corvencore/email-sdk/ai` creates an Effect requiring `EmailAgent` and `Scope`. It does not acquire a model client or provider account.
 
 <include lang="ts">/_examples/ai.ts.template</include>
 

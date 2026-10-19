@@ -3,7 +3,7 @@ title: Create an HTTP provider
 description: Define a typed account Layer, credential-free preflight and request/response hooks using the public provider builder.
 ---
 
-Import `defineEmailHttpProvider` from `@corven/email-sdk/provider`. Use it when capabilities, idempotency and local message rules are independent of account configuration.
+Import `defineEmailHttpProvider` from `@corvencore/email-sdk/provider`. Use it when capabilities, idempotency and local message rules are independent of account configuration.
 
 ## Define the protocol
 

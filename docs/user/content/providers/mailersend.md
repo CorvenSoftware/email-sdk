@@ -3,7 +3,7 @@ title: MailerSend
 description: Send with MailerSend scheduling, repeated headers and suppression-aware receipts.
 ---
 
-Import `mailersendEmailLayer` from `@corven/email-sdk/mailersend` to provide the common `Email` service for this account.
+Import `mailersendEmailLayer` from `@corvencore/email-sdk/mailersend` to provide the common `Email` service for this account.
 
 ## Configure the account
 

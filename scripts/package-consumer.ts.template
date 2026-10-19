@@ -2,51 +2,51 @@ import assert from "node:assert/strict";
 import { createHmac } from "node:crypto";
 import { Clock, DateTime, Duration, Effect, Layer, Redacted, Ref, Result, Schema, Queue } from "effect";
 import { FetchHttpClient, HttpClient, HttpClientResponse } from "effect/http";
-import { Email, EmailSender, EmailSenderIdempotencySchema, EmailDeliveryUnknown, emailLayer, EmailReceiptSchema, EmailSubmissionIdSchema, EmailRejected, EmailInvalidMessage, EmailInvalidOptions, EmailSendRequestSchema, emailAttachmentFromBytes, EmailAttachmentSchema, EmailMailboxSchema, formatEmailMailbox, renderEmailPersonalizedMessage, EmailRouter, emailRouterLayer, emailAttachmentFromArrayBuffer, emailAttachmentFromBlob, EmailRetryDecisionSchema, EmailRetryCandidateSchema, transformedEmailLayer, EmailPersonalizedOptionsSchema, observedEmailOperationLayer, EmailOperationOutcomeSchema, capturedEmailRouterLayer, observedEmailRouterLayer } from "@corven/email-sdk";
-import type { EmailConfigurationError, EmailReceipt, EmailSendError, IEmail, EmailRetryDecision, EmailRetryObserver, EmailRetryRestriction, EmailRetryCandidate, EmailPreparedOperation, EmailOperationEvent } from "@corven/email-sdk";
-import { preflightResendEmail, resendEmailLayer, resendSenderLayer } from "@corven/email-sdk/resend";
-import { capturedEmailSenderLayer, EmailCapturePayloadSchema, EmailCaptureSnapshotSchema, EmailSubmissionCapture, aggregatedEmailCaptureLayer, EmailCaptureAggregate, EmailCaptureAggregateSnapshotSchema } from "@corven/email-sdk/capture";
-import type { EmailCaptureSnapshot, EmailCaptureRecord, IEmailSubmissionCapture, EmailCaptureAggregateSnapshot } from "@corven/email-sdk/capture";
-import { preflightPostmarkEmail, postmarkEmailLayer } from "@corven/email-sdk/postmark";
-import { PostmarkWebhookEventSchema, parsePostmarkWebhookEvent } from "@corven/email-sdk/postmark-webhook";
-import type { PostmarkWebhookEvent } from "@corven/email-sdk/postmark-webhook";
-import { preflightSendgridEmail, sendgridEmailLayer, sendgridPersonalizedEmailLayer } from "@corven/email-sdk/sendgrid";
-import { preflightMailgunEmail, mailgunEmailLayer, mailgunPersonalizedEmailLayer } from "@corven/email-sdk/mailgun";
-import { MailgunWebhookEventSchema, MailgunWebhookRecipientSchema, MailgunWebhookSignatureSchema, MailgunWebhookVerifier, mailgunWebhookLayer, parseMailgunWebhookEvent } from "@corven/email-sdk/mailgun-webhook";
-import type { IMailgunWebhookVerifier, MailgunWebhookEvent, VerifiedMailgunWebhookSignature } from "@corven/email-sdk/mailgun-webhook";
-import { preflightMailersendEmail, mailersendEmailLayer } from "@corven/email-sdk/mailersend";
-import { preflightMailpaceEmail, mailpaceEmailLayer } from "@corven/email-sdk/mailpace";
-import { preflightUnosendEmail, unosendEmailLayer } from "@corven/email-sdk/unosend";
-import { lettermintEmailLayer } from "@corven/email-sdk/lettermint";
-import { plunkEmailLayer } from "@corven/email-sdk/plunk";
-import { heloEmailLayer } from "@corven/email-sdk/helo";
-import { jetemailEmailLayer } from "@corven/email-sdk/jetemail";
-import { lettrEmailLayer } from "@corven/email-sdk/lettr";
-import { sparkpostEmailLayer } from "@corven/email-sdk/sparkpost";
-import { primitiveEmailLayer } from "@corven/email-sdk/primitive";
-import { mailtrapEmailLayer } from "@corven/email-sdk/mailtrap";
-import { mailchimpEmailLayer } from "@corven/email-sdk/mailchimp";
-import type { MailchimpTagStatisticsInput } from "@corven/email-sdk/mailchimp";
-import { scalewayEmailLayer } from "@corven/email-sdk/scaleway";
-import { zeptomailEmailLayer } from "@corven/email-sdk/zeptomail";
-import { graphEmailLayer } from "@corven/email-sdk/graph";
-import { cloudflareEmailLayer } from "@corven/email-sdk/cloudflare";
-import { sesEmailLayer } from "@corven/email-sdk/ses";
-import { SmtpAuthenticationSchema, smtpEmailLayer, smtpSenderLayer } from "@corven/email-sdk/smtp";
-import type { SmtpEmailOptions } from "@corven/email-sdk/smtp";
-import { LoopsTransactionalEmail, LoopsTransactionalRequestSchema, loopsTransactionalLayer } from "@corven/email-sdk/loops";
-import type { ILoopsTransactionalEmail } from "@corven/email-sdk/loops";
-import { defaultedLoopsTransactionalLayer, LoopsTransactionalDefaultsSchema } from "@corven/email-sdk/loops-defaults";
-import type { LoopsTransactionalDefaultsInput } from "@corven/email-sdk/loops-defaults";
-import { EmailWebhookVerificationError, EmailWebhookNormalizationError, ResendWebhookEventSchema, parseResendWebhookEvent, ResendWebhookRequestSchema, ResendWebhookVerifier, resendWebhookLayer } from "@corven/email-sdk/resend-webhook";
-import type { IResendWebhookVerifier, VerifiedResendWebhook, ResendWebhookEvent } from "@corven/email-sdk/resend-webhook";
-import { EmailAgent, EmailAgentApproval, EmailAgentApprovalError, emailAgentLayer } from "@corven/email-sdk/agent";
-import type { EmailAgentInput, EmailAgentProposal, IEmailAgent } from "@corven/email-sdk/agent";
-import { defaultedEmailLayer, EmailDefaultsSchema } from "@corven/email-sdk/defaults";
-import type { EmailDefaultsInput } from "@corven/email-sdk/defaults";
-import { EmailSubmissionStartingSchema, EmailSubmissionObservations, EmailSubmissionObservationSnapshotSchema, observedEmailSenderLayer, aggregatedEmailObservationsLayer, EmailObservationAggregate, EmailObservationAggregateSnapshotSchema } from "@corven/email-sdk/observations";
-import type { EmailSubmissionStarting, EmailSubmissionStartingObserver, IEmailSubmissionObservations, EmailSubmissionObservationSnapshot, EmailSubmissionObserver } from "@corven/email-sdk/observations";
-import { FailedEmailSubmissions, failingEmailLayer, RecordedEmails, recordingEmailLayer, recordingSenderLayer, recordingEmailCapabilities } from "@corven/email-sdk/testing";
+import { Email, EmailSender, EmailSenderIdempotencySchema, EmailDeliveryUnknown, emailLayer, EmailReceiptSchema, EmailSubmissionIdSchema, EmailRejected, EmailInvalidMessage, EmailInvalidOptions, EmailSendRequestSchema, emailAttachmentFromBytes, EmailAttachmentSchema, EmailMailboxSchema, formatEmailMailbox, renderEmailPersonalizedMessage, EmailRouter, emailRouterLayer, emailAttachmentFromArrayBuffer, emailAttachmentFromBlob, EmailRetryDecisionSchema, EmailRetryCandidateSchema, transformedEmailLayer, EmailPersonalizedOptionsSchema, observedEmailOperationLayer, EmailOperationOutcomeSchema, capturedEmailRouterLayer, observedEmailRouterLayer } from "@corvencore/email-sdk";
+import type { EmailConfigurationError, EmailReceipt, EmailSendError, IEmail, EmailRetryDecision, EmailRetryObserver, EmailRetryRestriction, EmailRetryCandidate, EmailPreparedOperation, EmailOperationEvent } from "@corvencore/email-sdk";
+import { preflightResendEmail, resendEmailLayer, resendSenderLayer } from "@corvencore/email-sdk/resend";
+import { capturedEmailSenderLayer, EmailCapturePayloadSchema, EmailCaptureSnapshotSchema, EmailSubmissionCapture, aggregatedEmailCaptureLayer, EmailCaptureAggregate, EmailCaptureAggregateSnapshotSchema } from "@corvencore/email-sdk/capture";
+import type { EmailCaptureSnapshot, EmailCaptureRecord, IEmailSubmissionCapture, EmailCaptureAggregateSnapshot } from "@corvencore/email-sdk/capture";
+import { preflightPostmarkEmail, postmarkEmailLayer } from "@corvencore/email-sdk/postmark";
+import { PostmarkWebhookEventSchema, parsePostmarkWebhookEvent } from "@corvencore/email-sdk/postmark-webhook";
+import type { PostmarkWebhookEvent } from "@corvencore/email-sdk/postmark-webhook";
+import { preflightSendgridEmail, sendgridEmailLayer, sendgridPersonalizedEmailLayer } from "@corvencore/email-sdk/sendgrid";
+import { preflightMailgunEmail, mailgunEmailLayer, mailgunPersonalizedEmailLayer } from "@corvencore/email-sdk/mailgun";
+import { MailgunWebhookEventSchema, MailgunWebhookRecipientSchema, MailgunWebhookSignatureSchema, MailgunWebhookVerifier, mailgunWebhookLayer, parseMailgunWebhookEvent } from "@corvencore/email-sdk/mailgun-webhook";
+import type { IMailgunWebhookVerifier, MailgunWebhookEvent, VerifiedMailgunWebhookSignature } from "@corvencore/email-sdk/mailgun-webhook";
+import { preflightMailersendEmail, mailersendEmailLayer } from "@corvencore/email-sdk/mailersend";
+import { preflightMailpaceEmail, mailpaceEmailLayer } from "@corvencore/email-sdk/mailpace";
+import { preflightUnosendEmail, unosendEmailLayer } from "@corvencore/email-sdk/unosend";
+import { lettermintEmailLayer } from "@corvencore/email-sdk/lettermint";
+import { plunkEmailLayer } from "@corvencore/email-sdk/plunk";
+import { heloEmailLayer } from "@corvencore/email-sdk/helo";
+import { jetemailEmailLayer } from "@corvencore/email-sdk/jetemail";
+import { lettrEmailLayer } from "@corvencore/email-sdk/lettr";
+import { sparkpostEmailLayer } from "@corvencore/email-sdk/sparkpost";
+import { primitiveEmailLayer } from "@corvencore/email-sdk/primitive";
+import { mailtrapEmailLayer } from "@corvencore/email-sdk/mailtrap";
+import { mailchimpEmailLayer } from "@corvencore/email-sdk/mailchimp";
+import type { MailchimpTagStatisticsInput } from "@corvencore/email-sdk/mailchimp";
+import { scalewayEmailLayer } from "@corvencore/email-sdk/scaleway";
+import { zeptomailEmailLayer } from "@corvencore/email-sdk/zeptomail";
+import { graphEmailLayer } from "@corvencore/email-sdk/graph";
+import { cloudflareEmailLayer } from "@corvencore/email-sdk/cloudflare";
+import { sesEmailLayer } from "@corvencore/email-sdk/ses";
+import { SmtpAuthenticationSchema, smtpEmailLayer, smtpSenderLayer } from "@corvencore/email-sdk/smtp";
+import type { SmtpEmailOptions } from "@corvencore/email-sdk/smtp";
+import { LoopsTransactionalEmail, LoopsTransactionalRequestSchema, loopsTransactionalLayer } from "@corvencore/email-sdk/loops";
+import type { ILoopsTransactionalEmail } from "@corvencore/email-sdk/loops";
+import { defaultedLoopsTransactionalLayer, LoopsTransactionalDefaultsSchema } from "@corvencore/email-sdk/loops-defaults";
+import type { LoopsTransactionalDefaultsInput } from "@corvencore/email-sdk/loops-defaults";
+import { EmailWebhookVerificationError, EmailWebhookNormalizationError, ResendWebhookEventSchema, parseResendWebhookEvent, ResendWebhookRequestSchema, ResendWebhookVerifier, resendWebhookLayer } from "@corvencore/email-sdk/resend-webhook";
+import type { IResendWebhookVerifier, VerifiedResendWebhook, ResendWebhookEvent } from "@corvencore/email-sdk/resend-webhook";
+import { EmailAgent, EmailAgentApproval, EmailAgentApprovalError, emailAgentLayer } from "@corvencore/email-sdk/agent";
+import type { EmailAgentInput, EmailAgentProposal, IEmailAgent } from "@corvencore/email-sdk/agent";
+import { defaultedEmailLayer, EmailDefaultsSchema } from "@corvencore/email-sdk/defaults";
+import type { EmailDefaultsInput } from "@corvencore/email-sdk/defaults";
+import { EmailSubmissionStartingSchema, EmailSubmissionObservations, EmailSubmissionObservationSnapshotSchema, observedEmailSenderLayer, aggregatedEmailObservationsLayer, EmailObservationAggregate, EmailObservationAggregateSnapshotSchema } from "@corvencore/email-sdk/observations";
+import type { EmailSubmissionStarting, EmailSubmissionStartingObserver, IEmailSubmissionObservations, EmailSubmissionObservationSnapshot, EmailSubmissionObserver } from "@corvencore/email-sdk/observations";
+import { FailedEmailSubmissions, failingEmailLayer, RecordedEmails, recordingEmailLayer, recordingSenderLayer, recordingEmailCapabilities } from "@corvencore/email-sdk/testing";
 
 const message = {
   body: { text: "This is a fictional packed-consumer message." },
@@ -267,7 +267,7 @@ const proveLoopsDefaultsDeclarations = (defaults: LoopsTransactionalDefaultsInpu
 };
 void proveLoopsDefaultsDeclarations;
 // @ts-expect-error -- Native value ownership remains private, not a second public API.
-await assert.rejects(import("@corven/email-sdk/dist/loops-transactional-job.js"), { code: "ERR_PACKAGE_PATH_NOT_EXPORTED" });
+await assert.rejects(import("@corvencore/email-sdk/dist/loops-transactional-job.js"), { code: "ERR_PACKAGE_PATH_NOT_EXPORTED" });
 
 const sesConfiguration = { accessKeyId: Redacted.make("AKIAFICTIONALEXAMPLE1"), secretAccessKey: Redacted.make("fictional-secret"), region: "us-east-1", mailFlow: "ProviderUnmodified" } as const;
 void sesEmailLayer(sesConfiguration);
@@ -1144,9 +1144,9 @@ await Effect.runPromise(Effect.gen(function* verifyPackedMailgunNativePersonaliz
   }
 }));
 
-const privateSpecifier = "@corven/email-sdk/" + "src/email-service.js";
+const privateSpecifier = "@corvencore/email-sdk/" + "src/email-service.js";
 
 await assert.rejects(import(privateSpecifier), { code: "ERR_PACKAGE_PATH_NOT_EXPORTED" });
 for (const leaf of ["email-cli-main.js", "email-cli.js", "email-cli-node.js", "email-bounded-json.js", "email-retry-decision.js", "email-capture-aggregate.js", "email-submission-capture-view.js", "email-operation-observations.js", "email-observation-aggregate.js", "email-observation-aggregate-error.js", "email-submission-observation-view.js", "email-aggregate-sources.js", "email-execution-metadata.js", "email-preflight.js"]) {
-  await assert.rejects(import(`@corven/email-sdk/dist/${leaf}`), { code: "ERR_PACKAGE_PATH_NOT_EXPORTED" });
+  await assert.rejects(import(`@corvencore/email-sdk/dist/${leaf}`), { code: "ERR_PACKAGE_PATH_NOT_EXPORTED" });
 }

@@ -56,7 +56,7 @@ export interface IEmailNativeCapture {
 }
 
 export class EmailNativeCapture extends Context.Service<EmailNativeCapture, IEmailNativeCapture>()(
-  "@corven/email-sdk/EmailNativeCapture",
+  "@corvencore/email-sdk/EmailNativeCapture",
 ) {}
 
 const parseCaptureOptions = Schema.decodeEffect(EmailCaptureOptionsSchema, {

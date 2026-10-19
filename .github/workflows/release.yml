@@ -179,7 +179,7 @@ jobs:
           PACKAGE_CHECK_ALLOW_NETWORK: "1"
         run: |
           version=$(node -p "require('./package.json').version")
-          pnpm check:package "$RUNNER_TEMP/release-pack/packages/corven-email-sdk-$version.tgz"
+          pnpm check:package "$RUNNER_TEMP/release-pack/packages/corvencore-email-sdk-$version.tgz"
 
   publish:
     name: Publish checked package to npm
@@ -188,7 +188,7 @@ jobs:
     timeout-minutes: 15
     environment:
       name: npm-production
-      url: https://www.npmjs.com/package/@corven/email-sdk
+      url: https://www.npmjs.com/package/@corvencore/email-sdk
     permissions:
       contents: write
       id-token: write

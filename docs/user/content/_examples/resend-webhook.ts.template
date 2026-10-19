@@ -4,8 +4,8 @@ import {
   ResendWebhookVerifier,
   resendWebhookLayer,
   parseResendWebhookEvent,
-} from "@corven/email-sdk/resend-webhook";
-import type { ResendWebhookRequest } from "@corven/email-sdk/resend-webhook";
+} from "@corvencore/email-sdk/resend-webhook";
+import type { ResendWebhookRequest } from "@corvencore/email-sdk/resend-webhook";
 
 export const authenticateResendWebhook = Effect.fnUntraced(function* authenticateResendWebhook(
   request: ResendWebhookRequest,

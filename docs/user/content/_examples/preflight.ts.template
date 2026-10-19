@@ -1,6 +1,6 @@
 import { Effect } from "effect";
-import { preflightPostmarkEmail } from "@corven/email-sdk/postmark";
-import { preflightResendEmail } from "@corven/email-sdk/resend";
+import { preflightPostmarkEmail } from "@corvencore/email-sdk/postmark";
+import { preflightResendEmail } from "@corvencore/email-sdk/resend";
 
 const message = {
   body: { text: "A fictional credential-free preflight example." },

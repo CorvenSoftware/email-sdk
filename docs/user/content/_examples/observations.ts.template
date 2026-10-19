@@ -1,15 +1,15 @@
 import { Effect, Layer } from "effect";
-import { Email, emailLayer } from "@corven/email-sdk";
-import type { EmailMessageInput } from "@corven/email-sdk";
+import { Email, emailLayer } from "@corvencore/email-sdk";
+import type { EmailMessageInput } from "@corvencore/email-sdk";
 import {
   EmailSubmissionObservations,
   observedEmailSenderLayer,
-} from "@corven/email-sdk/observations";
+} from "@corvencore/email-sdk/observations";
 import type {
   EmailSubmissionObserver,
   EmailSubmissionStartingObserver,
-} from "@corven/email-sdk/observations";
-import { recordingSenderLayer } from "@corven/email-sdk/testing";
+} from "@corvencore/email-sdk/observations";
+import { recordingSenderLayer } from "@corvencore/email-sdk/testing";
 
 export const submitAndInspectSyntheticEmail = Effect.fnUntraced(
   function* submitAndInspectSyntheticEmail(message: EmailMessageInput) {

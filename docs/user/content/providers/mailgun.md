@@ -3,7 +3,7 @@ title: Mailgun
 description: Send multipart messages through a Mailgun sending domain and region.
 ---
 
-Import `mailgunEmailLayer` from `@corven/email-sdk/mailgun` to provide the common `Email` service for this account.
+Import `mailgunEmailLayer` from `@corvencore/email-sdk/mailgun` to provide the common `Email` service for this account.
 
 ## Configure the account
 

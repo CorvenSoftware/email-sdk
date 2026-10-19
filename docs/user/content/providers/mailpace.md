@@ -3,7 +3,7 @@ title: MailPace
 description: Configure MailPace with supported headers, attachment types and tags.
 ---
 
-Import `mailpaceEmailLayer` from `@corven/email-sdk/mailpace` to provide the common `Email` service for this account.
+Import `mailpaceEmailLayer` from `@corvencore/email-sdk/mailpace` to provide the common `Email` service for this account.
 
 ## Configure the account
 

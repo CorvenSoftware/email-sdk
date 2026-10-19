@@ -1,8 +1,8 @@
 import assert = require("node:assert/strict");
 import EffectLibrary = require("effect");
-import Agent = require("@corven/email-sdk/agent");
-import Ai = require("@corven/email-sdk/ai");
-import Testing = require("@corven/email-sdk/testing");
+import Agent = require("@corvencore/email-sdk/agent");
+import Ai = require("@corvencore/email-sdk/ai");
+import Testing = require("@corvencore/email-sdk/testing");
 
 const { Effect, Exit, Layer } = EffectLibrary;
 const proveCommonjsAi = (run: Ai.EmailAiRunner, tool: Ai.EmailAiTool, receipt: Ai.EmailAiReceipt): void => {

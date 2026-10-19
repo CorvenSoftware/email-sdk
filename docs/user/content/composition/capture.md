@@ -3,7 +3,7 @@ title: Private submission capture
 description: Capture bounded private request/outcome payloads with explicit permission and retention controls.
 ---
 
-Use `capturedEmailSenderLayer` from `@corven/email-sdk/capture` only when your application is authorized to retain message payloads:
+Use `capturedEmailSenderLayer` from `@corvencore/email-sdk/capture` only when your application is authorized to retain message payloads:
 
 <include lang="ts">/_examples/capture.ts.template</include>
 

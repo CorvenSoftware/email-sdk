@@ -3,7 +3,7 @@ title: Scaleway
 description: Configure a Scaleway project with constrained transactional message support.
 ---
 
-Import `scalewayEmailLayer` from `@corven/email-sdk/scaleway` to provide the common `Email` service for this account.
+Import `scalewayEmailLayer` from `@corvencore/email-sdk/scaleway` to provide the common `Email` service for this account.
 
 ## Configure the account
 

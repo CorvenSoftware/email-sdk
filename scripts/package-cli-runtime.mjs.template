@@ -8,7 +8,7 @@ mkdirSync(fixture);
 writeFileSync(new URL("./cli-fixture/.env", import.meta.url), "RESEND_API_KEY=fictional-private-cli-token\n");
 writeFileSync(new URL("./cli-fixture/email-sdk.json", import.meta.url), '{"private-cli-config":"fictional-do-not-read"}');
 const bin = fileURLToPath(new URL("./node_modules/.bin/corven-email", import.meta.url));
-const manifest = JSON.parse(readFileSync(new URL("./node_modules/@corven/email-sdk/package.json", import.meta.url), "utf8"));
+const manifest = JSON.parse(readFileSync(new URL("./node_modules/@corvencore/email-sdk/package.json", import.meta.url), "utf8"));
 const environment = {
   PATH: process.env.PATH,
   HOME: fixture,

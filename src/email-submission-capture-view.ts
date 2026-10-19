@@ -10,4 +10,4 @@ export interface IEmailSubmissionCapture {
 export class EmailSubmissionCapture extends Context.Service<
   EmailSubmissionCapture,
   IEmailSubmissionCapture
->()("@corven/email-sdk/EmailSubmissionCapture") {}
+>()("@corvencore/email-sdk/EmailSubmissionCapture") {}

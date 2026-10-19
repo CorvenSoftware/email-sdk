@@ -1,6 +1,6 @@
 import { Duration, Effect } from "effect";
-import { Email, EmailDeliveryUnknown } from "@corven/email-sdk";
-import { FailedEmailSubmissions, failingEmailLayer } from "@corven/email-sdk/testing";
+import { Email, EmailDeliveryUnknown } from "@corvencore/email-sdk";
+import { FailedEmailSubmissions, failingEmailLayer } from "@corvencore/email-sdk/testing";
 
 export const inspectUncertainSubmission = Effect.gen(function* inspectUncertainSubmission() {
   const email = yield* Email;

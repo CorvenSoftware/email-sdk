@@ -3,7 +3,7 @@ title: Postmark webhook reports
 description: Parse unsigned Postmark delivery, complaint and bounce reports after application-level ingress checks.
 ---
 
-Use `parsePostmarkWebhookEvent` and `PostmarkWebhookEventSchema` from `@corven/email-sdk/postmark-webhook`:
+Use `parsePostmarkWebhookEvent` and `PostmarkWebhookEventSchema` from `@corvencore/email-sdk/postmark-webhook`:
 
 <include lang="ts">/_examples/postmark-webhook.ts.template</include>
 

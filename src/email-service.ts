@@ -91,7 +91,7 @@ export interface IEmail {
   ) => Effect.Effect<readonly Result.Result<EmailReceipt, EmailSendError>[], EmailInvalidOptions>;
 }
 
-export class Email extends Context.Service<Email, IEmail>()("@corven/email-sdk/Email") {}
+export class Email extends Context.Service<Email, IEmail>()("@corvencore/email-sdk/Email") {}
 
 const parseIdempotency = Schema.decodeUnknownEffect(Schema.toType(EmailSenderIdempotencySchema), {
   errors: "all",

@@ -1,16 +1,16 @@
 import assert from "node:assert/strict";
 import { Effect, Schema } from "effect";
 import { createElement, Suspense } from "react";
-import type { EmailBody, EmailReceipt } from "@corven/email-sdk";
-import { Email } from "@corven/email-sdk";
-import { EmailRenderError, RenderedReactEmailSchema, reactEmailTheme, renderReactEmail, themedReactEmailComponents } from "@corven/email-sdk/react";
-import type { RenderedReactEmail } from "@corven/email-sdk/react";
-import { RecordedEmails, recordingEmailLayer } from "@corven/email-sdk/testing";
+import type { EmailBody, EmailReceipt } from "@corvencore/email-sdk";
+import { Email } from "@corvencore/email-sdk";
+import { EmailRenderError, RenderedReactEmailSchema, reactEmailTheme, renderReactEmail, themedReactEmailComponents } from "@corvencore/email-sdk/react";
+import type { RenderedReactEmail } from "@corvencore/email-sdk/react";
+import { RecordedEmails, recordingEmailLayer } from "@corvencore/email-sdk/testing";
 
 const proveReactDeclarations = (body: RenderedReactEmail): void => {
   const rendered: Effect.Effect<RenderedReactEmail, EmailRenderError> = renderReactEmail(createElement("p", null, "Fictional"));
   const ordinary: EmailBody = body;
-  type Components = import("@corven/email-sdk/react").ReactEmailComponents;
+  type Components = import("@corvencore/email-sdk/react").ReactEmailComponents;
   const componentCall = (components: Components): void => {
     // @ts-expect-error -- Component actions require a host destination.
     void createElement(components.EmailAction, { children: "Missing destination" });
@@ -28,7 +28,7 @@ const proveReactDeclarations = (body: RenderedReactEmail): void => {
   body.html = "changed";
   // @ts-expect-error -- Templates must be host React elements, not untrusted serialized strings.
   void renderReactEmail("private model template");
-  const submitted: Effect.Effect<EmailReceipt, EmailRenderError | import("@corven/email-sdk").EmailSendError, Email> = rendered.pipe(
+  const submitted: Effect.Effect<EmailReceipt, EmailRenderError | import("@corvencore/email-sdk").EmailSendError, Email> = rendered.pipe(
     Effect.flatMap(body => Email.use(email => email.send({ body, from: "sender@example.invalid", subject: "Synthetic", to: "recipient@example.invalid" }))),
   );
   void ordinary;
@@ -73,6 +73,6 @@ await Effect.runPromise(Effect.gen(function* verifyInstalledReactRendering() {
   assert.ok(!JSON.stringify(failure).includes("private-packed-react-error"));
 }).pipe(Effect.provide(recordingEmailLayer)));
 // @ts-expect-error -- Components are exposed only through the optional React entrypoint.
-await assert.rejects(import("@corven/email-sdk/dist/email-react-components.js"), { code: "ERR_PACKAGE_PATH_NOT_EXPORTED" });
+await assert.rejects(import("@corvencore/email-sdk/dist/email-react-components.js"), { code: "ERR_PACKAGE_PATH_NOT_EXPORTED" });
 // @ts-expect-error -- Theme implementation stays behind the optional React entrypoint.
-await assert.rejects(import("@corven/email-sdk/dist/email-react-theme.js"), { code: "ERR_PACKAGE_PATH_NOT_EXPORTED" });
+await assert.rejects(import("@corvencore/email-sdk/dist/email-react-theme.js"), { code: "ERR_PACKAGE_PATH_NOT_EXPORTED" });

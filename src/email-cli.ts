@@ -26,7 +26,7 @@ export interface IEmailCli {
 }
 
 export class EmailCli extends Context.Service<EmailCli, IEmailCli>()(
-  "@corven/email-sdk/EmailCli",
+  "@corvencore/email-sdk/EmailCli",
 ) {}
 
 const cliProviders = {
@@ -51,7 +51,7 @@ const CliArguments = Schema.Union([
 
 const CliDistribution = Schema.Struct({
   exports: Schema.Record(Schema.String, Schema.Unknown),
-  name: Schema.Literal("@corven/email-sdk"),
+  name: Schema.Literal("@corvencore/email-sdk"),
   version: Schema.String.check(
     Schema.isPattern(/^\d+\.\d+\.\d+(?:-[A-Za-z0-9.-]+)?$/u),
     Schema.isMaxLength(64),

@@ -3,7 +3,7 @@ title: Postmark
 description: Send through a Postmark message stream with repeated headers and metadata.
 ---
 
-Import `postmarkEmailLayer` from `@corven/email-sdk/postmark` to provide the common `Email` service for this account.
+Import `postmarkEmailLayer` from `@corvencore/email-sdk/postmark` to provide the common `Email` service for this account.
 
 ## Configure the account
 

@@ -3,7 +3,7 @@ title: Mailchimp Transactional
 description: Send through Mailchimp Transactional with explicit account behavior and recipient outcomes.
 ---
 
-Import `mailchimpEmailLayer` from `@corven/email-sdk/mailchimp` to provide the common `Email` service for this account.
+Import `mailchimpEmailLayer` from `@corvencore/email-sdk/mailchimp` to provide the common `Email` service for this account.
 
 ## Configure the account
 

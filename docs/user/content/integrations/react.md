@@ -3,7 +3,7 @@ title: Render React email
 description: Render trusted React elements into validated HTML and text before provider submission.
 ---
 
-Import `renderReactEmail`, `reactEmailTheme` and `themedReactEmailComponents` from `@corven/email-sdk/react`. Install the [matching optional peers](/getting-started/installation#add-react-rendering); core sending and the CLI do not require React.
+Import `renderReactEmail`, `reactEmailTheme` and `themedReactEmailComponents` from `@corvencore/email-sdk/react`. Install the [matching optional peers](/getting-started/installation#add-react-rendering); core sending and the CLI do not require React.
 
 <include lang="ts">/_examples/react-components.ts.template</include>
 

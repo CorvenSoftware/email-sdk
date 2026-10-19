@@ -3,7 +3,7 @@ title: ZeptoMail
 description: Choose a ZeptoMail live or sandbox agent and preserve its acknowledgment scope.
 ---
 
-Import `zeptomailEmailLayer` from `@corven/email-sdk/zeptomail` to provide the common `Email` service for this account.
+Import `zeptomailEmailLayer` from `@corvencore/email-sdk/zeptomail` to provide the common `Email` service for this account.
 
 ## Configure the account
 

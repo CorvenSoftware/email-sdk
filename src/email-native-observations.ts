@@ -61,7 +61,7 @@ export interface IEmailNativeObservations {
 export class EmailNativeObservations extends Context.Service<
   EmailNativeObservations,
   IEmailNativeObservations
->()("@corven/email-sdk/EmailNativeObservations") {}
+>()("@corvencore/email-sdk/EmailNativeObservations") {}
 
 export { EmailObservationOptionsSchema } from "./email-observation-retention.js";
 

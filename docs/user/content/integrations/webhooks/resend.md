@@ -3,7 +3,7 @@ title: Resend webhooks
 description: Verify raw Resend webhook bytes and Svix headers before projecting supported event reports.
 ---
 
-Use `ResendWebhookVerifier`, `resendWebhookLayer` and `parseResendWebhookEvent` from `@corven/email-sdk/resend-webhook`.
+Use `ResendWebhookVerifier`, `resendWebhookLayer` and `parseResendWebhookEvent` from `@corvencore/email-sdk/resend-webhook`.
 
 <include lang="ts">/_examples/resend-webhook.ts.template</include>
 

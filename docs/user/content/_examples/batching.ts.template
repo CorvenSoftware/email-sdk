@@ -1,5 +1,5 @@
 import { Effect } from "effect";
-import { Email } from "@corven/email-sdk";
+import { Email } from "@corvencore/email-sdk";
 
 export const sendNotifications = Effect.gen(function* sendNotifications() {
   const email = yield* Email;

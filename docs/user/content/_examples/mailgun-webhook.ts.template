@@ -5,8 +5,8 @@ import {
   MailgunWebhookVerifier,
   mailgunWebhookLayer,
   parseMailgunWebhookEvent,
-} from "@corven/email-sdk/mailgun-webhook";
-import type { MailgunWebhookSignature } from "@corven/email-sdk/mailgun-webhook";
+} from "@corvencore/email-sdk/mailgun-webhook";
+import type { MailgunWebhookSignature } from "@corvencore/email-sdk/mailgun-webhook";
 
 export const verifyIncomingMailgunSignature = Effect.fnUntraced(
   function* verifyIncomingMailgunSignature(signature: MailgunWebhookSignature) {

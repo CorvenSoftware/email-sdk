@@ -3,7 +3,7 @@ title: JetEmail
 description: Configure JetEmail transactional credentials, domain settings and idempotency key forwarding.
 ---
 
-Import `jetemailEmailLayer` from `@corven/email-sdk/jetemail` to provide the common `Email` service for this account.
+Import `jetemailEmailLayer` from `@corvencore/email-sdk/jetemail` to provide the common `Email` service for this account.
 
 ## Configure the account
 

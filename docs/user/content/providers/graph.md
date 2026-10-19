@@ -3,7 +3,7 @@ title: Microsoft Graph
 description: Submit through a Microsoft Graph mailbox using a host-acquired access token.
 ---
 
-Import `graphEmailLayer` from `@corven/email-sdk/graph` to provide the common `Email` service for this account.
+Import `graphEmailLayer` from `@corvencore/email-sdk/graph` to provide the common `Email` service for this account.
 
 ## Configure the account
 

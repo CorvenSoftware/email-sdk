@@ -3,7 +3,7 @@ title: Submission observations
 description: Observe minimal starting and settled sender-call facts without capturing private payloads.
 ---
 
-Use `observedEmailSenderLayer` from `@corven/email-sdk/observations` around an `EmailSender`, then build the common `Email` service:
+Use `observedEmailSenderLayer` from `@corvencore/email-sdk/observations` around an `EmailSender`, then build the common `Email` service:
 
 <include lang="ts">/_examples/observations.ts.template</include>
 

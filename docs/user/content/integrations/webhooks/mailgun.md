@@ -3,7 +3,7 @@ title: Mailgun webhooks
 description: Verify Mailgun signature fields while retaining unverified event-body provenance.
 ---
 
-Import the signature verifier and event parser from `@corven/email-sdk/mailgun-webhook`:
+Import the signature verifier and event parser from `@corvencore/email-sdk/mailgun-webhook`:
 
 <include lang="ts">/_examples/mailgun-webhook.ts.template</include>
 

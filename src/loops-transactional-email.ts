@@ -85,7 +85,7 @@ export interface ILoopsTransactionalEmail {
 export class LoopsTransactionalEmail extends Context.Service<
   LoopsTransactionalEmail,
   ILoopsTransactionalEmail
->()("@corven/email-sdk/LoopsTransactionalEmail") {}
+>()("@corvencore/email-sdk/LoopsTransactionalEmail") {}
 
 const buildLoopsPayload = (job: LoopsTransactionalJob) => ({
   addToAudience: false,

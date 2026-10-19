@@ -159,7 +159,7 @@ export interface IEmailRouter {
 }
 
 export class EmailRouter extends Context.Service<EmailRouter, IEmailRouter>()(
-  "@corven/email-sdk/EmailRouter",
+  "@corvencore/email-sdk/EmailRouter",
 ) {}
 
 const RouteRegistrationsSchema = Schema.NonEmptyArray(

@@ -1,6 +1,6 @@
 import { Layer } from "effect";
 import type { Redacted } from "effect";
-import { mailtrapEmailLayer } from "@corven/email-sdk/mailtrap";
+import { mailtrapEmailLayer } from "@corvencore/email-sdk/mailtrap";
 import { emailHttpLayer } from "./sending.js";
 
 export const configuredMailtrapAccount = (apiKey: Redacted.Redacted) =>

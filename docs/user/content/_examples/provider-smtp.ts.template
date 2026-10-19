@@ -1,5 +1,5 @@
 import type { Redacted } from "effect";
-import { smtpEmailLayer } from "@corven/email-sdk/smtp";
+import { smtpEmailLayer } from "@corvencore/email-sdk/smtp";
 
 export const configuredSmtpAccount = (username: Redacted.Redacted, password: Redacted.Redacted) =>
   smtpEmailLayer({

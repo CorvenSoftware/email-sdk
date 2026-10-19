@@ -1,21 +1,21 @@
 import assert from "node:assert/strict";
 import { verifyAuthoredProvider } from "./author.js";
-import { defineEmailHttpProvider } from "@corven/email-sdk/provider";
+import { defineEmailHttpProvider } from "@corvencore/email-sdk/provider";
 import { Effect, Layer, Redacted, Ref, Result, Schema } from "effect";
 import { HttpClient } from "effect/http";
-import { Email, EmailDeliveryUnknown, EmailInvalidMessage, EmailRejected } from "@corven/email-sdk";
-import type { EmailConfigurationError } from "@corven/email-sdk";
-import { brevoEmailLayer } from "@corven/email-sdk/brevo";
-import { sequenzyEmailLayer } from "@corven/email-sdk/sequenzy";
-import { sendheronEmailLayer } from "@corven/email-sdk/sendheron";
-import { IterableCampaignEmail, iterableCampaignLayer } from "@corven/email-sdk/iterable";
-import type { IIterableCampaignEmail, IterableCampaignJob } from "@corven/email-sdk/iterable";
-import { defaultedIterableCampaignLayer, IterableCampaignDefaultsSchema } from "@corven/email-sdk/iterable-defaults";
-import type { IterableCampaignDefaultsInput } from "@corven/email-sdk/iterable-defaults";
-import { EmailNativeObservations, observedIterableCampaignLayer, observedLoopsTransactionalLayer, EmailNativeObservationSnapshotSchema, EmailNativeOperationStartingSchema } from "@corven/email-sdk/native-observations";
-import type { EmailNativeObserver, EmailNativeOperationStarting, EmailNativeStartingObserver } from "@corven/email-sdk/native-observations";
-import type { LoopsTransactionalEmail } from "@corven/email-sdk/loops";
-import { EmailNativeCapture, EmailNativeCapturePayloadSchema, capturedLoopsTransactionalLayer, capturedIterableCampaignLayer } from "@corven/email-sdk/native-capture";
+import { Email, EmailDeliveryUnknown, EmailInvalidMessage, EmailRejected } from "@corvencore/email-sdk";
+import type { EmailConfigurationError } from "@corvencore/email-sdk";
+import { brevoEmailLayer } from "@corvencore/email-sdk/brevo";
+import { sequenzyEmailLayer } from "@corvencore/email-sdk/sequenzy";
+import { sendheronEmailLayer } from "@corvencore/email-sdk/sendheron";
+import { IterableCampaignEmail, iterableCampaignLayer } from "@corvencore/email-sdk/iterable";
+import type { IIterableCampaignEmail, IterableCampaignJob } from "@corvencore/email-sdk/iterable";
+import { defaultedIterableCampaignLayer, IterableCampaignDefaultsSchema } from "@corvencore/email-sdk/iterable-defaults";
+import type { IterableCampaignDefaultsInput } from "@corvencore/email-sdk/iterable-defaults";
+import { EmailNativeObservations, observedIterableCampaignLayer, observedLoopsTransactionalLayer, EmailNativeObservationSnapshotSchema, EmailNativeOperationStartingSchema } from "@corvencore/email-sdk/native-observations";
+import type { EmailNativeObserver, EmailNativeOperationStarting, EmailNativeStartingObserver } from "@corvencore/email-sdk/native-observations";
+import type { LoopsTransactionalEmail } from "@corvencore/email-sdk/loops";
+import { EmailNativeCapture, EmailNativeCapturePayloadSchema, capturedLoopsTransactionalLayer, capturedIterableCampaignLayer } from "@corvencore/email-sdk/native-capture";
 
 await Effect.runPromise(verifyAuthoredProvider(defineEmailHttpProvider));
 
@@ -185,16 +185,16 @@ await Effect.runPromise(Effect.gen(function* verifyManagedProviderContracts() {
   }).pipe(Effect.provide(defaultedIterableCampaignLayer(defaultedIterableCampaignLayer(iterable, { dataFields: { inner: true } }), defaults).pipe(Layer.provide(noTransport))));
 }));
 // @ts-expect-error -- Native orchestration is private to the installed package.
-await assert.rejects(import("@corven/email-sdk/email-native-operations"), { code: "ERR_PACKAGE_PATH_NOT_EXPORTED" });
+await assert.rejects(import("@corvencore/email-sdk/email-native-operations"), { code: "ERR_PACKAGE_PATH_NOT_EXPORTED" });
 // @ts-expect-error -- Capture retention is private value logic, not a reset service.
-await assert.rejects(import("@corven/email-sdk/dist/email-capture-retention.js"), { code: "ERR_PACKAGE_PATH_NOT_EXPORTED" });
+await assert.rejects(import("@corvencore/email-sdk/dist/email-capture-retention.js"), { code: "ERR_PACKAGE_PATH_NOT_EXPORTED" });
 // @ts-expect-error -- Outcome encoding does not grant a public capture/replay capability.
-await assert.rejects(import("@corven/email-sdk/dist/email-capture-outcome.js"), { code: "ERR_PACKAGE_PATH_NOT_EXPORTED" });
+await assert.rejects(import("@corvencore/email-sdk/dist/email-capture-outcome.js"), { code: "ERR_PACKAGE_PATH_NOT_EXPORTED" });
 // @ts-expect-error -- Observation retention is private implementation, not another service.
-await assert.rejects(import("@corven/email-sdk/dist/email-observation-retention.js"), { code: "ERR_PACKAGE_PATH_NOT_EXPORTED" });
+await assert.rejects(import("@corvencore/email-sdk/dist/email-observation-retention.js"), { code: "ERR_PACKAGE_PATH_NOT_EXPORTED" });
 // @ts-expect-error -- Compound failure protection is not a public entrypoint.
-await assert.rejects(import("@corven/email-sdk/dist/email-unsettled-cause.js"), { code: "ERR_PACKAGE_PATH_NOT_EXPORTED" });
+await assert.rejects(import("@corvencore/email-sdk/dist/email-unsettled-cause.js"), { code: "ERR_PACKAGE_PATH_NOT_EXPORTED" });
 // @ts-expect-error -- Canonical native job ownership remains private.
-await assert.rejects(import("@corven/email-sdk/dist/iterable-campaign-job.js"), { code: "ERR_PACKAGE_PATH_NOT_EXPORTED" });
+await assert.rejects(import("@corvencore/email-sdk/dist/iterable-campaign-job.js"), { code: "ERR_PACKAGE_PATH_NOT_EXPORTED" });
 // @ts-expect-error -- Public authoring does not expose internal transport orchestration.
-await assert.rejects(import("@corven/email-sdk/dist/email-http-protocol.js"), { code: "ERR_PACKAGE_PATH_NOT_EXPORTED" });
+await assert.rejects(import("@corvencore/email-sdk/dist/email-http-protocol.js"), { code: "ERR_PACKAGE_PATH_NOT_EXPORTED" });

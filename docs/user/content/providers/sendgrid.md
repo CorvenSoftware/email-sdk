@@ -3,7 +3,7 @@ title: SendGrid
 description: Configure SendGrid regional Mail Send and opt-in native personalization.
 ---
 
-Import `sendgridEmailLayer` from `@corven/email-sdk/sendgrid` to provide the common `Email` service for this account.
+Import `sendgridEmailLayer` from `@corvencore/email-sdk/sendgrid` to provide the common `Email` service for this account.
 
 ## Configure the account
 

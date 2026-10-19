@@ -4,11 +4,11 @@ Changesets manages SDK versions and changelogs. The release workflow in [release
 
 ## First-publication prerequisites
 
-The SDK license is recorded in [package.json](../../package.json) and the root [LICENSE](../../LICENSE). The package remains `private` until npm publishing access is confirmed. Installing Changesets does not establish ownership of the `@corven` npm scope.
+The SDK license is recorded in [package.json](../../package.json) and the root [LICENSE](../../LICENSE). The package remains `private` until the authenticated first-publication bootstrap is ready. The `corvencore` npm organization is owned by the maintainer; organization membership and npm authentication remain separate from GitHub App authentication.
 
 Before enabling publication:
 
-1. Confirm the npm account has publish access to `@corven/email-sdk`. The `@corven` organization already exists. If it is not controlled by the maintainers, choose an authorized package name and update package consumers, documentation and this workflow before publishing.
+1. Confirm the authenticated npm account has publish access to `@corvencore/email-sdk` through the `corvencore` organization. Keep organization ownership and 2FA enforcement under maintainer control; do not invite additional members or broaden team access as part of a release.
 2. Confirm the SDK's SPDX license identifier in `package.json` agrees with the full text in the root `LICENSE`. Preserve third-party license files; they do not license the SDK.
 3. Set `private` to `false`. Keep the package's explicit public access and registry settings. Review the packed file list and retain the public `./provider` export and optional integration isolation.
 4. Create the GitHub environment `npm-production`. Require a maintainer review, restrict it to `main` and allow sole-maintainer self-review only if needed. A workflow environment name alone does not configure these protections.

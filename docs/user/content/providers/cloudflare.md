@@ -3,7 +3,7 @@ title: Cloudflare Email Sending
 description: Use Cloudflare Email Sending through the REST API with explicit account and mail-flow settings.
 ---
 
-Import `cloudflareEmailLayer` from `@corven/email-sdk/cloudflare` to provide the common `Email` service for this account.
+Import `cloudflareEmailLayer` from `@corvencore/email-sdk/cloudflare` to provide the common `Email` service for this account.
 
 ## Configure the account
 

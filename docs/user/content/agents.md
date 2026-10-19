@@ -10,7 +10,7 @@ The static [JSON page index](/api/docs/pages.json) links per-page JSON and Markd
 ## Integrate the library
 
 1. Check [installation and runtime](/getting-started/installation) against the consuming application.
-2. Import the common service from `@corven/email-sdk` and the account Layer from the selected [provider subpath](/providers).
+2. Import the common service from `@corvencore/email-sdk` and the account Layer from the selected [provider subpath](/providers).
 3. Use fictional inputs and the [recording service](/guides/testing) first.
 4. Validate complete intended fields and options before any authorized provider execution.
 5. Preserve typed receipts, unknown outcomes and application-owned recovery state.

@@ -1,11 +1,11 @@
 import assert from "node:assert/strict";
 import { Cause, Effect, Exit, Layer, Ref } from "effect";
 import type { Scope } from "effect";
-import { EmailAgent, EmailAgentApproval, emailAgentLayer } from "@corven/email-sdk/agent";
-import type { EmailAgentInput } from "@corven/email-sdk/agent";
-import { EmailAiToolError, emailAiTool } from "@corven/email-sdk/ai";
-import type { EmailAiReceipt, EmailAiRunner, EmailAiTool } from "@corven/email-sdk/ai";
-import { RecordedEmails, recordingEmailLayer } from "@corven/email-sdk/testing";
+import { EmailAgent, EmailAgentApproval, emailAgentLayer } from "@corvencore/email-sdk/agent";
+import type { EmailAgentInput } from "@corvencore/email-sdk/agent";
+import { EmailAiToolError, emailAiTool } from "@corvencore/email-sdk/ai";
+import type { EmailAiReceipt, EmailAiRunner, EmailAiTool } from "@corvencore/email-sdk/ai";
+import { RecordedEmails, recordingEmailLayer } from "@corvencore/email-sdk/testing";
 
 const proveAiDeclarations = (run: EmailAiRunner, tool: EmailAiTool, receipt: EmailAiReceipt): void => {
   const acquired: Effect.Effect<EmailAiTool, never, EmailAgent | Scope.Scope> = emailAiTool(run);

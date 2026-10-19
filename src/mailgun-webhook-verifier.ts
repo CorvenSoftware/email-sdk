@@ -78,7 +78,7 @@ export interface IMailgunWebhookVerifier {
 export class MailgunWebhookVerifier extends Context.Service<
   MailgunWebhookVerifier,
   IMailgunWebhookVerifier
->()("@corven/email-sdk/MailgunWebhookVerifier") {}
+>()("@corvencore/email-sdk/MailgunWebhookVerifier") {}
 
 export const mailgunWebhookLayer = (
   options: MailgunWebhookOptions,

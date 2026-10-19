@@ -1,7 +1,7 @@
 import { Effect, Layer } from "effect";
-import { Email, emailLayer, capturedEmailRouterLayer } from "@corven/email-sdk";
-import { EmailCaptureAggregate, capturedEmailSenderLayer } from "@corven/email-sdk/capture";
-import { recordingSenderLayer } from "@corven/email-sdk/testing";
+import { Email, emailLayer, capturedEmailRouterLayer } from "@corvencore/email-sdk";
+import { EmailCaptureAggregate, capturedEmailSenderLayer } from "@corvencore/email-sdk/capture";
+import { recordingSenderLayer } from "@corvencore/email-sdk/testing";
 
 const options = {
   capacity: 100,

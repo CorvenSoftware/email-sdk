@@ -1,5 +1,5 @@
 import { createElement } from "react";
-import { themedReactEmailComponents } from "@corven/email-sdk/react";
+import { themedReactEmailComponents } from "@corvencore/email-sdk/react";
 
 const { EmailAction, EmailCard, EmailDocument, EmailHeading, EmailParagraph } =
   themedReactEmailComponents("light");

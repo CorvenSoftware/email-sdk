@@ -3,7 +3,7 @@ title: Amazon SES
 description: Send through the SES v2 regional API with explicit signing credentials.
 ---
 
-Import `sesEmailLayer` from `@corven/email-sdk/ses` to provide the common `Email` service for this account.
+Import `sesEmailLayer` from `@corvencore/email-sdk/ses` to provide the common `Email` service for this account.
 
 ## Configure the account
 

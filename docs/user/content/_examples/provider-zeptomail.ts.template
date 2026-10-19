@@ -1,6 +1,6 @@
 import { Layer } from "effect";
 import type { Redacted } from "effect";
-import { zeptomailEmailLayer } from "@corven/email-sdk/zeptomail";
+import { zeptomailEmailLayer } from "@corvencore/email-sdk/zeptomail";
 import { emailHttpLayer } from "./sending.js";
 
 export const configuredZeptomailAccount = (apiKey: Redacted.Redacted) =>

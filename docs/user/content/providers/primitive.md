@@ -3,7 +3,7 @@ title: Primitive
 description: Configure Primitive key requirements without assuming its content deduplication is replay-safe.
 ---
 
-Import `primitiveEmailLayer` from `@corven/email-sdk/primitive` to provide the common `Email` service for this account.
+Import `primitiveEmailLayer` from `@corvencore/email-sdk/primitive` to provide the common `Email` service for this account.
 
 ## Configure the account
 

@@ -3,7 +3,7 @@ title: Unosend
 description: Send through Unosend with supported attachment MIME types and scheduling.
 ---
 
-Import `unosendEmailLayer` from `@corven/email-sdk/unosend` to provide the common `Email` service for this account.
+Import `unosendEmailLayer` from `@corvencore/email-sdk/unosend` to provide the common `Email` service for this account.
 
 ## Configure the account
 

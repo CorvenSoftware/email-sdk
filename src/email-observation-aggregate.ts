@@ -61,7 +61,7 @@ export interface IEmailObservationAggregate {
 export class EmailObservationAggregate extends Context.Service<
   EmailObservationAggregate,
   IEmailObservationAggregate
->()("@corven/email-sdk/EmailObservationAggregate") {}
+>()("@corvencore/email-sdk/EmailObservationAggregate") {}
 
 export type EmailObservationBinding<E, R> =
   | {

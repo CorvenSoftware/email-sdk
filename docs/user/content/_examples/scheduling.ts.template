@@ -1,5 +1,5 @@
 import { DateTime, Effect } from "effect";
-import { Email } from "@corven/email-sdk";
+import { Email } from "@corvencore/email-sdk";
 
 export const scheduleNotification = Effect.gen(function* scheduleNotification() {
   const email = yield* Email;

@@ -3,7 +3,7 @@ title: Plunk
 description: Configure Plunk with explicit consent to contact upserts and provider-generated text.
 ---
 
-Import `plunkEmailLayer` from `@corven/email-sdk/plunk` to provide the common `Email` service for this account.
+Import `plunkEmailLayer` from `@corvencore/email-sdk/plunk` to provide the common `Email` service for this account.
 
 ## Configure the account
 

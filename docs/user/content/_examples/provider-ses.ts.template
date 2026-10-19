@@ -1,6 +1,6 @@
 import { Layer } from "effect";
-import { sesEmailLayer } from "@corven/email-sdk/ses";
-import type { SesEmailOptions } from "@corven/email-sdk/ses";
+import { sesEmailLayer } from "@corvencore/email-sdk/ses";
+import type { SesEmailOptions } from "@corvencore/email-sdk/ses";
 import { emailHttpLayer } from "./sending.js";
 
 export const configuredSesAccount = (

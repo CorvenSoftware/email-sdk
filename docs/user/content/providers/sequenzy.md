@@ -3,7 +3,7 @@ title: Sequenzy
 description: Configure HTML sends with provider-managed profiles, rendering and retention.
 ---
 
-Import `sequenzyEmailLayer` from `@corven/email-sdk/sequenzy` to provide the common `Email` service for this account.
+Import `sequenzyEmailLayer` from `@corvencore/email-sdk/sequenzy` to provide the common `Email` service for this account.
 
 ## Configure the account
 

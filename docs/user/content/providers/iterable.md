@@ -3,7 +3,7 @@ title: Iterable triggered campaigns
 description: Configure an Iterable campaign, recipient identity, data retention and tracking permissions.
 ---
 
-Use `IterableCampaignEmail` from `@corven/email-sdk/iterable`. This native campaign service is separate from common literal-message sending and ordinary routing.
+Use `IterableCampaignEmail` from `@corvencore/email-sdk/iterable`. This native campaign service is separate from common literal-message sending and ordinary routing.
 
 <include lang="ts">/_examples/iterable.ts.template</include>
 

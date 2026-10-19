@@ -3,7 +3,7 @@ title: Brevo
 description: Configure Brevo transactional messages, provider rendering and tracking.
 ---
 
-Import `brevoEmailLayer` from `@corven/email-sdk/brevo` to provide the common `Email` service for this account.
+Import `brevoEmailLayer` from `@corvencore/email-sdk/brevo` to provide the common `Email` service for this account.
 
 ## Configure the account
 

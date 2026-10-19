@@ -516,7 +516,7 @@ describe("offline email CLI", () => {
                       "./native-job": "./private-cli-file.js",
                       "./package.json": "./package.json",
                     },
-                    name: "@corven/email-sdk",
+                    name: "@corvencore/email-sdk",
                     private: "private-cli-secret",
                     version: "2.3.4",
                   }),
@@ -531,8 +531,8 @@ describe("offline email CLI", () => {
 
   for (const text of [
     '{"name":"private-cli-name"}',
-    '{"name":"@corven/email-sdk","version":"private-cli-version","exports":{}}',
-    '{"name":"@corven/email-sdk","version":"1.0.0","exports":{"./private_cli_path":"private-cli-value"}}',
+    '{"name":"@corvencore/email-sdk","version":"private-cli-version","exports":{}}',
+    '{"name":"@corvencore/email-sdk","version":"1.0.0","exports":{"./private_cli_path":"private-cli-value"}}',
   ]) {
     it.effect("reports unusable distribution metadata safely", () =>
       Effect.gen(function* refuseCliMetadata() {

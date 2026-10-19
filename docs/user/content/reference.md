@@ -22,7 +22,7 @@ Use installed declarations for exact generic errors and Effect service requireme
 - [Field support](/providers/field-support): declared base provider capabilities and configuration differences.
 - [Composition](/composition): defaults, transformations, observations, capture and aggregation.
 
-Import these common contracts from `@corven/email-sdk`. Account Layers, native jobs and optional integrations use the explicit subpaths described in their guides. Run `corven-email discover` for the installed export inventory.
+Import these common contracts from `@corvencore/email-sdk`. Account Layers, native jobs and optional integrations use the explicit subpaths described in their guides. Run `corven-email discover` for the installed export inventory.
 
 ## Offline CLI
 

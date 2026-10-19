@@ -6,12 +6,12 @@ import {
   EmailReceiptSchema,
   EmailRejected,
   EmailSenderIdempotencySchema,
-} from "@corven/email-sdk";
+} from "@corvencore/email-sdk";
 import {
   defineEmailHttpProvider,
   EmailHttpCredentialSchema,
   readEmailHttpJson,
-} from "@corven/email-sdk/provider";
+} from "@corvencore/email-sdk/provider";
 
 const exampleAcknowledgement = Schema.Struct({ id: EmailMessageIdSchema });
 

@@ -22,5 +22,5 @@ export interface IEmailAgentApproval {
 }
 
 export class EmailAgentApproval extends Context.Service<EmailAgentApproval, IEmailAgentApproval>()(
-  "@corven/email-sdk/EmailAgentApproval",
+  "@corvencore/email-sdk/EmailAgentApproval",
 ) {}

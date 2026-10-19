@@ -1,6 +1,6 @@
 import { Effect, Redacted } from "effect";
-import { defaultedIterableCampaignLayer } from "@corven/email-sdk/iterable-defaults";
-import { IterableCampaignEmail, iterableCampaignLayer } from "@corven/email-sdk/iterable";
+import { defaultedIterableCampaignLayer } from "@corvencore/email-sdk/iterable-defaults";
+import { IterableCampaignEmail, iterableCampaignLayer } from "@corvencore/email-sdk/iterable";
 
 export const defaultedCampaignLayer = defaultedIterableCampaignLayer(
   iterableCampaignLayer({

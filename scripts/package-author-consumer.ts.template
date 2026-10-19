@@ -5,10 +5,10 @@ import {
   Email, EmailConfigurationError, EmailDeliveryUnknown, EmailInvalidMessage,
   EmailMessageIdSchema, EmailReceiptSchema, EmailRejected, EmailSenderIdempotencySchema,
   formatEmailMailbox,
-} from "@corven/email-sdk";
-import type { EmailSubmission } from "@corven/email-sdk";
-import { defineEmailHttpProvider, EmailHttpCredentialSchema, readEmailHttpJson } from "@corven/email-sdk/provider";
-import type { EmailHttpExchange } from "@corven/email-sdk/provider";
+} from "@corvencore/email-sdk";
+import type { EmailSubmission } from "@corvencore/email-sdk";
+import { defineEmailHttpProvider, EmailHttpCredentialSchema, readEmailHttpJson } from "@corvencore/email-sdk/provider";
+import type { EmailHttpExchange } from "@corvencore/email-sdk/provider";
 
 export const verifyAuthoredProvider = (define: typeof defineEmailHttpProvider) =>
   Effect.gen(function* verifyExternalAuthor() {

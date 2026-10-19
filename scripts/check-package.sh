@@ -36,7 +36,7 @@ const stage = process.argv[2];
 writeFileSync(join(stage, "consumer", "package.json"), JSON.stringify({
   private: true,
   type: "module",
-  dependencies: { "@corven/email-sdk": "file:../email-sdk.tgz", effect: "4.0.3" },
+  dependencies: { "@corvencore/email-sdk": "file:../email-sdk.tgz", effect: "4.0.3" },
   devDependencies: { "@types/node": "24.13.6", typescript: "7.0.2" },
 }));
 writeFileSync(join(stage, "consumer", "tsconfig.json"), JSON.stringify({

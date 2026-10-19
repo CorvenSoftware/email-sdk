@@ -1,6 +1,6 @@
 import { Layer } from "effect";
 import type { Redacted } from "effect";
-import { mailpaceEmailLayer } from "@corven/email-sdk/mailpace";
+import { mailpaceEmailLayer } from "@corvencore/email-sdk/mailpace";
 import { emailHttpLayer } from "./sending.js";
 
 export const configuredMailpaceAccount = (serverToken: Redacted.Redacted) =>

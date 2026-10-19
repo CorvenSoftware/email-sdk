@@ -3,7 +3,7 @@ title: Email service reference
 description: Exact common service methods, expected failures, prepared-operation members and routed result differences.
 ---
 
-Import `Email` and `IEmail` from `@corven/email-sdk`. Acquire the service inside an Effect and provide a configured Layer before execution.
+Import `Email` and `IEmail` from `@corvencore/email-sdk`. Acquire the service inside an Effect and provide a configured Layer before execution.
 
 ## Methods
 

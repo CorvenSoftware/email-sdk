@@ -1,5 +1,5 @@
 {
-  "name": "@corven/email-sdk",
+  "name": "@corvencore/email-sdk",
   "version": "0.1.0",
   "private": true,
   "description": "Effect-native transactional email with explicit submission evidence and replay safety.",

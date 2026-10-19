@@ -3,7 +3,7 @@ title: Loops transactional templates
 description: Configure a Loops account and send a job that uses a published transactional template.
 ---
 
-Use `LoopsTransactionalEmail` from `@corven/email-sdk/loops`. This is a native published-template service, not a literal-message `Email` Layer or ordinary routing target.
+Use `LoopsTransactionalEmail` from `@corvencore/email-sdk/loops`. This is a native published-template service, not a literal-message `Email` Layer or ordinary routing target.
 
 <include lang="ts">/_examples/loops.ts.template</include>
 

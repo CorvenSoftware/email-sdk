@@ -6,11 +6,11 @@ export default defineConfig({
   agents: {
     catalog: false,
     llmsTxt: {
-      details: `Corven Email SDK (\`@corven/email-sdk\`) provides an Effect service for validating and sending email through configured provider accounts. It requires Node.js ${sdkPackage.engines.node} and Effect ${sdkPackage.peerDependencies.effect}.
+      details: `Corven Email SDK (\`@corvencore/email-sdk\`) provides an Effect service for validating and sending email through configured provider accounts. It requires Node.js ${sdkPackage.engines.node} and Effect ${sdkPackage.peerDependencies.effect}.
 
 Use the [quickstart](/quickstart) to install the package and record an email offline. Then [configure a provider](/sending). Append \`.md\` to a guide URL to retrieve Markdown.
 
-- Import \`Email\` from \`@corven/email-sdk\` and provider Layers from their public subpaths.
+- Import \`Email\` from \`@corvencore/email-sdk\` and provider Layers from their public subpaths.
 - Supply credentials and transport in the application. Disable automatic redirects, transport-level send retries and sensitive request logging.
 - Store queue, scheduling and recovery state in the application. The SDK does not persist these records.
 - An accepted receipt confirms provider acknowledgment, not delivery. An unknown result means the SDK could not determine whether the provider accepted the request.

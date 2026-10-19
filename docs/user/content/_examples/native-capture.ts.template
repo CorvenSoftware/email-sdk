@@ -3,8 +3,8 @@ import {
   EmailNativeCapture,
   EmailNativeCapturePayloadSchema,
   capturedLoopsTransactionalLayer,
-} from "@corven/email-sdk/native-capture";
-import { LoopsTransactionalEmail, loopsTransactionalLayer } from "@corven/email-sdk/loops";
+} from "@corvencore/email-sdk/native-capture";
+import { LoopsTransactionalEmail, loopsTransactionalLayer } from "@corvencore/email-sdk/loops";
 
 export const capturedNativeLoopsLayer = capturedLoopsTransactionalLayer(
   loopsTransactionalLayer({

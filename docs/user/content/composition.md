@@ -7,7 +7,7 @@ Add wrappers to a configured account Layer to apply defaults, transform messages
 
 ## Apply message defaults
 
-`defaultedEmailLayer`, from `@corven/email-sdk/defaults`, applies reply-to, header, tag and metadata defaults, plus prefixes for caller-supplied keys. Set the sender, body and event key explicitly. The resulting message still passes provider validation.
+`defaultedEmailLayer`, from `@corvencore/email-sdk/defaults`, applies reply-to, header, tag and metadata defaults, plus prefixes for caller-supplied keys. Set the sender, body and event key explicitly. The resulting message still passes provider validation.
 
 `transformedEmailLayer`, from the root entrypoint, runs trusted application preparation and can return replacement message content. A transformation cannot replace operation policy or keys, or grant permission to dispatch after a failure. Supply Effects whose dependencies are already resolved.
 
@@ -27,13 +27,13 @@ Preparation does not submit a request, reserve remote capacity or extend a scope
 
 ## Choose what to observe
 
-| Need                                          | Public API                                                                   |
-| --------------------------------------------- | ---------------------------------------------------------------------------- |
-| Minimal settled sender-call facts             | `@corven/email-sdk/observations`                                             |
-| Bounded private input and outcome capture     | `@corven/email-sdk/capture`, with explicit payload-capture permission        |
-| Loops or Iterable operation facts and capture | `@corven/email-sdk/native-observations` / `@corven/email-sdk/native-capture` |
-| Complete private prepared-operation outcomes  | Root `observedEmailOperationLayer`                                           |
-| Read-only named samples from existing views   | Capture and observation aggregation capabilities                             |
+| Need                                          | Public API                                                                           |
+| --------------------------------------------- | ------------------------------------------------------------------------------------ |
+| Minimal settled sender-call facts             | `@corvencore/email-sdk/observations`                                                 |
+| Bounded private input and outcome capture     | `@corvencore/email-sdk/capture`, with explicit payload-capture permission            |
+| Loops or Iterable operation facts and capture | `@corvencore/email-sdk/native-observations` / `@corvencore/email-sdk/native-capture` |
+| Complete private prepared-operation outcomes  | Root `observedEmailOperationLayer`                                                   |
+| Read-only named samples from existing views   | Capture and observation aggregation capabilities                                     |
 
 Select the API for the operation you need to observe. Sender calls, prepared operations and grouped provider requests are recorded separately. A request can be submitted without appearing in a particular observation view.
 

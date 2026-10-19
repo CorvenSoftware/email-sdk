@@ -17,7 +17,7 @@ export interface IRecordedEmails {
 }
 
 export class RecordedEmails extends Context.Service<RecordedEmails, IRecordedEmails>()(
-  "@corven/email-sdk/RecordedEmails",
+  "@corvencore/email-sdk/RecordedEmails",
 ) {}
 
 interface RecordedReplay {

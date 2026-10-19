@@ -3,7 +3,7 @@ title: Resend
 description: Send literal messages through Resend with native idempotency and scheduling.
 ---
 
-Import `resendEmailLayer` from `@corven/email-sdk/resend` to provide the common `Email` service for this account.
+Import `resendEmailLayer` from `@corvencore/email-sdk/resend` to provide the common `Email` service for this account.
 
 ## Configure the account
 

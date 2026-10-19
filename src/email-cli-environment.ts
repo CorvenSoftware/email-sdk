@@ -12,4 +12,4 @@ export interface IEmailCliEnvironment {
 export class EmailCliEnvironment extends Context.Service<
   EmailCliEnvironment,
   IEmailCliEnvironment
->()("@corven/email-sdk/EmailCliEnvironment") {}
+>()("@corvencore/email-sdk/EmailCliEnvironment") {}

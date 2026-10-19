@@ -1,5 +1,5 @@
 import { Effect } from "effect";
-import { emailAttachmentFromBytes, parseEmailMessage } from "@corven/email-sdk";
+import { emailAttachmentFromBytes, parseEmailMessage } from "@corvencore/email-sdk";
 
 export const prepareNotification = Effect.gen(function* prepareNotification() {
   const attachment = yield* emailAttachmentFromBytes(

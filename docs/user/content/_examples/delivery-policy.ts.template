@@ -1,5 +1,5 @@
 import { Duration, Effect } from "effect";
-import { Email } from "@corven/email-sdk";
+import { Email } from "@corvencore/email-sdk";
 
 export const submitWithSingleAttempt = Effect.gen(function* submitWithSingleAttempt() {
   const email = yield* Email;

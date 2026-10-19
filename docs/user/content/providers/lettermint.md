@@ -3,7 +3,7 @@ title: Lettermint
 description: Send through a Lettermint route with native keys and sandbox-aware receipts.
 ---
 
-Import `lettermintEmailLayer` from `@corven/email-sdk/lettermint` to provide the common `Email` service for this account.
+Import `lettermintEmailLayer` from `@corvencore/email-sdk/lettermint` to provide the common `Email` service for this account.
 
 ## Configure the account
 

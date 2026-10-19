@@ -43,7 +43,7 @@ export interface IEmailAgent {
 }
 
 export class EmailAgent extends Context.Service<EmailAgent, IEmailAgent>()(
-  "@corven/email-sdk/EmailAgent",
+  "@corvencore/email-sdk/EmailAgent",
 ) {}
 
 const decodeAgentInput = Schema.decodeUnknownEffect(EmailAgentInputSchema, {
