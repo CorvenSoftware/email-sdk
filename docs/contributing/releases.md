@@ -4,13 +4,13 @@ Changesets manages SDK versions and changelogs. The release workflow in [release
 
 ## First-publication prerequisites
 
-The SDK license is recorded in [package.json](../../package.json) and the root [LICENSE](../../LICENSE). The package remains `private` until the authenticated first-publication bootstrap is ready. The `corvencore` npm organization is owned by the maintainer; organization membership and npm authentication remain separate from GitHub App authentication.
+The SDK license is recorded in [package.json](../../package.json) and the root [LICENSE](../../LICENSE). The manifest permits public publication through the protected release workflow or an explicitly approved first-publication bootstrap. The maintainer owns the `corvencore` npm organization, which enforces 2FA for members. Organization membership and npm authentication remain separate from GitHub App authentication.
 
 Before enabling publication:
 
 1. Confirm the authenticated npm account has publish access to `@corvencore/email-sdk` through the `corvencore` organization. Keep organization ownership and 2FA enforcement under maintainer control; do not invite additional members or broaden team access as part of a release.
 2. Confirm the SDK's SPDX license identifier in `package.json` agrees with the full text in the root `LICENSE`. Preserve third-party license files; they do not license the SDK.
-3. Set `private` to `false`. Keep the package's explicit public access and registry settings. Review the packed file list and retain the public `./provider` export and optional integration isolation.
+3. Verify `private` is `false` and keep the package's explicit public access and registry settings. Review the packed file list and retain the public `./provider` export and optional integration isolation.
 4. Create the GitHub environment `npm-production`. Require a maintainer review, restrict it to `main` and allow sole-maintainer self-review only if needed. A workflow environment name alone does not configure these protections.
 5. Configure the repository-scoped release GitHub App described below. Organization policy blocks version PR creation with the built-in token; do not relax that organization-wide policy to enable this repository.
 6. Review and authorize committing and pushing the release setup. Confirm the approved revision is the current remote `main` before the first publication.
@@ -48,7 +48,7 @@ Configure these repository settings:
 
 Keep the private key out of files, logs, arguments and artifacts. The pinned token action requests only the two required permissions for `email-sdk`; installation tokens expire after one hour and are revoked when the job completes. Rotate the App's signing key through GitHub and replace the encrypted repository secret when needed.
 
-App-authenticated version PRs trigger the normal PR validation workflow. The App does not approve or merge PRs and is not used for npm publication. Its repository variable and encrypted secret are configured. The private SDK currently has no release intent and the normal workflow selects no operation.
+App-authenticated version PRs trigger the normal PR validation workflow. The App does not approve or merge PRs and is not used for npm publication. Its repository variable and encrypted secret are configured. The normal workflow selects a version PR for pending changesets, publication for an unpublished manifest version, or no operation when npm is up to date.
 
 Verify App authentication after setup or key rotation without creating a PR or publishing a package:
 

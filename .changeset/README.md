@@ -6,4 +6,4 @@ Use a patch for compatible fixes, a minor for new capabilities, and a major for 
 
 `pnpm release:status` previews pending releases. The release workflow opens a version PR, then publishes the reviewed version after that PR is merged and the protected npm environment is approved.
 
-See [Package releases](../docs/contributing/releases.md) for first-publication prerequisites and trusted-publisher configuration. The SDK remains private until its license and npm access are confirmed.
+See [Package releases](../docs/contributing/releases.md) for first-publication prerequisites and trusted-publisher configuration. Package publication requires approval through the protected npm environment or the explicitly authorized first-publication bootstrap.
