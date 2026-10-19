@@ -4,6 +4,11 @@ on:
   push:
     branches: [main]
   workflow_dispatch:
+    inputs:
+      verify_release_app:
+        description: Verify the release App without versioning or publishing
+        type: boolean
+        default: false
 
 permissions: {}
 
@@ -17,9 +22,38 @@ env:
   TURBO_TELEMETRY_DISABLED: "1"
 
 jobs:
+  verify-app:
+    name: Verify release App authentication
+    if: github.event_name == 'workflow_dispatch' && inputs.verify_release_app && github.repository == 'CorvenSoftware/email-sdk' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    permissions:
+      contents: read
+    steps:
+      - name: Create repository-scoped release App token
+        id: release-app
+        uses: actions/create-github-app-token@64ab729a6294000f5aa4a4bc0b73d1f32bc45510
+        with:
+          client-id: ${{ vars.RELEASE_APP_CLIENT_ID }}
+          private-key: ${{ secrets.RELEASE_APP_PRIVATE_KEY }}
+          owner: ${{ github.repository_owner }}
+          repositories: email-sdk
+          permission-contents: write
+          permission-pull-requests: write
+      - name: Verify installation repository scope
+        env:
+          GH_TOKEN: ${{ steps.release-app.outputs.token }}
+        run: |
+          repositories=$(gh api installation/repositories --jq '[.repositories[].full_name] | sort | join(",")')
+          if [ "$repositories" != "$GITHUB_REPOSITORY" ]; then
+            printf '%s\n' 'Release App verification refused: installation token is not scoped to this repository only.' >&2
+            exit 1
+          fi
+          printf '%s\n' 'Release App authentication and repository scope verified; no PR or package was created.'
+
   select-mode:
     name: Select release operation
-    if: github.repository == 'CorvenSoftware/email-sdk' && github.ref == 'refs/heads/main'
+    if: github.repository == 'CorvenSoftware/email-sdk' && github.ref == 'refs/heads/main' && !inputs.verify_release_app
     runs-on: ubuntu-24.04
     timeout-minutes: 10
     permissions:

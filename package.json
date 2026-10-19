@@ -7,6 +7,7 @@
   "bugs": {
     "url": "https://github.com/CorvenSoftware/email-sdk/issues"
   },
+  "license": "MIT",
   "repository": {
     "type": "git",
     "url": "git+https://github.com/CorvenSoftware/email-sdk.git"
@@ -16,7 +17,8 @@
   },
   "files": [
     "dist",
-    "README.md"
+    "README.md",
+    "LICENSE"
   ],
   "type": "module",
   "sideEffects": false,

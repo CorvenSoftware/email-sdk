@@ -4,12 +4,12 @@ Changesets manages SDK versions and changelogs. The release workflow in [release
 
 ## First-publication prerequisites
 
-The package is still marked `private` because its SDK license and npm publishing access have not been confirmed. Installing Changesets does not authorize a license choice or establish ownership of the `@corven` npm scope.
+The SDK license is recorded in [package.json](../../package.json) and the root [LICENSE](../../LICENSE). The package remains `private` until npm publishing access is confirmed. Installing Changesets does not establish ownership of the `@corven` npm scope.
 
 Before enabling publication:
 
 1. Confirm the npm account has publish access to `@corven/email-sdk`. The `@corven` organization already exists. If it is not controlled by the maintainers, choose an authorized package name and update package consumers, documentation and this workflow before publishing.
-2. Choose the SDK license. Add its SPDX identifier to `package.json` and its full text to a root `LICENSE`. Preserve third-party license files; they do not license the SDK.
+2. Confirm the SDK's SPDX license identifier in `package.json` agrees with the full text in the root `LICENSE`. Preserve third-party license files; they do not license the SDK.
 3. Set `private` to `false`. Keep the package's explicit public access and registry settings. Review the packed file list and retain the public `./provider` export and optional integration isolation.
 4. Create the GitHub environment `npm-production`. Require a maintainer review, restrict it to `main` and allow sole-maintainer self-review only if needed. A workflow environment name alone does not configure these protections.
 5. Configure the repository-scoped release GitHub App described below. Organization policy blocks version PR creation with the built-in token; do not relax that organization-wide policy to enable this repository.
@@ -35,9 +35,9 @@ Confirm the published version, dist-tag, repository metadata and downloadable ar
 
 ## Configure version PR automation
 
-The organization's Actions policy prevents `GITHUB_TOKEN` from creating pull requests. The version job instead uses a GitHub App installation token scoped to this repository. The built-in job token retains read-only contents access, and no organization-wide policy change is required.
+The organization's Actions policy prevents `GITHUB_TOKEN` from creating pull requests. The version job instead uses the private [Corven Email SDK Releases App](https://github.com/organizations/CorvenSoftware/settings/apps/corven-email-sdk-releases), installed only on this repository. The built-in job token retains read-only contents access, and no organization-wide policy change is required.
 
-Register a private release GitHub App and install it on **only** `CorvenSoftware/email-sdk`. Grant repository **Contents: read and write** and **Pull requests: read and write**. Metadata read access is implicit. Do not grant workflow, administration or organization permissions.
+Keep the App private and installed on **only** `CorvenSoftware/email-sdk`. Grant repository **Contents: read and write** and **Pull requests: read and write**. Metadata read access is implicit. Do not grant workflow, administration or organization permissions.
 
 Configure these repository settings:
 
@@ -48,7 +48,15 @@ Configure these repository settings:
 
 Keep the private key out of files, logs, arguments and artifacts. The pinned token action requests only the two required permissions for `email-sdk`; installation tokens expire after one hour and are revoked when the job completes. Rotate the App's signing key through GitHub and replace the encrypted repository secret when needed.
 
-App-authenticated version PRs trigger the normal PR validation workflow. The App does not approve or merge PRs and is not used for npm publication. Until the App and its settings are configured, version-PR creation is not operational; the private SDK has no release intent and the workflow selects no operation.
+App-authenticated version PRs trigger the normal PR validation workflow. The App does not approve or merge PRs and is not used for npm publication. Its repository variable and encrypted secret are configured. The private SDK currently has no release intent and the normal workflow selects no operation.
+
+Verify App authentication after setup or key rotation without creating a PR or publishing a package:
+
+```sh
+gh workflow run release.yml --ref main -f verify_release_app=true
+```
+
+This opt-in mode only mints a short-lived token with the required contents/PR permissions, checks that it can access this repository alone and revokes it at job completion. Version selection, packing and publication jobs are disabled in this mode. It verifies App authentication, not release-PR creation or npm authentication.
 
 ## Configure npm trusted publishing
 

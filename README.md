@@ -15,5 +15,6 @@ Effect-native email library.
 - [Documentation deployment](docs/contributing/docs-deployment.md) — Alchemy and GitHub Actions setup.
 - [Contributor instructions](AGENTS.md)
 - [Reference sources](.agent-repos) — pinned source revisions for contributor research.
+- [MIT license](LICENSE)
 
 Preview the user documentation with `pnpm docs:dev`. Check content and links with `pnpm docs:check`, then build static HTML, search and LLM-readable output with `pnpm docs:build`. Output lives in `docs/user/dist/`, not the SDK's `dist/`. The Alchemy stack targets the hostname in [deployment.json](docs/user/deployment.json); deployment requires Cloudflare credentials and approval.
