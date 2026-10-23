@@ -206,6 +206,21 @@ const resendProvider = defineEmailHttpProvider({
   span: "Resend.submit",
 });
 
+export {
+  ResendBatchEmail,
+  ResendBatchEmailOptionsSchema,
+  ResendBatchMessagesSchema,
+  resendBatchEmailLayer,
+  resendBatchEmailProfile,
+} from "./resend-batch-email.js";
+
+export type {
+  IResendBatchEmail,
+  ResendBatchEmailOptionsInput,
+  ResendBatchEmailResult,
+  ResendBatchMessagesInput,
+} from "./resend-batch-email.js";
+
 export const preflightResendEmail = resendProvider.preflight;
 
 export const resendSenderLayer = resendProvider.senderLayer;

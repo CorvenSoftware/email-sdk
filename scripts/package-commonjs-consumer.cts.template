@@ -935,6 +935,26 @@ const program = Effect.gen(function* verifyCommonjsPackage() {
     }
   }).pipe(Effect.provide(Sendgrid.sendgridEmailLayer({ apiKey: credential, region: "Europe" }).pipe(Layer.provide(Layer.succeed(EffectHttp.HttpClient.HttpClient, EffectHttp.HttpClient.make(() => Effect.die("Unexpected packed SendGrid transport")))))));
 
+  const batchTransport = EffectHttp.HttpClient.make((request) => Effect.sync(() => {
+    assert.equal(request.url, "https://api.resend.com/emails/batch");
+    assert.equal(request.headers["x-batch-validation"], "strict");
+    return EffectHttp.HttpClientResponse.fromWeb(request, new Response(
+      JSON.stringify({ data: [{ id: "commonjs-batch-1" }] }),
+      { status: 200, headers: { "content-type": "application/json" } },
+    ));
+  }));
+  const nativeBatch = yield* Resend.ResendBatchEmail.use((batch) => batch.send([message])).pipe(
+    Effect.provide(Resend.resendBatchEmailLayer({ apiKey: credential }).pipe(
+      Layer.provide(Layer.succeed(EffectHttp.HttpClient.HttpClient, batchTransport)),
+    )),
+  );
+  assert.equal(nativeBatch.length, 1);
+  assert(nativeBatch.every(Result.isSuccess));
+
+  for (const leaf of ["resend-batch-email.js", "resend-email-payload.js"]) {
+    assert.throws(() => require(`@corvencore/email-sdk/dist/${leaf}`), { code: "ERR_PACKAGE_PATH_NOT_EXPORTED" });
+  }
+
   yield* Effect.gen(function* verifyCommonjsNativeSendgridPersonalization() {
     const requests: string[] = [];
     const transport = EffectHttp.HttpClient.make((request) => Effect.sync(() => {

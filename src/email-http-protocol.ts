@@ -37,6 +37,7 @@ const executeEmailHttpRequest = <E, R>(
 ): Effect.Effect<HttpClientResponse.HttpClientResponse, EmailDeliveryUnknown, R> =>
   client.execute(request).pipe(
     Effect.provideService(HttpClient.TracerDisabledWhen, () => true),
+    protectEmailUnsettledCause,
     Effect.mapError(() => new EmailDeliveryUnknown({ provider, reason: "transport" })),
   );
 

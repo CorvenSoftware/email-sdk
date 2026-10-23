@@ -5,6 +5,8 @@ import { FetchHttpClient, HttpClient, HttpClientResponse } from "effect/http";
 import { Email, EmailSender, EmailSenderIdempotencySchema, EmailDeliveryUnknown, emailLayer, EmailReceiptSchema, EmailSubmissionIdSchema, EmailRejected, EmailInvalidMessage, EmailInvalidOptions, EmailSendRequestSchema, emailAttachmentFromBytes, EmailAttachmentSchema, EmailMailboxSchema, formatEmailMailbox, renderEmailPersonalizedMessage, EmailRouter, emailRouterLayer, emailAttachmentFromArrayBuffer, emailAttachmentFromBlob, EmailRetryDecisionSchema, EmailRetryCandidateSchema, transformedEmailLayer, EmailPersonalizedOptionsSchema, observedEmailOperationLayer, EmailOperationOutcomeSchema, capturedEmailRouterLayer, observedEmailRouterLayer } from "@corvencore/email-sdk";
 import type { EmailConfigurationError, EmailReceipt, EmailSendError, IEmail, EmailRetryDecision, EmailRetryObserver, EmailRetryRestriction, EmailRetryCandidate, EmailPreparedOperation, EmailOperationEvent } from "@corvencore/email-sdk";
 import { preflightResendEmail, resendEmailLayer, resendSenderLayer } from "@corvencore/email-sdk/resend";
+import { ResendBatchEmail, resendBatchEmailLayer } from "@corvencore/email-sdk/resend";
+import type { IResendBatchEmail } from "@corvencore/email-sdk/resend";
 import { capturedEmailSenderLayer, EmailCapturePayloadSchema, EmailCaptureSnapshotSchema, EmailSubmissionCapture, aggregatedEmailCaptureLayer, EmailCaptureAggregate, EmailCaptureAggregateSnapshotSchema } from "@corvencore/email-sdk/capture";
 import type { EmailCaptureSnapshot, EmailCaptureRecord, IEmailSubmissionCapture, EmailCaptureAggregateSnapshot } from "@corvencore/email-sdk/capture";
 import { preflightPostmarkEmail, postmarkEmailLayer } from "@corvencore/email-sdk/postmark";
@@ -84,6 +86,52 @@ const proveDefaultsDeclarations = (defaults: EmailDefaultsInput): void => {
   void layer;
 };
 void proveDefaultsDeclarations;
+
+const proveNativeBatchOptions = (batch: IResendBatchEmail): void => {
+  void batch.send([message], {
+    // @ts-expect-error -- Native batch options do not accept delivery policies.
+    policy: { deadline: Duration.seconds(10), initialDelay: Duration.millis(1), maxAttempts: 3 },
+  });
+  // @ts-expect-error -- A batch takes messages, not per-item request options.
+  void batch.send([{ message, options: { idempotencyKey: "item-key" } }]);
+};
+void proveNativeBatchOptions;
+
+await Effect.runPromise(
+  Effect.gen(function* verifyInstalledNativeBatch() {
+    const requests = yield* Ref.make(0);
+    const transport = Layer.succeed(
+      HttpClient.HttpClient,
+      HttpClient.make((request) =>
+        Effect.gen(function* acknowledgeSyntheticBatch() {
+          yield* Ref.update(requests, (count) => count + 1);
+          assert.equal(request.url, "https://api.resend.com/emails/batch");
+          assert.equal(request.headers["x-batch-validation"], "strict");
+          assert.equal(request.headers["idempotency-key"], "installed/batch-1");
+          return HttpClientResponse.fromWeb(
+            request,
+            new Response(JSON.stringify({ data: [{ id: "installed-1" }, { id: "installed-2" }] }), {
+              status: 200,
+              headers: { "content-type": "application/json" },
+            }),
+          );
+        }),
+      ),
+    );
+    const outcomes = yield* ResendBatchEmail.use((batch) =>
+      batch.send([message, message], { idempotencyKey: "installed/batch-1" }),
+    ).pipe(
+      Effect.provide(resendBatchEmailLayer({ apiKey: Redacted.make("fictional-key") }).pipe(Layer.provide(transport))),
+    );
+    assert.equal(outcomes.length, 2);
+    assert(outcomes.every(Result.isSuccess));
+    assert.equal(yield* Ref.get(requests), 1);
+  }),
+);
+
+for (const leaf of ["resend-batch-email.js", "resend-email-payload.js"]) {
+  await assert.rejects(import(`@corvencore/email-sdk/dist/${leaf}`), { code: "ERR_PACKAGE_PATH_NOT_EXPORTED" });
+}
 
 const proveCaptureDeclarations = (view: IEmailSubmissionCapture, snapshot: EmailCaptureSnapshot, record: EmailCaptureRecord): void => {
   const effect: Effect.Effect<EmailCaptureSnapshot> = view.snapshot;

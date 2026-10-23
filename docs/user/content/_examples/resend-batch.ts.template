@@ -1,0 +1,21 @@
+import { ResendBatchEmail } from "@corvencore/email-sdk/resend";
+
+export const submitResendBatch = ResendBatchEmail.use((batch) =>
+  batch.send(
+    [
+      {
+        body: { text: "Your fictional order is ready." },
+        from: "sender@example.test",
+        subject: "First order ready",
+        to: "first@example.test",
+      },
+      {
+        body: { text: "Your fictional order is ready." },
+        from: "sender@example.test",
+        subject: "Second order ready",
+        to: "second@example.test",
+      },
+    ],
+    { idempotencyKey: "fictional/batch-1" },
+  ),
+);

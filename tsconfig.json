@@ -27,6 +27,7 @@
           {
             "include": [
               "src/resend-email-sender.test.ts",
+              "src/resend-batch-email.test.ts",
               "src/postmark-email-sender.test.ts",
               "src/sendgrid-email-sender.test.ts",
               "src/mailgun-email-sender.test.ts",
@@ -57,6 +58,7 @@
           {
             "include": [
               "src/resend-email-sender.ts",
+              "src/resend-batch-email.ts",
               "src/postmark-email-sender.ts",
               "src/sendgrid-email-sender.ts",
               "src/mailgun-email-sender.ts",
@@ -89,7 +91,8 @@
               "examples/resend.ts",
               "examples/postmark.ts",
               "examples/loops.ts",
-              "test/email-contracts.tst.ts"
+              "test/email-contracts.tst.ts",
+              "test/resend-batch-contracts.tst.ts"
             ],
             "options": { "allowedUnstableApis": ["effect/http"] }
           }
