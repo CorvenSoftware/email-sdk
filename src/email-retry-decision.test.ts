@@ -7,12 +7,14 @@ import {
   Exit,
   Fiber,
   Layer,
+  Queue,
   Random,
   Ref,
   Result,
   Schema,
 } from "effect";
 import { TestClock } from "effect/testing";
+import { makeScriptedEmailSender } from "../test/email-scripted-sender-fixture.js";
 import { startEmailTraceFixture } from "../test/email-tracing-fixture.js";
 import {
   Email,
@@ -742,42 +744,30 @@ describe("explicit email retry-decision observers", () => {
 
   it.effect("preserves earlier uncertainty after observing later definite rejection", () =>
     Effect.gen(function* retainObservedUncertainty() {
-      const calls = yield* Ref.make(0);
-      const backups = yield* Ref.make(0);
-      const entered = yield* Deferred.make<boolean>();
       const decisions: EmailRetryDecision[] = [];
       const unknown = new EmailDeliveryUnknown({ provider: "fixture", reason: "transport" });
+
+      const scriptedPrimary = yield* makeScriptedEmailSender(
+        [
+          Effect.fail(unknown),
+          Effect.fail(new EmailRejected({ provider: "fixture", reason: "rate-limited" })),
+          Effect.fail(new EmailRejected({ provider: "fixture", reason: "invalid-message" })),
+        ],
+        { idempotency: native, provider: "fixture" },
+      );
+
+      const scriptedBackup = yield* makeScriptedEmailSender([Effect.succeed(receipt)], {
+        idempotency: native,
+        provider: "fixture",
+      });
 
       const observer: EmailRetryObserver = (decision) =>
         Effect.sync(() => {
           decisions.push(decision);
         });
 
-      const primary = emailLayer(policy, observer).pipe(
-        Layer.provide(
-          suppliedSender(() =>
-            Effect.gen(function* submitMixedObservedOutcomes() {
-              const count = yield* Ref.updateAndGet(calls, (value) => value + 1);
-              yield* Deferred.succeed(entered, true);
-
-              if (count === 1) {
-                return yield* unknown;
-              }
-
-              return yield* new EmailRejected({
-                provider: "fixture",
-                reason: count === 2 ? "rate-limited" : "invalid-message",
-              });
-            }),
-          ),
-        ),
-      );
-
-      const backup = emailLayer(policy).pipe(
-        Layer.provide(
-          suppliedSender(() => Ref.update(backups, (count) => count + 1).pipe(Effect.as(receipt))),
-        ),
-      );
+      const primary = emailLayer(policy, observer).pipe(Layer.provide(scriptedPrimary.layer));
+      const backup = emailLayer(policy).pipe(Layer.provide(scriptedBackup.layer));
 
       const fiber = yield* Effect.gen(function* submitObservedUncertainRoute() {
         return yield* (yield* Email).send(message, { idempotencyKey: "private-key" });
@@ -795,13 +785,13 @@ describe("explicit email retry-decision observers", () => {
         Effect.forkScoped,
       );
 
-      yield* Deferred.await(entered);
+      yield* Queue.take(scriptedPrimary.submissions);
       yield* TestClock.adjust(1000);
       const outcome = yield* Fiber.join(fiber);
       assert(Result.isFailure(outcome));
       assert.strictEqual(outcome.failure, unknown);
-      assert.strictEqual(yield* Ref.get(calls), 3);
-      assert.strictEqual(yield* Ref.get(backups), 0);
+      assert.strictEqual((yield* scriptedPrimary.attempts).length, 3);
+      assert.strictEqual((yield* scriptedBackup.attempts).length, 0);
       assert.deepStrictEqual(
         decisions.map((decision) => [decision._tag, decision.attempt, decision.nextAttempt]),
         [
