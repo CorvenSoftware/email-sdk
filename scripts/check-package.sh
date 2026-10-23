@@ -65,10 +65,23 @@ for example in "$root/docs/user/content/_examples/"*.ts.template; do
   cp -- "$example" "$stage/consumer/docs-examples/$(basename -- "$example" .template)"
 done
 cp -- "$root/scripts/package-docs-runtime.mjs.template" "$stage/consumer/docs-runtime.mjs"
+node --input-type=module - "$stage/consumer/docs-examples" "$root" <<'README_EXAMPLE'
+import { readFileSync, writeFileSync } from "node:fs";
+import { join } from "node:path";
+const readmeExample = readFileSync(join(process.argv[3], "README.md"), "utf8")
+  .match(/```ts\n(?<example>[\s\S]*?)\n```/u)?.groups?.example;
+if (readmeExample === undefined) throw new Error("README requires a TypeScript recording example.");
+writeFileSync(join(process.argv[2], "readme-recording.ts"), `${readmeExample}
+import assert from "node:assert/strict";
+assert.equal(result.receipt._tag, "Recorded");
+assert.equal(result.messages.length, 1);
+`);
+README_EXAMPLE
 pnpm --dir "$stage/consumer" install "$install_mode" --ignore-scripts
 pnpm --dir "$stage/consumer" exec tsc --noEmit
 node "$stage/consumer/consumer.ts"
 node "$stage/consumer/docs-runtime.mjs"
+node "$stage/consumer/docs-examples/readme-recording.ts"
 pnpm --dir "$stage/consumer" exec tsc -p tsconfig.commonjs.json
 node "$stage/consumer/compiled-commonjs/consumer.cjs"
 test ! -d "$stage/consumer/node_modules/ai"

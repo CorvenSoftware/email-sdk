@@ -1,6 +1,38 @@
 # Corven Email SDK
 
-Effect-native email library.
+Effect-native email with explicit submission evidence and replay safety.
+
+## Record your first email
+
+Use the recording Layer without credentials, an HTTP client, or a provider account:
+
+```ts
+import { Effect } from "effect";
+import { Email } from "@corvencore/email-sdk";
+import { RecordedEmails, recordingEmailLayer } from "@corvencore/email-sdk/testing";
+
+const recordNotification = Effect.gen(function* recordNotification() {
+  const email = yield* Email;
+  const records = yield* RecordedEmails;
+  const receipt = yield* email.send({
+    body: { text: "Your fictional order is ready." },
+    from: "sender@example.test",
+    subject: "Order ready",
+    to: "recipient@example.test",
+  });
+  const messages = yield* records.messages;
+
+  return { messages, receipt };
+}).pipe(Effect.provide(recordingEmailLayer));
+
+const result = await Effect.runPromise(recordNotification);
+```
+
+`result.receipt` is `Recorded`, and `result.messages` contains one local message. Nothing was sent to a provider. Recording is not acceptance or delivery.
+
+Follow the [quickstart](docs/user/content/quickstart.md) for local package installation and the matching Effect peer. This example uses the same public imports and recording workflow as the installed-package checks.
+
+## Documentation and development
 
 - [User documentation](https://email-sdk.corvencore.com) — guides and public API reference.
 - [Documentation source](docs/user/content/index.md) — Blume content, separate from contributor guidance.
