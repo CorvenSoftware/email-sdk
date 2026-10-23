@@ -4,8 +4,7 @@ import { HttpClientRequest } from "effect/http";
 import { defineEmailHttpProvider } from "./email-provider.js";
 import { EmailHttpCredentialSchema } from "./email-http-credential.js";
 import { EmailSenderCapabilitiesSchema, ownEmailSenderCapabilities } from "./email-capabilities.js";
-import { formatEmailMailbox } from "./email-address.js";
-import { emailAttachmentMimeType } from "./email-attachment.js";
+import { buildResendEmailPayload } from "./resend-email-payload.js";
 import { EmailDeliveryUnknown } from "./email-delivery-unknown.js";
 import { EmailInvalidMessage } from "./email-invalid-message.js";
 import { EmailRejected } from "./email-rejected.js";
@@ -167,29 +166,7 @@ const resendProvider = defineEmailHttpProvider({
       const unkeyedRequest = yield* HttpClientRequest.post("https://api.resend.com/emails").pipe(
         HttpClientRequest.bearerToken(Redacted.value(apiKey)),
         HttpClientRequest.acceptJson,
-        HttpClientRequest.bodyJson({
-          attachments: message.attachments?.map((attachment) => ({
-            content: attachment.contentBase64,
-            content_id: attachment.contentId,
-            content_type: emailAttachmentMimeType(attachment),
-            filename: attachment.filename,
-          })),
-          bcc: message.bcc?.map(formatEmailMailbox),
-          cc: message.cc?.map(formatEmailMailbox),
-          from: formatEmailMailbox(message.from),
-          headers:
-            message.headers === undefined
-              ? undefined
-              : Object.fromEntries(message.headers.map((header) => [header.name, header.value])),
-          html: message.body.html,
-          reply_to: message.replyTo?.map(formatEmailMailbox),
-          scheduled_at:
-            message.sendAt === undefined ? undefined : DateTime.formatIso(message.sendAt),
-          subject: message.subject,
-          tags: message.tags,
-          text: message.body.text,
-          to: message.to.map(formatEmailMailbox),
-        }),
+        HttpClientRequest.bodyJson(buildResendEmailPayload(message)),
         Effect.mapError(() => new EmailRejected({ provider: "resend", reason: "invalid-message" })),
       );
 
