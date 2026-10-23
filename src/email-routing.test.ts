@@ -582,10 +582,11 @@ describe("Named routing and submission evidence", () => {
 
         const scopedRoute = recordingEmailLayer.pipe(Layer.provide(acquired));
 
+        const configuredRoute = { layer: scopedRoute, name: "primary" };
+        const configuredPlan = { primary: "missing" };
+
         const invalid = yield* routerProgram.pipe(
-          Effect.provide(
-            emailRouterLayer([{ layer: scopedRoute, name: "primary" }], { primary: "missing" }),
-          ),
+          Effect.provide(emailRouterLayer([configuredRoute], configuredPlan)),
           Effect.flip,
         );
 

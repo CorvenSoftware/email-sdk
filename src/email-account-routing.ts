@@ -99,7 +99,7 @@ export const capturedEmailRouterLayer = <const Accounts extends CapturedAccounts
         Layer.Services<Accounts[number]["layer"]>
       >[],
     ],
-  defaultPlan: EmailRoutePlanInput,
+  defaultPlan: EmailRoutePlanInput<NoInfer<Accounts[number]["name"]>>,
 ): Layer.Layer<
   Email | EmailRouter | EmailCaptureAggregate,
   Layer.Error<Accounts[number]["layer"]> | EmailConfigurationError,
@@ -122,7 +122,7 @@ export const observedEmailRouterLayer = <const Accounts extends ObservedAccounts
         Layer.Services<Accounts[number]["layer"]>
       >[],
     ],
-  defaultPlan: EmailRoutePlanInput,
+  defaultPlan: EmailRoutePlanInput<NoInfer<Accounts[number]["name"]>>,
 ): Layer.Layer<
   Email | EmailRouter | EmailObservationAggregate,
   Layer.Error<Accounts[number]["layer"]> | EmailConfigurationError,
