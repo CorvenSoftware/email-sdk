@@ -32,6 +32,10 @@ export type {
 
 export type { EmailExtension } from "./email-extension.js";
 
+export { sendEmailStream } from "./email-stream.js";
+
+export type { EmailStreamOutcome } from "./email-stream.js";
+
 export { EmailPersonalizationModeSchema } from "./email-composition.js";
 
 export type { EmailPersonalizationMode } from "./email-composition.js";
