@@ -1,6 +1,7 @@
 import { Effect, Schema, Stream } from "effect";
 import type { HttpClientResponse } from "effect/http";
 import { EmailDeliveryUnknown } from "./email-delivery-unknown.js";
+import { protectEmailUnsettledCause } from "./email-unsettled-cause.js";
 
 export const readEmailHttpJson = (
   response: HttpClientResponse.HttpClientResponse,
@@ -29,6 +30,7 @@ export const readEmailHttpJson = (
       (body, chunk) => body + chunk,
     ),
     Effect.flatMap(Schema.decodeEffect(Schema.fromJsonString(Schema.Json))),
+    protectEmailUnsettledCause,
     Effect.mapError(
       () =>
         new EmailDeliveryUnknown({ provider, reason: "invalid-response", status: response.status }),
