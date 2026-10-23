@@ -1,8 +1,9 @@
 import assert from "node:assert/strict";
 import { createHmac } from "node:crypto";
-import { Clock, DateTime, Duration, Effect, Layer, Redacted, Ref, Result, Schema, Queue } from "effect";
+import { Clock, DateTime, Duration, Effect, Layer, Redacted, Ref, Result, Schema, Queue, Stream } from "effect";
 import { FetchHttpClient, HttpClient, HttpClientResponse } from "effect/http";
 import { Email, EmailSender, EmailSenderIdempotencySchema, EmailDeliveryUnknown, emailLayer, EmailReceiptSchema, EmailSubmissionIdSchema, EmailRejected, EmailInvalidMessage, EmailInvalidOptions, EmailSendRequestSchema, emailAttachmentFromBytes, EmailAttachmentSchema, EmailMailboxSchema, formatEmailMailbox, renderEmailPersonalizedMessage, EmailRouter, emailRouterLayer, emailAttachmentFromArrayBuffer, emailAttachmentFromBlob, EmailRetryDecisionSchema, EmailRetryCandidateSchema, transformedEmailLayer, EmailPersonalizedOptionsSchema, observedEmailOperationLayer, EmailOperationOutcomeSchema, capturedEmailRouterLayer, observedEmailRouterLayer } from "@corvencore/email-sdk";
+import { sendEmailStream } from "@corvencore/email-sdk";
 import type { EmailConfigurationError, EmailReceipt, EmailSendError, IEmail, EmailRetryDecision, EmailRetryObserver, EmailRetryRestriction, EmailRetryCandidate, EmailPreparedOperation, EmailOperationEvent } from "@corvencore/email-sdk";
 import { preflightResendEmail, resendEmailLayer, resendSenderLayer } from "@corvencore/email-sdk/resend";
 import { capturedEmailSenderLayer, EmailCapturePayloadSchema, EmailCaptureSnapshotSchema, EmailSubmissionCapture, aggregatedEmailCaptureLayer, EmailCaptureAggregate, EmailCaptureAggregateSnapshotSchema } from "@corvencore/email-sdk/capture";
@@ -1143,6 +1144,24 @@ await Effect.runPromise(Effect.gen(function* verifyPackedMailgunNativePersonaliz
     assert.equal(yield* Schema.encodeEffect(EmailSubmissionIdSchema)(correlation), "<batch@mg.example.test>");
   }
 }));
+
+await Effect.runPromise(
+  Effect.gen(function* verifyInstalledStreaming() {
+    const records = yield* RecordedEmails;
+    const outcomes = yield* sendEmailStream(
+      Stream.fromIterable([
+        { message: { ...message, subject: "first" } },
+        { message: { ...message, subject: "second" } },
+      ]),
+      { concurrency: 2 },
+    ).pipe(Stream.runCollect);
+    assert.deepEqual(outcomes.map((outcome) => outcome.index), [0, 1]);
+    assert(outcomes.every((outcome) => Result.isSuccess(outcome.result)));
+    assert.equal((yield* records.messages).length, 2);
+  }).pipe(Effect.provide(recordingEmailLayer)),
+);
+
+await assert.rejects(import("@corvencore/email-sdk/dist/" + "email-stream.js"), { code: "ERR_PACKAGE_PATH_NOT_EXPORTED" });
 
 const privateSpecifier = "@corvencore/email-sdk/" + "src/email-service.js";
 

@@ -17,6 +17,18 @@ Each request has its own key and delivery policy. There is no batch-wide key for
 
 Defects and interruption cancel active work and propagate. Already accepted messages cannot be undone. A batch is neither an atomic transaction nor an implicit provider-native bulk request.
 
+## Stream independent messages
+
+Use `sendEmailStream` for an incremental source of request envelopes:
+
+<include lang="ts">./_examples/streaming.ts.template</include>
+
+Consume this stream with an Effect Stream runner and provide an `Email` Layer. Results arrive in source order as `{ index, result }`, with a zero-based index for the complete source. The concurrency setting bounds active item submissions. Each item keeps its own key and policy.
+
+The helper owns each request when it processes that request. Preparation runs once per item, including every selected route candidate. Unlike `sendAll`, streaming does not prepare the complete source before sending. A sparse source does not wait for a full batch.
+
+Expected item failures become Results. Upstream failures, defects, and interruption stop the stream. Stopping consumption interrupts active work but cannot undo accepted submissions. Preserve outcomes as you consume them. A stream failure does not prove that previous or in-flight work was unsent.
+
 ## Personalize a message
 
 `sendPersonalized` takes a template without recipient fields and an explicit audience. Each audience member supplies a mailbox, template variables and an optional idempotency key. Shared options specify concurrency and context, not one key for the whole audience.

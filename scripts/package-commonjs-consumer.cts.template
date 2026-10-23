@@ -998,6 +998,15 @@ const program = Effect.gen(function* verifyCommonjsPackage() {
     }
   });
 
+  const streamed = yield* EmailSdk.sendEmailStream(
+    EffectLibrary.Stream.make({ message }, { message }),
+    { concurrency: 2 },
+  ).pipe(EffectLibrary.Stream.runCollect, Effect.provide(Testing.recordingEmailLayer));
+  assert.deepEqual(streamed.map((outcome) => outcome.index), [0, 1]);
+  assert(streamed.every((outcome) => Result.isSuccess(outcome.result)));
+
+  assert.throws(() => require("@corvencore/email-sdk/dist/email-stream.js"), { code: "ERR_PACKAGE_PATH_NOT_EXPORTED" });
+
   const failed = yield* Effect.gen(function* verifyCommonjsModeledFailure() {
     return yield* (yield* EmailSdk.Email).send(message);
   }).pipe(Effect.provide(Testing.failingEmailLayer(new EmailSdk.EmailRejected({ provider: "fictional", reason: "authentication" }))), Effect.result);
