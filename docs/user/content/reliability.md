@@ -45,6 +45,18 @@ Replaying an unknown outcome requires all of the following:
 
 Store each key with its application event and creation time. Key forwarding alone does not enable retries after an unknown outcome. If an earlier attempt has an unknown outcome, retain that state after a later rejection. Do not retry because an observer failed.
 
+## Pace one account's sender attempts
+
+Wrap a sender Layer with `pacedEmailSenderLayer` to enforce a positive minimum interval between admissions:
+
+<include lang="ts">./_examples/pacing.ts.template</include>
+
+Provide an explicit HTTP client as shown in [sending](./sending#configure-transport-behavior). Reuse the acquired paced Layer for callers that share an account. Separate acquisitions have separate pacing state. The SDK does not coordinate quotas across processes.
+
+Pacing limits sender admissions over time. It does not limit concurrent requests or guarantee physical network-start timing. A slow submission can remain active after another admission. Eligible retries pass through the same gate, and waiting counts toward the existing submission deadline.
+
+The wrapper owns messages before waiting and rechecks provider validation after waiting. Cancellation does not reserve a future admission. Pacing adds no retry or fallback authority. Native audience and provider-native batch operations do not use this individual-sender gate.
+
 ## Recover from timeouts and process loss
 
 A timeout interrupts SDK-owned work but cannot recall a request the provider already accepted. Preserve uncertainty and reconcile through an application-owned process when the outcome cannot be established.

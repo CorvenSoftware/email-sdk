@@ -4,6 +4,7 @@ import { Clock, DateTime, Duration, Effect, Layer, Redacted, Ref, Result, Schema
 import { FetchHttpClient, HttpClient, HttpClientResponse } from "effect/http";
 import { Email, EmailSender, EmailSenderIdempotencySchema, EmailDeliveryUnknown, emailLayer, EmailReceiptSchema, EmailSubmissionIdSchema, EmailRejected, EmailInvalidMessage, EmailInvalidOptions, EmailSendRequestSchema, emailAttachmentFromBytes, EmailAttachmentSchema, EmailMailboxSchema, formatEmailMailbox, renderEmailPersonalizedMessage, EmailRouter, emailRouterLayer, emailAttachmentFromArrayBuffer, emailAttachmentFromBlob, EmailRetryDecisionSchema, EmailRetryCandidateSchema, transformedEmailLayer, EmailPersonalizedOptionsSchema, observedEmailOperationLayer, EmailOperationOutcomeSchema, capturedEmailRouterLayer, observedEmailRouterLayer } from "@corvencore/email-sdk";
 import type { EmailConfigurationError, EmailReceipt, EmailSendError, IEmail, EmailRetryDecision, EmailRetryObserver, EmailRetryRestriction, EmailRetryCandidate, EmailPreparedOperation, EmailOperationEvent } from "@corvencore/email-sdk";
+import { pacedEmailSenderLayer } from "@corvencore/email-sdk";
 import { preflightResendEmail, resendEmailLayer, resendSenderLayer } from "@corvencore/email-sdk/resend";
 import { capturedEmailSenderLayer, EmailCapturePayloadSchema, EmailCaptureSnapshotSchema, EmailSubmissionCapture, aggregatedEmailCaptureLayer, EmailCaptureAggregate, EmailCaptureAggregateSnapshotSchema } from "@corvencore/email-sdk/capture";
 import type { EmailCaptureSnapshot, EmailCaptureRecord, IEmailSubmissionCapture, EmailCaptureAggregateSnapshot } from "@corvencore/email-sdk/capture";
@@ -54,6 +55,28 @@ const message = {
   subject: "Offline package example",
   to: ["recipient@example.test"],
 } as const;
+
+const provePacingRequirements = <E, R>(sender: Layer.Layer<EmailSender, E, R>): void => {
+  const paced: Layer.Layer<EmailSender, E | EmailConfigurationError, R> = pacedEmailSenderLayer(
+    sender,
+    { minimumSpacing: Duration.millis(100) },
+  );
+  void paced;
+};
+void provePacingRequirements;
+
+await Effect.runPromise(
+  Email.use((email) => email.send(message)).pipe(
+    Effect.tap((receipt) => Effect.sync(() => assert.equal(receipt._tag, "Recorded"))),
+    Effect.provide(
+      emailLayer().pipe(
+        Layer.provide(pacedEmailSenderLayer(recordingSenderLayer, { minimumSpacing: Duration.millis(1) })),
+      ),
+    ),
+  ),
+);
+
+await assert.rejects(import("@corvencore/email-sdk/dist/" + "email-sender-pacing.js"), { code: "ERR_PACKAGE_PATH_NOT_EXPORTED" });
 
 const proveAgentDeclarations = (agent: IEmailAgent, input: EmailAgentInput, proposal: EmailAgentProposal): void => {
   const layer: Layer.Layer<EmailAgent, EmailConfigurationError, Email | EmailAgentApproval> = emailAgentLayer({ from: "host@fictional.invalid" });
