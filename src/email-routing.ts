@@ -70,7 +70,13 @@ export const EmailRoutePlanSchema = Schema.Struct({
   ),
 );
 
-export type EmailRoutePlanInput = typeof EmailRoutePlanSchema.Encoded;
+export type EmailRoutePlanInput<Name extends string = string> = Omit<
+  typeof EmailRoutePlanSchema.Encoded,
+  "primary" | "fallbacks"
+> & {
+  readonly primary: Name;
+  readonly fallbacks?: readonly [Name, ...Name[]];
+};
 
 export const EmailRoutedReceiptSchema = Schema.Union([
   EmailReceiptSchema.cases.Accepted.mapFields((fields) => ({
@@ -251,7 +257,7 @@ export const prepareEmailRouteConfiguration = <E, R>(
     Effect.mapError((cause) => new EmailConfigurationError({ issues: emailInputIssues(cause) })),
   );
 
-export const emailRouterLayer = <E, R>(
+const makeEmailRouterLayer = <E, R>(
   bindings: readonly [EmailRouteBinding<E, R>, ...EmailRouteBinding<E, R>[]],
   defaultPlan: EmailRoutePlanInput,
 ): Layer.Layer<EmailRouter | Email, E | EmailConfigurationError, R> =>
@@ -431,3 +437,26 @@ export const emailRouterLayer = <E, R>(
       return Context.make(EmailRouter, router).pipe(Context.add(Email, defaultEmail));
     }),
   );
+
+type EmailRouteBindings<E, R> = readonly [EmailRouteBinding<E, R>, ...EmailRouteBinding<E, R>[]];
+
+export const emailRouterLayer = <
+  E,
+  R,
+  const Bindings extends EmailRouteBindings<unknown, unknown> = EmailRouteBindings<E, R>,
+>(
+  bindings: Bindings &
+    EmailRouteBindings<
+      Layer.Error<Bindings[number]["layer"]>,
+      Layer.Services<Bindings[number]["layer"]>
+    >,
+  defaultPlan: EmailRoutePlanInput<NoInfer<Bindings[number]["name"]>>,
+): Layer.Layer<
+  EmailRouter | Email,
+  Layer.Error<Bindings[number]["layer"]> | EmailConfigurationError,
+  Layer.Services<Bindings[number]["layer"]>
+> =>
+  makeEmailRouterLayer<
+    Layer.Error<Bindings[number]["layer"]>,
+    Layer.Services<Bindings[number]["layer"]>
+  >(bindings, defaultPlan);

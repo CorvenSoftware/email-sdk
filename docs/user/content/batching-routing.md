@@ -49,6 +49,8 @@ Register a Layer for each named account, then select a route through `EmailRoute
 
 The example uses the HTTP Layer from [sending](./sending) and deliberately omits an idempotency key: every candidate, including Postmark, must support the requested key.
 
+Construction-time default plans infer literal names from the registrations. With inferred type arguments, TypeScript rejects an unregistered primary or fallback name when every registration has a literal name. Dynamic names and legacy explicit `emailRouterLayer<E, R>` calls retain runtime validation. This inference does not narrow the globally provided `EmailRouter.select` method.
+
 Before transport, the router preflights the effective message, options and policy for every selected candidate. An unsupported field or key on a backup fails locally instead of being dropped.
 
 ### Understand when fallback stops

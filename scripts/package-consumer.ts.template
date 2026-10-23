@@ -97,6 +97,12 @@ const proveAgentDeclarations = (agent: IEmailAgent, input: EmailAgentInput, prop
 };
 void proveAgentDeclarations;
 
+const proveRegisteredPlans = (): void => {
+  // @ts-expect-error -- Installed declarations reject unregistered literal defaults.
+  void emailRouterLayer([{ name: "primary", layer: recordingEmailLayer }], { primary: "typo" });
+};
+void proveRegisteredPlans;
+
 const proveDefaultsDeclarations = (defaults: EmailDefaultsInput): void => {
   const layer: Layer.Layer<Email, EmailConfigurationError, HttpClient.HttpClient> = defaultedEmailLayer(resendEmailLayer({ apiKey: Redacted.make("fictional-key") }), defaults);
   // @ts-expect-error -- Defaults require the Email interface rather than a sender Layer.
