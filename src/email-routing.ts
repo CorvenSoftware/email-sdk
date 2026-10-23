@@ -251,7 +251,7 @@ export const prepareEmailRouteConfiguration = <E, R>(
     Effect.mapError((cause) => new EmailConfigurationError({ issues: emailInputIssues(cause) })),
   );
 
-export const emailRouterLayer = <E, R>(
+const makeEmailRouterLayer = <E, R>(
   bindings: readonly [EmailRouteBinding<E, R>, ...EmailRouteBinding<E, R>[]],
   defaultPlan: EmailRoutePlanInput,
 ): Layer.Layer<EmailRouter | Email, E | EmailConfigurationError, R> =>
@@ -431,3 +431,9 @@ export const emailRouterLayer = <E, R>(
       return Context.make(EmailRouter, router).pipe(Context.add(Email, defaultEmail));
     }),
   );
+
+export const emailRouterLayer = <E, R>(
+  bindings: readonly [EmailRouteBinding<E, R>, ...EmailRouteBinding<E, R>[]],
+  defaultPlan: EmailRoutePlanInput,
+): Layer.Layer<EmailRouter | Email, E | EmailConfigurationError, R> =>
+  makeEmailRouterLayer(bindings, defaultPlan);
