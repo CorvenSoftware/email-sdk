@@ -55,6 +55,7 @@ const validationFields = [
   "idempotencyKeyPrefix",
   "executionMetadata",
   "concurrency",
+  "minimumSpacing",
   "capacity",
   "kind",
   "sources",

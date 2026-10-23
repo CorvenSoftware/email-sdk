@@ -30,6 +30,10 @@ export type {
   EmailObservedRouteBinding,
 } from "./email-account-routing.js";
 
+export { EmailSenderPacingOptionsSchema, pacedEmailSenderLayer } from "./email-sender-pacing.js";
+
+export type { EmailSenderPacingOptionsInput } from "./email-sender-pacing.js";
+
 export type { EmailExtension } from "./email-extension.js";
 
 export { sendEmailStream } from "./email-stream.js";

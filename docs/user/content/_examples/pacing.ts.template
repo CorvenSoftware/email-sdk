@@ -1,0 +1,13 @@
+import { Duration, Layer } from "effect";
+import type { Redacted } from "effect";
+import { emailLayer, pacedEmailSenderLayer } from "@corvencore/email-sdk";
+import { resendSenderLayer } from "@corvencore/email-sdk/resend";
+
+export const pacedResendAccount = (apiKey: Redacted.Redacted) =>
+  emailLayer().pipe(
+    Layer.provide(
+      pacedEmailSenderLayer(resendSenderLayer({ apiKey }), {
+        minimumSpacing: Duration.millis(100),
+      }),
+    ),
+  );

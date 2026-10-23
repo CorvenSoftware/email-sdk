@@ -383,6 +383,15 @@ const proveCommonjsDeclarations = (email: EmailSdk.IEmail) => {
 void proveCommonjsDeclarations;
 
 const program = Effect.gen(function* verifyCommonjsPackage() {
+  const paced = yield* EmailSdk.Email.use((email) => email.send(message)).pipe(
+    Effect.provide(EmailSdk.emailLayer().pipe(Layer.provide(
+      EmailSdk.pacedEmailSenderLayer(Testing.recordingSenderLayer, { minimumSpacing: Duration.millis(1) }),
+    ))),
+  );
+  assert(EmailSdk.EmailReceiptSchema.guards.Recorded(paced));
+
+  assert.throws(() => require("@corvencore/email-sdk/dist/email-sender-pacing.js"), { code: "ERR_PACKAGE_PATH_NOT_EXPORTED" });
+
   for (const inspect of [Sendgrid.preflightSendgridEmail, Mailgun.preflightMailgunEmail, Mailersend.preflightMailersendEmail, Mailpace.preflightMailpaceEmail, Unosend.preflightUnosendEmail]) {
     const preview = yield* inspect(message);
     assert.strictEqual(preview.subject, message.subject);
