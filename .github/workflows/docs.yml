@@ -43,6 +43,8 @@ jobs:
           PACKAGE_CHECK_ALLOW_NETWORK: "1"
         run: pnpm check:package
       - name: Build documentation
+        env:
+          NODE_OPTIONS: --import=${{ github.workspace }}/scripts/block-documentation-fetch.ts
         run: pnpm docs:build
       - name: Save documentation artifact
         if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'

@@ -123,6 +123,7 @@
   },
   "include": [
     "alchemy.run.ts",
+    "scripts/block-documentation-fetch.ts",
     "src",
     "test",
     "examples",

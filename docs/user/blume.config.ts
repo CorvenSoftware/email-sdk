@@ -181,7 +181,50 @@ Use the [quickstart](/quickstart) to install the package and record an email off
     },
   },
   seo: { og: { enabled: false }, rss: { enabled: false } },
-  theme: { accent: "teal", mode: "system", radius: "md" },
+  theme: {
+    accent: "teal",
+    fonts: {
+      body: {
+        name: "Inter",
+        variants: [
+          { src: "./public/fonts/inter/inter-latin-normal.woff2", style: "normal" },
+          { src: "./public/fonts/inter/inter-latin-italic.woff2", style: "italic" },
+        ],
+      },
+      display: {
+        name: "Inter",
+        variants: [
+          { src: "./public/fonts/inter/inter-latin-normal.woff2", style: "normal" },
+          { src: "./public/fonts/inter/inter-latin-italic.woff2", style: "italic" },
+        ],
+      },
+      mono: {
+        name: "IBM Plex Mono",
+        variants: [
+          { src: "./public/fonts/ibm-plex-mono/ibm-plex-mono-latin-400-normal.woff2", weight: 400 },
+          { src: "./public/fonts/ibm-plex-mono/ibm-plex-mono-latin-500-normal.woff2", weight: 500 },
+          { src: "./public/fonts/ibm-plex-mono/ibm-plex-mono-latin-600-normal.woff2", weight: 600 },
+          {
+            src: "./public/fonts/ibm-plex-mono/ibm-plex-mono-latin-400-italic.woff2",
+            style: "italic",
+            weight: 400,
+          },
+          {
+            src: "./public/fonts/ibm-plex-mono/ibm-plex-mono-latin-500-italic.woff2",
+            style: "italic",
+            weight: 500,
+          },
+          {
+            src: "./public/fonts/ibm-plex-mono/ibm-plex-mono-latin-600-italic.woff2",
+            style: "italic",
+            weight: 600,
+          },
+        ],
+      },
+    },
+    mode: "system",
+    radius: "md",
+  },
   title: "Corven Email SDK",
   variables: {
     effectVersion: sdkPackage.peerDependencies.effect,
