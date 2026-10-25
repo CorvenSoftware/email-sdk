@@ -1,0 +1,23 @@
+import { Effect } from "effect";
+import { emailRouterLayer, explainEmailRoutePlan } from "@corvencore/email-sdk";
+import { recordingEmailLayer } from "@corvencore/email-sdk/testing";
+
+const routes = emailRouterLayer(
+  [
+    { name: "primary", layer: recordingEmailLayer },
+    { name: "backup", layer: recordingEmailLayer },
+  ],
+  { primary: "primary" },
+);
+
+export const inspectRouting = explainEmailRoutePlan(
+  { primary: "primary", fallbacks: ["backup"] },
+  {
+    message: {
+      body: { text: "A fictional notification." },
+      from: "sender@example.test",
+      subject: "Check routing without sending",
+      to: "recipient@example.test",
+    },
+  },
+).pipe(Effect.provide(routes));

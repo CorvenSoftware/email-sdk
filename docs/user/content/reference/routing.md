@@ -1,9 +1,19 @@
 ---
 title: Routing reference
-description: Register named Email accounts, select a route plan and preserve actual route identity in receipts.
+description: Router Layers, route plans, compatibility results, and fallback rules.
 ---
 
-`emailRouterLayer(bindings, defaultPlan)` acquires named account Layers and exposes `EmailRouter`. A binding contains `name` and `layer`; names are bounded lowercase identifiers rather than private account labels.
+`emailRouterLayer(bindings, defaultPlan)` acquires named account Layers. It provides `EmailRouter` and an `Email` service for the default plan.
+
+Each binding contains `name` and `layer`. Route names are bounded lowercase identifiers, not private account labels.
+
+## Router methods
+
+`EmailRouter.routes` returns an Effect that requires `EmailRouter` and yields the registered account metadata.
+
+`EmailRouter.select(plan?)` returns an Effect that requires `EmailRouter` and yields `IEmailRoute`. An omitted plan selects the configured default. These members are also available on the service acquired with `yield* EmailRouter`.
+
+Routed sends return `EmailRoutedReceipt` values with the actual route name.
 
 ## Route plan
 
@@ -13,16 +23,43 @@ description: Register named Email accounts, select a route plan and preserve act
 | `fallbacks` | Optional nonempty ordered list of distinct registered routes |
 | `deadline`  | Optional positive finite Effect Duration covering the chain  |
 
-The primary and fallbacks must be distinct. `router.select(plan?)` returns an `IEmailRoute`; omit the argument to use the configured default plan. Routed sends return `EmailRoutedReceipt` values containing the actual route.
+The primary and fallback names must be distinct.
+
+Default plans infer literal names from the registrations. With inferred type arguments, TypeScript rejects an unregistered name when every registration has a literal name. Dynamic names and explicit `emailRouterLayer<E, R>` calls use runtime validation. The global `EmailRouter.select` method validates names at runtime.
+
+## Preparation compatibility
+
+`explainEmailRoutePlan(plan, request)` requires `EmailRouter`. The function runs preparation for each candidate in plan order. It does not execute prepared send Effects.
+
+The result, `EmailRoutePlanExplanation`, has these fields:
+
+| Field        | Meaning                                                           |
+| ------------ | ----------------------------------------------------------------- |
+| `candidates` | Nonempty array of `EmailRouteCompatibility` values in plan order. |
+| `compatible` | `true` when every candidate is `Compatible`.                      |
+
+Each candidate has a `name` and a `Compatible` or `Incompatible` tag. An `Incompatible` candidate also has a `failure` containing an `EmailInvalidMessage`, `EmailInvalidOptions`, or `EmailRejected` snapshot.
+
+The function rejects a malformed plan, message, or options before candidate preparation. These failures use the typed `EmailInvalidOptions` or `EmailInvalidMessage` channel. Unknown names and unsupported account modes produce `Incompatible` candidates. Defects and interruption stop the operation and propagate as Effect causes.
+
+Failure snapshots contain only modeled fields. The SDK copies and freezes the failures, issue arrays, and issue objects. Snapshots omit original causes and extra runtime properties. They retain application-provided issue text and provider labels. Those fields must not contain private inputs.
+
+`EmailRouteCompatibilitySchema` and `EmailRoutePlanExplanationSchema` encode and decode the results. The explanation Schema checks that `compatible` agrees with the candidate tags.
+
+The result describes local preparation at the time of the check. It does not reserve transport capacity or record approval, provider acceptance, or replay authority. The [route-plan example](/batching-routing#explain-a-route-plan-without-sending) shows the public imports and Layer setup.
 
 ## Validation and authority
 
-Every selected candidate's effective message, key and policy is preflighted before transport. Unsupported backup intent is a local failure; fields cannot be deleted during fallback. Routed capabilities describe shared support, not cross-account native replay.
+The router preflights the effective message, key, and policy for every selected candidate before submission. If a fallback account does not support a field or key, preparation fails. The router does not remove unsupported intent.
 
-Only eligible definite rejection advances the chain. Unknown outcomes, conflicts, terminal receipts, defects and interruption stop it. Native-audience candidates are refused rather than converted to individual execution.
+The router can try the next account after `EmailRejected`. It stops when `reason` is `idempotency-conflict` or `unsupported-idempotency`. Unknown outcomes, terminal receipts, defects, and interruption also stop fallback.
+
+The router rejects native-audience candidates instead of converting them to individual execution.
+
+Routed capabilities describe support shared by the selected accounts. Native replay guarantees apply to one provider account and do not transfer between routes.
 
 ## Instrumented accounts
 
-`observedEmailRouterLayer` and `capturedEmailRouterLayer` retain named account views for [aggregation](/composition/aggregation). They do not make samples atomic or persist route selection across process restarts.
+`observedEmailRouterLayer` and `capturedEmailRouterLayer` expose named account views for [aggregation](/composition/aggregation). The views do not provide atomic samples or retain route selection across process restarts.
 
-Use the [routed account example](/batching-routing#route-explicit-accounts) for complete public imports and transport composition. Your application owns durable selected-account recovery.
+The application must persist the selected account for recovery. The [account routing guide](/batching-routing#route-explicit-accounts) covers Layer setup and recovery constraints.

@@ -1,26 +1,36 @@
 ---
 title: Services and Layers
-description: Understand how Email, EmailSender and provider Layers divide preparation, policy and transport.
+description: Roles of Email, EmailSender, provider Layers, and transport Layers.
 ---
 
-An Effect program declares its service dependencies. A Layer provides those services. Write notification logic using `Email`, then provide a Layer for the selected provider account and transport.
+`Email` separates application code from the provider account and transport. A program can use the same service dependency with a provider Layer or an offline recording Layer.
 
-## Email is the application service
+## Application service
 
-Acquire `Email` to validate, prepare, send, batch or personalize messages. Its methods return Effects; constructing an Effect does not execute a provider call. Provide an account Layer or an offline recording Layer where your application provides Layers.
+`Email` handles message preparation, submission policy, batches, and personalization. Preparation decodes and copies inputs so later caller changes cannot alter the prepared message or options. Defaults, transformations, routing, and approval use that prepared operation.
 
-Common preparation decodes inputs and owns their values so later caller mutation cannot change the submitted intent. Defaults, transformations, routing and approval work with that prepared operation.
+Direct calls such as `Email.send(...)` return Effects that require `Email`. These Effects resolve the service when they run. Constructing an Effect does not acquire an account or submit email.
 
-## EmailSender
+Direct calls, `Email.use`, and `yield* Email` use the same service. The [Email service reference](/reference/email) lists their methods, results, and errors.
 
-`EmailSender` supplies a provider name, local capabilities, an idempotency declaration, local message validation and submission. `emailLayer` builds the common `Email` workflow around that capability.
+## Provider services
 
-Normal applications use provider convenience Layers such as `resendEmailLayer`. Implement `EmailSender` directly only when authoring an integration whose protocol or configuration does not fit the HTTP provider builder.
+`EmailSender` defines a provider name, capabilities, an idempotency declaration, local validation, and submission. `emailLayer` builds an `Email` service around an `EmailSender`.
 
-## Transport is explicit
+`emailLayerFromSender` also provides the sender Layer. Provider convenience Layers, such as `resendEmailLayer`, already compose the sender with `emailLayer`.
 
-HTTP account Layers require `HttpClient` until the host provides one. The [sending example](/sending) supplies a client with redirects disabled. SMTP owns an explicit socket/TLS transport instead.
+Custom integrations can implement `EmailSender` when the [HTTP provider builder](/guides/authoring-provider) does not support their protocol or configuration. The [sender contract](/reference/sender) defines the required behavior.
 
-Keep resource scopes open for all Effects that use acquired services. A prepared value or AI tool does not extend the lifetime of the Layer that created it. Reuse the same Layer values when a recorder, capture query or observation view must share the sender's acquired store.
+## Transport dependencies
 
-See [provider authoring](/guides/authoring-provider) and the [sender contract](/reference/sender) for extension boundaries.
+HTTP account Layers require `HttpClient`. The application provides the transport, including its redirect and retry settings. SMTP uses a socket and TLS transport instead.
+
+Account configuration and transport configuration remain separate. The SDK accepts credentials as explicit inputs. An application can read credentials through Effect `Config` when it acquires a Layer.
+
+The [provider guide](/sending) covers account setup, configuration, and transport settings.
+
+## Resource lifetimes
+
+The application controls the scope of acquired Layers. A prepared operation or AI tool does not extend the lifetime of the Layer that created it.
+
+Recorder, capture, and observation queries need the same acquired state as the sender. Separate Layer acquisitions can create separate stores. Reusing a Layer value allows queries and submissions to share that state within a Layer build.

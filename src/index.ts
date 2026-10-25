@@ -7,6 +7,7 @@ export {
   EmailSendOptionsSchema,
   EmailSendRequestSchema,
   emailLayer,
+  emailLayerFromSender,
 } from "./email-service.js";
 
 export type {
@@ -153,6 +154,17 @@ export type {
   EmailRoutePlanInput,
   EmailRoutedReceipt,
 } from "./email-routing.js";
+
+export {
+  EmailRouteCompatibilitySchema,
+  EmailRoutePlanExplanationSchema,
+  explainEmailRoutePlan,
+} from "./email-routing-diagnostics.js";
+
+export type {
+  EmailRouteCompatibility,
+  EmailRoutePlanExplanation,
+} from "./email-routing-diagnostics.js";
 
 export { EmailConfigurationError } from "./email-configuration-error.js";
 

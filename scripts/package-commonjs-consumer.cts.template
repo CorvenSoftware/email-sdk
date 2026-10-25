@@ -1027,6 +1027,28 @@ const program = Effect.gen(function* verifyCommonjsPackage() {
     }
   });
 
+  yield* Effect.gen(function* verifyCommonjsEffectNativeEmail() {
+    const records = yield* Testing.RecordedEmails;
+    const prepared = yield* EmailSdk.Email.prepare(message);
+    assert.equal((yield* records.messages).length, 0);
+    assert.equal(yield* EmailSdk.Email.personalization, "Individual");
+    assert.equal((yield* EmailSdk.Email.capabilities).attachments, true);
+    yield* prepared.send;
+    assert.equal((yield* records.messages).length, 1);
+  }).pipe(Effect.provide(Testing.recordingEmailLayer));
+  const direct = yield* EmailSdk.Email.send(message).pipe(Effect.provide(EmailSdk.emailLayerFromSender(Testing.recordingSenderLayer)));
+  assert.equal(direct._tag, "Recorded");
+  yield* Effect.gen(function* verifyCommonjsRoutingExplanation() {
+    const explanation = yield* EmailSdk.explainEmailRoutePlan({ primary: "primary", fallbacks: ["missing"] }, { message });
+    assert.equal(explanation.compatible, false);
+    assert.deepEqual(explanation.candidates.map((candidate) => [candidate.name, candidate._tag]), [["primary", "Compatible"], ["missing", "Incompatible"]]);
+    assert(Schema.is(EmailSdk.EmailRoutePlanExplanationSchema)(explanation));
+    assert.deepEqual((yield* EmailSdk.EmailRouter.routes).map((route) => route.name), ["primary"]);
+    const selected = yield* EmailSdk.EmailRouter.select();
+    assert.equal((yield* selected.prepare(message)).previews.length, 1);
+  }).pipe(Effect.provide(EmailSdk.emailRouterLayer([{ name: "primary", layer: Testing.recordingEmailLayer }], { primary: "primary" })));
+  assert.throws(() => require("@corvencore/email-sdk/dist/email-routing-diagnostics.js"), { code: "ERR_PACKAGE_PATH_NOT_EXPORTED" });
+
   const streamed = yield* EmailSdk.sendEmailStream(
     EffectLibrary.Stream.make({ message }, { message }),
     { concurrency: 2 },

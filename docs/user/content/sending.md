@@ -1,38 +1,62 @@
 ---
 title: Send through a provider
-description: Configure a Resend account and HTTP transport, then send from an Effect program.
+description: Configure a provider account and HTTP client, then send an email from Effect.
 ---
 
-A sending program depends on `Email`. Your application supplies a provider Layer to select the account and a transport Layer to make network requests. Keeping those dependencies separate lets you reuse the program with an offline recorder or another compatible provider.
+To send email through Resend, provide an account Layer and an HTTP client to your `Email` program.
 
 ## Configure Resend
 
-The following example provides `resendEmailLayer` with a `Redacted` API key and an explicit HTTP client:
+Keep API keys out of source code, logs, browser bundles, and model input. Acquire the key in trusted application code.
+
+Pass a `Redacted` API key to `resendEmailLayer`. Provide an HTTP client to the account Layer:
 
 <include lang="ts">./_examples/sending.ts.template</include>
 
-Acquire `apiKey` in trusted application code before calling `sendNotification`. The SDK does not read environment variables, credential files or cloud identity endpoints. Keep credentials out of source code, logs, browser bundles and model input.
+The SDK does not read environment variables, credential files, or cloud identity endpoints.
 
 ## Execute the program
 
-Calling `sendNotification(apiKey)` constructs an Effect. Run the Effect in your application's entrypoint to submit the provider request.
+Before you run the example:
 
-Before running it:
+1. Replace the fictional `.test` addresses with addresses your account can use.
+2. Choose and persist an idempotency key for the logical event. The example key identifies one fictional order notification. Use a different key for each unrelated notification.
+3. Handle the receipt and typed failures as described in [receipts, errors, and retries](./reliability).
 
-- Replace the fictional `.test` addresses with addresses your account is authorized to use.
-- Choose and persist an idempotency key for the logical event. The example key identifies one fictional order notification; unrelated notifications need different keys.
-- Handle the receipt and typed failures as described in [receipts, errors and retries](./reliability).
+Call `sendNotification(apiKey)` to construct the Effect. Run the Effect in your application entrypoint to submit the request.
 
 ## Configure transport behavior
 
-The example sets `redirect: "manual"` to disable automatic redirects. Your HTTP client must also avoid hidden send retries and sensitive request or response logging. A retry underneath the SDK can repeat a request whose outcome is unknown, outside the SDK's submission policy.
+Set `redirect: "manual"` on the HTTP client to disable automatic redirects, as the example does. Disable hidden send retries and sensitive request or response logs in the client.
 
-You can reuse a transport Layer across provider accounts. Idempotency remains specific to each account.
+A transport retry can repeat a submission after an unknown outcome, outside the SDK's submission policy. For retry behavior, see [receipts, errors, and retries](./reliability).
+
+Reuse a transport Layer across accounts if they share the same transport settings. Keep idempotency keys and replay guarantees scoped to each account.
+
+## Read configuration with Effect
+
+If your application reads the API key from configuration, use `Config.Redacted` inside `Layer.unwrap`:
+
+<include lang="ts">./_examples/effect-configuration.ts.template</include>
+
+Provide an HTTP client when you use `configuredResendAccount`. Layer acquisition reads the key and reports missing configuration through the typed error channel.
+
+## Build an Email Layer from a sender
+
+If you have an `EmailSender` Layer, pass it to `emailLayerFromSender`:
+
+<include lang="ts">./_examples/effect-native.ts.template</include>
+
+Run `recordWithEffect` from your application entrypoint. The example records the message locally and returns a `Recorded` receipt. It does not submit email to a provider.
+
+For the helper's types and scope rules, see the [Email service reference](/reference/email#sender-layer).
 
 ## Change providers
 
-For Postmark, import `postmarkEmailLayer` from `@corvencore/email-sdk/postmark` and supply its `serverToken`. The application still uses `Email`, but the provider must support every field and option you request.
+Before you change providers, check the required fields and options against [provider support](./providers).
 
-Postmark does not support idempotency keys in this SDK, so the keyed Resend example fails local validation. Select a provider that supports keys if your workflow requires them. Scheduling, attachments and recipient results also vary by provider. Check [providers and validation](./providers) before switching. Handle unsupported fields as validation errors; do not drop them automatically.
+For Postmark, import `postmarkEmailLayer` from `@corvencore/email-sdk/postmark` and supply its `serverToken`. Continue to use `Email` in your program.
 
-Use the higher-level `Email` service for normal application workflows. `EmailSender` is the lower-level submission capability used to build provider integrations.
+Postmark does not support idempotency keys in this SDK. The keyed Resend example therefore fails local validation with Postmark. If your workflow requires keys, select a provider that supports them.
+
+Scheduling, attachments, and recipient results also vary by provider. Handle unsupported fields as validation errors. Do not remove those fields to make a submission succeed.

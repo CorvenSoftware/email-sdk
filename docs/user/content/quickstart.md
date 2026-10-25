@@ -11,19 +11,19 @@ This guide covers SDK **{{sdkVersion}}** with Effect **{{effectVersion}}** on No
 
 ## 1. Install the package
 
-The SDK is currently available from a local checkout rather than a package registry. From that checkout, build a package archive using the package manager pinned in `package.json`:
+Install the SDK and its matching Effect peer:
 
 ```sh
-pnpm install --frozen-lockfile
-pnpm build
-pnpm pack --out ./corven-email-sdk.tgz
+npm install @corvencore/email-sdk effect@{{effectVersion}}
 ```
 
-In your application, install the archive and its matching Effect peer:
+If you use pnpm:
 
 ```sh
-pnpm add /absolute/path/to/corven-email-sdk.tgz effect@{{effectVersion}}
+pnpm add @corvencore/email-sdk effect@{{effectVersion}}
 ```
+
+No checkout or local package build is required.
 
 ## 2. Record an email
 
