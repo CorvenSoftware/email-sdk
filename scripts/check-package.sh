@@ -68,9 +68,16 @@ cp -- "$root/scripts/package-docs-runtime.mjs.template" "$stage/consumer/docs-ru
 node --input-type=module - "$stage/consumer/docs-examples" "$root" <<'README_EXAMPLE'
 import { readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
-const readmeExample = readFileSync(join(process.argv[3], "README.md"), "utf8")
-  .match(/```ts\n(?<example>[\s\S]*?)\n```/u)?.groups?.example;
+const readmeExamples = Array.from(
+  readFileSync(join(process.argv[3], "README.md"), "utf8")
+    .matchAll(/```ts\n(?<example>[\s\S]*?)\n```/gu),
+  (match) => match.groups.example,
+);
+const [readmeExample, ...readmeCompileExamples] = readmeExamples;
 if (readmeExample === undefined) throw new Error("README requires a TypeScript recording example.");
+readmeCompileExamples.forEach((example, index) => {
+  writeFileSync(join(process.argv[2], `readme-example-${index + 2}.ts`), example);
+});
 writeFileSync(join(process.argv[2], "readme-recording.ts"), `${readmeExample}
 import assert from "node:assert/strict";
 assert.equal(result.receipt._tag, "Recorded");

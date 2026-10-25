@@ -11,7 +11,7 @@ This guide covers SDK **{{sdkVersion}}** with Effect **{{effectVersion}}** on No
 
 ## 1. Install the package
 
-The SDK is currently available from a local checkout rather than a package registry. From that checkout, build a package archive using the package manager pinned in `package.json`:
+The examples in this guide use APIs in this checkout that have not reached the latest npm release. Build a package archive with the package manager pinned in `package.json`:
 
 ```sh
 pnpm install --frozen-lockfile
