@@ -1,7 +1,14 @@
 import { Effect, Layer } from "effect";
 import type { Result, Scope } from "effect";
 import { expectTypeOf } from "vitest";
-import { Email, EmailRouter, EmailSender, emailLayer, emailLayerFromSender } from "../src/index.js";
+import {
+  Email,
+  EmailRouter,
+  EmailSender,
+  emailLayer,
+  emailLayerFromSender,
+  explainEmailRoutePlan,
+} from "../src/index.js";
 import type {
   EmailConfigurationError,
   EmailInvalidMessage,
@@ -10,6 +17,7 @@ import type {
   EmailPreparedOperation,
   EmailReceipt,
   EmailRejected,
+  EmailRoutePlanExplanation,
   EmailSendError,
   EmailSenderCapabilities,
   IEmailRoute,
@@ -76,6 +84,10 @@ expectTypeOf(EmailRouter.select()).toEqualTypeOf<
   Effect.Effect<IEmailRoute, EmailInvalidOptions, EmailRouter>
 >();
 
+expectTypeOf(explainEmailRoutePlan({ primary: "primary" }, { message })).toEqualTypeOf<
+  Effect.Effect<EmailRoutePlanExplanation, EmailInvalidMessage | EmailInvalidOptions, EmailRouter>
+>();
+
 export const proveEmailLayerRequirements = <E, R, EO, RO, ER, RR>(
   sender: Layer.Layer<EmailSender, E, R>,
   observer: EmailExtension<EmailRetryObserver, EO, RO>,
@@ -111,4 +123,6 @@ export const proveEmailAccessorFailures = (): void => {
   void emailLayerFromSender<never, never>();
   // @ts-expect-error -- Route plan names remain strings, not numeric selectors.
   void EmailRouter.select({ primary: 123 });
+  // @ts-expect-error -- Routing diagnostics require an explicit plan and request envelope.
+  void explainEmailRoutePlan({ primary: "primary" }, message);
 };

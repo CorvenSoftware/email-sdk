@@ -9,6 +9,7 @@ import { pacedEmailSenderLayer } from "@corvencore/email-sdk";
 import { preflightResendEmail, resendEmailLayer, resendSenderLayer } from "@corvencore/email-sdk/resend";
 import { ResendBatchEmail, resendBatchEmailLayer } from "@corvencore/email-sdk/resend";
 import type { IResendBatchEmail } from "@corvencore/email-sdk/resend";
+import { emailLayerFromSender, explainEmailRoutePlan, EmailRoutePlanExplanationSchema } from "@corvencore/email-sdk";
 import { capturedEmailSenderLayer, EmailCapturePayloadSchema, EmailCaptureSnapshotSchema, EmailSubmissionCapture, aggregatedEmailCaptureLayer, EmailCaptureAggregate, EmailCaptureAggregateSnapshotSchema } from "@corvencore/email-sdk/capture";
 import type { EmailCaptureSnapshot, EmailCaptureRecord, IEmailSubmissionCapture, EmailCaptureAggregateSnapshot } from "@corvencore/email-sdk/capture";
 import { preflightPostmarkEmail, postmarkEmailLayer } from "@corvencore/email-sdk/postmark";
@@ -1239,6 +1240,46 @@ await Effect.runPromise(
 );
 
 await assert.rejects(import("@corvencore/email-sdk/dist/" + "email-stream.js"), { code: "ERR_PACKAGE_PATH_NOT_EXPORTED" });
+
+const proveEffectNativeEmailDeclarations = <E, R>(sender: Layer.Layer<EmailSender, E, R>): void => {
+  const account: Layer.Layer<Email, E | EmailConfigurationError, R> = emailLayerFromSender(sender);
+  void account;
+  const send: Effect.Effect<EmailReceipt, EmailSendError, Email> = Email.send(message);
+  void send;
+  // @ts-expect-error -- Direct accessors keep recipient types intact in shipped declarations.
+  void Email.send({ ...message, to: 123 });
+  // @ts-expect-error -- Route explanations take an explicit request envelope.
+  void explainEmailRoutePlan({ primary: "primary" }, message);
+};
+void proveEffectNativeEmailDeclarations;
+
+await Effect.runPromise(Effect.gen(function* verifyInstalledEffectNativeEmail() {
+  const records = yield* RecordedEmails;
+  const prepared = yield* Email.prepare(message);
+  assert.equal((yield* records.messages).length, 0);
+  assert.equal(yield* Email.personalization, "Individual");
+  assert.equal((yield* Email.capabilities).attachments, true);
+  yield* prepared.send;
+  assert.equal((yield* records.messages).length, 1);
+}).pipe(Effect.provide(recordingEmailLayer)));
+
+await Effect.runPromise(Email.send(message).pipe(
+  Effect.tap((receipt) => Effect.sync(() => assert.equal(receipt._tag, "Recorded"))),
+  Effect.provide(emailLayerFromSender(recordingSenderLayer)),
+));
+
+await Effect.runPromise(Effect.gen(function* verifyInstalledRoutingExplanation() {
+  const explanation = yield* explainEmailRoutePlan({ primary: "primary", fallbacks: ["missing"] }, { message });
+  assert.equal(explanation.compatible, false);
+  assert.deepEqual(explanation.candidates.map((candidate) => [candidate.name, candidate._tag]), [["primary", "Compatible"], ["missing", "Incompatible"]]);
+  assert(Schema.is(EmailRoutePlanExplanationSchema)(explanation));
+  assert.deepEqual((yield* EmailRouter.routes).map((route) => route.name), ["primary"]);
+  const selected = yield* EmailRouter.select();
+  const prepared = yield* selected.prepare(message);
+  assert.equal(prepared.previews.length, 1);
+}).pipe(Effect.provide(emailRouterLayer([{ name: "primary", layer: recordingEmailLayer }], { primary: "primary" }))));
+
+await assert.rejects(import("@corvencore/email-sdk/dist/" + "email-routing-diagnostics.js"), { code: "ERR_PACKAGE_PATH_NOT_EXPORTED" });
 
 const privateSpecifier = "@corvencore/email-sdk/" + "src/email-service.js";
 
