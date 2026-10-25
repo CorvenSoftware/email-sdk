@@ -7,6 +7,7 @@ export {
   EmailSendOptionsSchema,
   EmailSendRequestSchema,
   emailLayer,
+  emailLayerFromSender,
 } from "./email-service.js";
 
 export type {

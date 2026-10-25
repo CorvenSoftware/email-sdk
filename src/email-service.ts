@@ -91,7 +91,60 @@ export interface IEmail {
   ) => Effect.Effect<readonly Result.Result<EmailReceipt, EmailSendError>[], EmailInvalidOptions>;
 }
 
-export class Email extends Context.Service<Email, IEmail>()("@corvencore/email-sdk/Email") {}
+export class Email extends Context.Service<Email, IEmail>()("@corvencore/email-sdk/Email") {
+  static readonly capabilities: Effect.Effect<EmailSenderCapabilities, never, Email> =
+    Email.useSync((email) => email.capabilities);
+
+  static readonly personalization: Effect.Effect<EmailPersonalizationMode, never, Email> =
+    Email.useSync((email) => email.personalization);
+
+  static prepare(
+    message: EmailMessageInput,
+    options?: EmailSendOptionsInput,
+  ): Effect.Effect<
+    EmailPreparedOperation,
+    EmailInvalidMessage | EmailInvalidOptions | EmailRejected,
+    Email
+  > {
+    return Email.use((email) => email.prepare(message, options));
+  }
+
+  static validate(
+    message: EmailMessageInput,
+    options?: EmailSendOptionsInput,
+  ): Effect.Effect<EmailMessage, EmailInvalidMessage | EmailInvalidOptions | EmailRejected, Email> {
+    return Email.use((email) => email.validate(message, options));
+  }
+
+  static send(
+    message: EmailMessageInput,
+    options?: EmailSendOptionsInput,
+  ): Effect.Effect<EmailReceipt, EmailSendError, Email> {
+    return Email.use((email) => email.send(message, options));
+  }
+
+  static sendAll(
+    requests: readonly EmailSendRequest[],
+    options?: EmailBatchOptionsInput,
+  ): Effect.Effect<
+    readonly Result.Result<EmailReceipt, EmailSendError>[],
+    EmailInvalidOptions,
+    Email
+  > {
+    return Email.use((email) => email.sendAll(requests, options));
+  }
+
+  static sendPersonalized(
+    input: EmailPersonalizedInput,
+    options?: EmailPersonalizedOptionsInput,
+  ): Effect.Effect<
+    readonly Result.Result<EmailReceipt, EmailSendError>[],
+    EmailInvalidMessage | EmailInvalidOptions,
+    Email
+  > {
+    return Email.use((email) => email.sendPersonalized(input, options));
+  }
+}
 
 const parseIdempotency = Schema.decodeUnknownEffect(Schema.toType(EmailSenderIdempotencySchema), {
   errors: "all",
@@ -189,3 +242,16 @@ export const emailLayer = <EO = never, RO = never, ER = never, RR = never>(
       return Email.of({ capabilities, ...emailPreparedOperations(prepare) });
     }),
   );
+
+export const emailLayerFromSender = <E, R, EO = never, RO = never, ER = never, RR = never>(
+  sender: Layer.Layer<EmailSender, E, R>,
+  policy?: EmailDeliveryPolicy,
+  observer?: EmailExtension<EmailRetryObserver, EO, RO>,
+  restriction?: EmailExtension<EmailRetryRestriction, ER, RR>,
+): Layer.Layer<
+  Email,
+  E | EmailConfigurationError | EO | ER,
+  | R
+  | Exclude<Exclude<RO, Scope.Scope>, EmailSender>
+  | Exclude<Exclude<RR, Scope.Scope>, EmailSender>
+> => emailLayer(policy, observer, restriction).pipe(Layer.provide(sender));

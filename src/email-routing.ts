@@ -166,7 +166,16 @@ export interface IEmailRouter {
 
 export class EmailRouter extends Context.Service<EmailRouter, IEmailRouter>()(
   "@corvencore/email-sdk/EmailRouter",
-) {}
+) {
+  static readonly routes: Effect.Effect<IEmailRouter["routes"], never, EmailRouter> =
+    EmailRouter.useSync((router) => router.routes);
+
+  static select(
+    plan?: EmailRoutePlanInput,
+  ): Effect.Effect<IEmailRoute, EmailInvalidOptions, EmailRouter> {
+    return EmailRouter.use((router) => router.select(plan));
+  }
+}
 
 const RouteRegistrationsSchema = Schema.NonEmptyArray(
   Schema.Struct({ name: EmailRouteNameSchema }),
