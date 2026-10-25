@@ -2,13 +2,28 @@
 
 Send transactional email from TypeScript with Effect services, typed errors, and provider Layers. Prepare messages before submission, inspect provider outcomes, and configure retry and fallback behavior for each account.
 
+## Why this library exists
+
+An email request can time out after the provider has accepted it. Retrying the request or sending it through another account can produce a duplicate email.
+
+Providers also differ in attachment support, scheduling, metadata, and idempotency. A common interface must preserve those differences rather than remove unsupported fields or assume every failed request is safe to retry.
+
+Corven Email SDK handles these checks in Effect programs:
+
+- Validate the complete message against every selected account before submission.
+- Prepare a message once so approval and submission use the same owned values.
+- Return typed rejections, unknown outcomes, and provider receipts so recovery can use the actual submission result.
+- Apply retry and fallback policies without treating an unknown outcome as proof that nothing was sent.
+
+Your application uses Effect services, Layers, and typed errors for email alongside its other dependencies. It controls credentials, transport settings, resource scopes, and when the program runs.
+
 ## What it provides
 
 - `Email` methods for validation, preparation, sending, batches, and personalization.
 - Schemas for messages, options, receipts, and expected errors.
 - Prepared operations that retain the message and options used for approval and submission.
 - Named account routing that checks every selected account before submission.
-- Ordered batch and Stream results with bounded concurrency.
+- Ordered batch results with bounded concurrency.
 - Recording and failing Layers for tests without provider calls.
 - Optional React Email rendering and AI tool integrations through separate imports.
 
@@ -18,19 +33,19 @@ The SDK rejects unsupported message fields instead of removing them. Provider ca
 
 Use Node.js 24.18.0 or later and Effect 4.0.3. The required versions are in [`package.json`](package.json).
 
-The examples below use APIs in this checkout that have not reached the latest [npm release](https://www.npmjs.com/package/@corvencore/email-sdk). Build a package archive from this checkout:
+Install the package and its Effect peer with npm:
 
 ```sh
-pnpm install --frozen-lockfile
-pnpm build
-pnpm pack --out ./corven-email-sdk.tgz
+npm install @corvencore/email-sdk effect@4.0.3
 ```
 
-In your application, install the archive and the matching Effect peer:
+Or use pnpm:
 
 ```sh
-pnpm add /absolute/path/to/corven-email-sdk.tgz effect@4.0.3
+pnpm add @corvencore/email-sdk effect@4.0.3
 ```
+
+Yarn and Bun can install the same packages. The examples below work with the published package.
 
 React and React Email are optional. The recording and HTTP-provider examples do not need them.
 
@@ -44,8 +59,9 @@ import { Email } from "@corvencore/email-sdk";
 import { RecordedEmails, recordingEmailLayer } from "@corvencore/email-sdk/testing";
 
 const recordNotification = Effect.gen(function* recordNotification() {
+  const email = yield* Email;
   const records = yield* RecordedEmails;
-  const receipt = yield* Email.send({
+  const receipt = yield* email.send({
     body: { text: "Your fictional order is ready." },
     from: "sender@example.test",
     subject: "Order ready",
@@ -64,7 +80,7 @@ Save the code as `record-email.mts`. Run `node record-email.mts` from your appli
 
 `result.messages` contains one message in memory. The recording Layer does not submit email to a provider.
 
-The application chooses when to run the Effect. Constructing `Email.send(...)` does not acquire an account or submit a request.
+The application chooses when to run the Effect. Constructing the program does not acquire an account or submit a request.
 
 ## Send through a provider
 
@@ -82,15 +98,19 @@ const emailHttpLayer = FetchHttpClient.layer.pipe(
 );
 
 export const sendNotification = (apiKey: Redacted.Redacted) =>
-  Email.send(
-    {
-      body: { text: "Your fictional order is ready." },
-      from: "sender@example.test",
-      subject: "Order ready",
-      to: "recipient@example.test",
-    },
-    { idempotencyKey: "orders/order-42/ready" },
-  ).pipe(Effect.provide(resendEmailLayer({ apiKey }).pipe(Layer.provide(emailHttpLayer))));
+  Effect.gen(function* sendNotification() {
+    const email = yield* Email;
+
+    return yield* email.send(
+      {
+        body: { text: "Your fictional order is ready." },
+        from: "sender@example.test",
+        subject: "Order ready",
+        to: "recipient@example.test",
+      },
+      { idempotencyKey: "orders/order-42/ready" },
+    );
+  }).pipe(Effect.provide(resendEmailLayer({ apiKey }).pipe(Layer.provide(emailHttpLayer))));
 ```
 
 Before running the provider example:
@@ -113,20 +133,18 @@ Providers differ in attachment support, scheduling, headers, metadata, and idemp
 
 ## Prepare, route, and batch messages
 
-Use these APIs for application workflows:
+Use methods on the acquired `Email` and `EmailRouter` services for these tasks:
 
-| Task                                             | API                                      | Guide                                                                                           |
-| ------------------------------------------------ | ---------------------------------------- | ----------------------------------------------------------------------------------------------- |
-| Inspect a message before approval                | `Email.prepare`                          | [Prepared operations](docs/user/content/reference/email.md#prepared-operation)                  |
-| Select named accounts and fallbacks              | `emailRouterLayer`, `EmailRouter.select` | [Account routing](docs/user/content/batching-routing.md#route-explicit-accounts)                |
-| Check a route plan without sending               | `explainEmailRoutePlan`                  | [Route-plan checks](docs/user/content/batching-routing.md#explain-a-route-plan-without-sending) |
-| Send independent messages                        | `Email.sendAll`, `sendEmailStream`       | [Batches and Streams](docs/user/content/batching-routing.md)                                    |
-| Set a minimum interval between sender admissions | `pacedEmailSenderLayer`                  | [Account pacing](docs/user/content/reliability.md#pace-one-accounts-sender-attempts)            |
-| Submit a native Resend batch                     | `ResendBatchEmail`                       | [Resend batches](docs/user/content/providers/resend.md#submit-one-native-batch)                 |
+| Task                                | API                                 | Guide                                                                            |
+| ----------------------------------- | ----------------------------------- | -------------------------------------------------------------------------------- |
+| Inspect a message before approval   | `email.prepare`                     | [Prepared operations](docs/user/content/reference/email.md#prepared-operation)   |
+| Select named accounts and fallbacks | `emailRouterLayer`, `router.select` | [Account routing](docs/user/content/batching-routing.md#route-explicit-accounts) |
+| Send independent messages           | `email.sendAll`                     | [Batch sends](docs/user/content/batching-routing.md#send-a-batch)                |
+| Send a template to an audience      | `email.sendPersonalized`            | [Personalization](docs/user/content/batching-routing.md#personalize-a-message)   |
 
 For approval, retain the prepared operation and submit that operation after approval. Do not recompute the message after review. Keep the Layer's scope open while the operation uses its resources.
 
-`sendAll` and `sendEmailStream` preserve input order and return expected item failures as Effect Results. Defects and interruption propagate. The Stream helper prepares each request as it processes that request rather than waiting for a full batch.
+`sendAll` preserves input order and returns expected item failures as Effect Results. Defects and interruption propagate.
 
 ## Handle submission outcomes
 
@@ -140,7 +158,11 @@ The SDK does not provide a durable queue or exactly-once delivery. Your applicat
 
 ## Documentation
 
-The [documentation site](https://email-sdk.corvencore.com) contains task guides and API reference. The source guides describe the API in this checkout:
+The [documentation site](https://email-sdk.corvencore.com) contains task guides and API reference.
+
+Guides in this checkout also describe unreleased APIs. Direct `Email.send` accessors, route-plan explanations, streaming, account pacing, and native Resend batches await release. The examples above use the published service API.
+
+The source guides cover these topics:
 
 - [Quickstart](docs/user/content/quickstart.md)
 - [Messages and attachments](docs/user/content/messages.md)
