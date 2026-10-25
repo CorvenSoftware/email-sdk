@@ -3,7 +3,7 @@ title: Email service reference
 description: Exact common service methods, expected failures, prepared-operation members and routed result differences.
 ---
 
-Import `Email` and `IEmail` from `@corvencore/email-sdk`. Acquire the service inside an Effect and provide a configured Layer before execution.
+Import `Email` and `IEmail` from `@corvencore/email-sdk`. Call `Email.send(...)` and the other methods directly, or acquire the service with `yield* Email`. Direct calls return Effects requiring `Email`; provide a configured Layer before execution.
 
 ## Methods
 
@@ -25,6 +25,8 @@ Preparation runs local checks without submitting. After review, execute the same
 
 ## Service properties
 
-`capabilities` describes the configured service's locally supported features. `personalization` is `Individual` or `NativeAudience`. Neither property authenticates a remote account.
+On a yielded service, `capabilities` describes locally supported features and `personalization` is `Individual` or `NativeAudience`. The static `Email.capabilities` and `Email.personalization` accessors are Effects requiring `Email`. Neither accessor authenticates a remote account.
+
+`emailLayerFromSender(senderLayer, policy?, observer?, restriction?)` is equivalent to `emailLayer(policy, observer, restriction).pipe(Layer.provide(senderLayer))`. It preserves typed acquisition errors and requirements; it does not expose unused sender outputs or keep a scope alive after the application closes it.
 
 `IEmailRoute` extends the service with routed receipts containing `route`. Native Loops/Iterable services are separate interfaces, not implementations of this common literal-message contract. See [sending modes](/concepts/sending-modes) and [routing reference](/reference/routing).

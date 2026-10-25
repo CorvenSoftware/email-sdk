@@ -1,0 +1,10 @@
+import { Effect } from "effect";
+import { Email, emailLayerFromSender } from "@corvencore/email-sdk";
+import { recordingSenderLayer } from "@corvencore/email-sdk/testing";
+
+export const recordWithEffect = Email.send({
+  body: { text: "Your fictional order is ready." },
+  from: "sender@example.test",
+  subject: "Order ready",
+  to: "recipient@example.test",
+}).pipe(Effect.provide(emailLayerFromSender(recordingSenderLayer)));

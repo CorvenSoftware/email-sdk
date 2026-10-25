@@ -53,6 +53,18 @@ Construction-time default plans infer literal names from the registrations. With
 
 Before transport, the router preflights the effective message, options and policy for every selected candidate. An unsupported field or key on a backup fails locally instead of being dropped.
 
+### Explain a route plan without sending
+
+`explainEmailRoutePlan(plan, request)` checks an explicit plan against the acquired accounts and returns ordered `Compatible` or `Incompatible` candidates. Each incompatible candidate carries the existing typed preparation failure. The explanation contains no message previews or idempotency keys.
+
+<include lang="ts">./_examples/route-explanation.ts.template</include>
+
+Invalid message/options or malformed plan shape fail before candidate preparation. The result lists unknown route names and incompatible account modes as candidate failures. Defects and interruption stop the explanation instead of becoming incompatibility results.
+
+This runs normal preparation, including application transformations and validation, but never invokes an operation's send Effect. It is a diagnostic snapshot, not approval, provider acceptance, or replay authority. If an application will approve and send a prepared intent, use `Email.prepare` or the selected route's `prepare` and retain that operation instead of explaining and preparing again.
+
+`EmailRouter.routes` inspects registered account metadata, and `EmailRouter.select(plan?)` selects a route directly as an Effect. The existing yielded-service style remains supported.
+
 ### Understand when fallback stops
 
 Only an eligible definite rejection advances to a fallback account. Unknown outcomes, conflicts, terminal receipts, defects and interruption stop the chain. Partial, suppressed and simulated receipts are terminal outcomes, not reasons to try a backup.

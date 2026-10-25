@@ -1,0 +1,10 @@
+import { Config, Effect, Layer } from "effect";
+import { resendEmailLayer } from "@corvencore/email-sdk/resend";
+
+export const configuredResendAccount = Layer.unwrap(
+  Effect.gen(function* configureResendAccount() {
+    const apiKey = yield* Config.Redacted("RESEND_API_KEY");
+
+    return resendEmailLayer({ apiKey });
+  }),
+);

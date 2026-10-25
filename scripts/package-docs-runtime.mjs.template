@@ -2,6 +2,8 @@ import assert from "node:assert/strict";
 import { Effect, Result } from "effect";
 import { recordNotification } from "./docs-examples/recording.ts";
 import { inspectUncertainSubmission } from "./docs-examples/failing-workflow.ts";
+import { recordWithEffect } from "./docs-examples/effect-native.ts";
+import { inspectRouting } from "./docs-examples/route-explanation.ts";
 
 const recorded = await Effect.runPromise(recordNotification);
 assert.equal(recorded.receipt._tag, "Recorded");
@@ -11,6 +13,10 @@ const uncertain = await Effect.runPromise(inspectUncertainSubmission);
 assert(Result.isFailure(uncertain.result));
 assert.equal(uncertain.result.failure._tag, "EmailDeliveryUnknown");
 assert.equal(uncertain.attempts.length, 1);
+assert.equal((await Effect.runPromise(recordWithEffect))._tag, "Recorded");
+const explanation = await Effect.runPromise(inspectRouting);
+assert.equal(explanation.compatible, true);
+assert.deepEqual(explanation.candidates.map((candidate) => [candidate.name, candidate._tag]), [["primary", "Compatible"], ["backup", "Compatible"]]);
 console.log(
-  "User documentation examples: strict public imports, offline recording and unknown-outcome/no-replay workflows passed.",
+  "User documentation examples: strict public imports, Effect accessors, offline recording, route explanation and unknown-outcome/no-replay workflows passed.",
 );
