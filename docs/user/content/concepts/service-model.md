@@ -1,40 +1,36 @@
 ---
 title: Services and Layers
-description: Understand how Email, EmailSender and provider Layers divide preparation, policy and transport.
+description: Roles of Email, EmailSender, provider Layers, and transport Layers.
 ---
 
-An Effect program declares its service dependencies. A Layer provides those services. Write notification logic using `Email`, then provide a Layer for the selected provider account and transport.
+`Email` separates application code from the provider account and transport. A program can use the same service dependency with a provider Layer or an offline recording Layer.
 
-## Email is the application service
+## Application service
 
-Use `Email.send`, `Email.prepare`, `Email.validate`, `Email.sendAll`, and `Email.sendPersonalized` directly in an Effect pipeline. `Email.capabilities` and `Email.personalization` are Effects that inspect the provided account. These operations look up the current service when you run them; constructing them does not acquire an account or send email.
+`Email` handles message preparation, submission policy, batches, and personalization. Preparation decodes and copies inputs so later caller changes cannot alter the prepared message or options. Defaults, transformations, routing, and approval use that prepared operation.
 
-<include lang="ts">../_examples/effect-native.ts.template</include>
+Direct calls such as `Email.send(...)` return Effects that require `Email`. These Effects resolve the service when they run. Constructing an Effect does not acquire an account or submit email.
 
-Run the Effect from your application entrypoint. You can still acquire `yield* Email` inside a generator or use `Email.use`; these styles share the same service and behavior.
+Direct calls, `Email.use`, and `yield* Email` use the same service. The [Email service reference](/reference/email) lists their methods, results, and errors.
 
-Common preparation decodes inputs and owns their values so later caller mutation cannot change the submitted intent. Defaults, transformations, routing and approval work with that prepared operation.
+## Provider services
 
-## EmailSender
+`EmailSender` defines a provider name, capabilities, an idempotency declaration, local validation, and submission. `emailLayer` builds an `Email` service around an `EmailSender`.
 
-`EmailSender` supplies a provider name, local capabilities, an idempotency declaration, local message validation and submission. `emailLayerFromSender(senderLayer)` builds the common `Email` workflow and provides that sender in one step. It preserves acquisition errors, remaining requirements, resource scopes, and the existing policy, retry-observer, and retry-restriction arguments.
+`emailLayerFromSender` also provides the sender Layer. Provider convenience Layers, such as `resendEmailLayer`, already compose the sender with `emailLayer`.
 
-The lower-level `emailLayer` remains available when you want to provide `EmailSender` separately.
+Custom integrations can implement `EmailSender` when the [HTTP provider builder](/guides/authoring-provider) does not support their protocol or configuration. The [sender contract](/reference/sender) defines the required behavior.
 
-Normal applications use provider convenience Layers such as `resendEmailLayer`. Implement `EmailSender` directly only when authoring an integration whose protocol or configuration does not fit the HTTP provider builder.
+## Transport dependencies
 
-## Configure an account with Effect
+HTTP account Layers require `HttpClient`. The application provides the transport, including its redirect and retry settings. SMTP uses a socket and TLS transport instead.
 
-Read configuration explicitly in your application's Layer assembly, using Effect `Config` rather than library-owned environment lookups:
+Account configuration and transport configuration remain separate. The SDK accepts credentials as explicit inputs. An application can read credentials through Effect `Config` when it acquires a Layer.
 
-<include lang="ts">../_examples/effect-configuration.ts.template</include>
+The [provider guide](/sending) covers account setup, configuration, and transport settings.
 
-The Layer reads configuration when you acquire it. Missing configuration stays in the typed error channel; `Config.Redacted` keeps credentials Redacted. The application still supplies the HTTP client as shown in [sending](/sending#configure-transport-behavior). There is no separate SDK runtime to start or shut down.
+## Resource lifetimes
 
-## Transport is explicit
+The application controls the scope of acquired Layers. A prepared operation or AI tool does not extend the lifetime of the Layer that created it.
 
-HTTP account Layers require `HttpClient` until the host provides one. The [sending example](/sending) supplies a client with redirects disabled. SMTP owns an explicit socket/TLS transport instead.
-
-Keep resource scopes open for all Effects that use acquired services. A prepared value or AI tool does not extend the lifetime of the Layer that created it. Reuse the same Layer values when a recorder, capture query or observation view must share the sender's acquired store.
-
-See [provider authoring](/guides/authoring-provider) and the [sender contract](/reference/sender) for extension boundaries.
+Recorder, capture, and observation queries need the same acquired state as the sender. Separate Layer acquisitions can create separate stores. Reusing a Layer value allows queries and submissions to share that state within a Layer build.

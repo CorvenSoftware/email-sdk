@@ -1,74 +1,90 @@
 ---
-title: Batching, personalization and routing
-description: Send ordered batches, personalize messages and configure fallback between named provider accounts.
+title: Batching, personalization, and routing
+description: Send batches, personalize messages, and configure named provider accounts.
 ---
 
-Use `sendAll` for independent messages, `sendPersonalized` for one template and an audience, or named account routing to choose where a message is submitted.
+Use `sendAll` for independent messages, `sendPersonalized` for a template and an audience, or `EmailRouter` for named accounts.
 
 ## Send a batch
 
-`sendAll` accepts an array of `{ message, options? }` envelopes and a bounded concurrency setting:
+Create an array of `{ message, options? }` request envelopes. Pass the array and a concurrency setting to `sendAll`:
 
 <include lang="ts">./_examples/batching.ts.template</include>
 
-Provide an `Email` Layer when running this program, as shown in [sending](./sending) or the offline [quickstart](./quickstart).
+Provide an `Email` Layer before you run the Effect. The [provider guide](./sending) and the offline [quickstart](./quickstart) show Layer setup.
 
-Each request has its own key and delivery policy. There is no batch-wide key for unrelated messages. Results retain input order even when messages finish in a different order; expected item failures appear as Effect Results.
+If you set keys or delivery policies, configure them per request. Do not use one key for unrelated messages.
 
-Defects and interruption cancel active work and propagate. Already accepted messages cannot be undone. A batch is neither an atomic transaction nor an implicit provider-native bulk request.
+Read results in input order. Expected item failures appear as Effect Results. Defects and interruption propagate and cancel active work. Cancellation does not undo accepted submissions.
+
+Do not treat the batch as an atomic transaction. `sendAll` does not select a provider-native bulk operation.
 
 ## Stream independent messages
 
-Use `sendEmailStream` for an incremental source of request envelopes:
+Pass a Stream of request envelopes to `sendEmailStream`:
 
 <include lang="ts">./_examples/streaming.ts.template</include>
 
-Consume this stream with an Effect Stream runner and provide an `Email` Layer. Results arrive in source order as `{ index, result }`, with a zero-based index for the complete source. The concurrency setting bounds active item submissions. Each item keeps its own key and policy.
+Provide an `Email` Layer before you consume the Stream. Consume the Stream with an Effect Stream runner. Read each `{ index, result }` in source order. The index starts at zero for the complete source.
 
-The helper owns each request when it processes that request. Preparation runs once per item, including every selected route candidate. Unlike `sendAll`, streaming does not prepare the complete source before sending. A sparse source does not wait for a full batch.
+Set concurrency to limit active item submissions. Keep each item's key and policy separate.
 
-Expected item failures become Results. Upstream failures, defects, and interruption stop the stream. Stopping consumption interrupts active work but cannot undo accepted submissions. Preserve outcomes as you consume them. A stream failure does not prove that previous or in-flight work was unsent.
+The helper copies and prepares each request when it processes that request. Preparation includes all selected route candidates. Unlike `sendAll`, the helper does not prepare the complete source before sending. A sparse source does not wait for a full batch.
+
+Persist outcomes as you consume them. Expected item failures appear as Results. Upstream failures, defects, and interruption stop the Stream. Stopping consumption interrupts active work but cannot undo accepted submissions. A failed Stream does not establish whether earlier or active submissions reached a provider.
 
 ## Personalize a message
 
-`sendPersonalized` takes a template without recipient fields and an explicit audience. Each audience member supplies a mailbox, template variables and an optional idempotency key. Shared options specify concurrency and context, not one key for the whole audience.
+Pass a template without recipient fields and an explicit audience to `sendPersonalized`. For each recipient, supply a mailbox, template variables, and an optional idempotency key.
 
-With the default `Individual` mode, the SDK expands the template into per-recipient messages. Use `renderEmailPersonalizedMessage` to preview expansion without a sender. HTML expansion escapes text markup, but does not validate URL or CSS contexts or sanitize arbitrary HTML. Missing variables and invalid expanded messages remain failures.
+Set concurrency and context through shared options. Do not use one idempotency key for the whole audience.
+
+In `Individual` mode, the SDK expands the template into a message for each recipient. To preview expansion without a sender, use `renderEmailPersonalizedMessage`.
+
+HTML expansion escapes text markup. It does not validate URL or CSS contexts or sanitize arbitrary HTML. Handle missing variables and invalid expanded messages as failures.
 
 ### Use native personalization
 
-Opt-in SendGrid and Mailgun Layers can submit a valid subset of the audience in one native request. Recipients then share request-level acknowledgment, deadline and correlation.
+To submit a valid audience subset through one native request, use an opt-in SendGrid or Mailgun Layer. Recipients share request-level acknowledgment, a deadline, and correlation.
 
-Check the configured `personalization` mode. Common defaults, transformation wrappers and ordinary routing reject `NativeAudience` Layers; they do not silently expand them into individual sends. A shared method name does not imply independent wire requests or per-recipient acknowledgment.
+Check the configured `personalization` mode before composing Layers. Common defaults, transformation wrappers, and ordinary routing reject `NativeAudience` Layers. These operations do not convert a native audience into individual sends.
+
+Do not assume independent wire requests or per-recipient acknowledgment from the method name.
 
 ## Route explicit accounts
 
-Register a Layer for each named account, then select a route through `EmailRouter`:
+Register a Layer for each named account with `emailRouterLayer`. Select a route through `EmailRouter`:
 
 <include lang="ts">./_examples/routing.ts.template</include>
 
-The example uses the HTTP Layer from [sending](./sending) and deliberately omits an idempotency key: every candidate, including Postmark, must support the requested key.
+Use the HTTP Layer from [the provider guide](./sending#configure-transport-behavior). The example omits an idempotency key because Postmark does not support keys in this SDK.
 
-Construction-time default plans infer literal names from the registrations. With inferred type arguments, TypeScript rejects an unregistered primary or fallback name when every registration has a literal name. Dynamic names and legacy explicit `emailRouterLayer<E, R>` calls retain runtime validation. This inference does not narrow the globally provided `EmailRouter.select` method.
+Before adding a field or key, check support in every selected account, including fallbacks. The router preflights the effective message, options, and policy for every candidate before submission. Unsupported fallback intent causes a local failure.
 
-Before transport, the router preflights the effective message, options and policy for every selected candidate. An unsupported field or key on a backup fails locally instead of being dropped.
+For default-plan types and runtime validation, see the [routing reference](/reference/routing#route-plan).
 
 ### Explain a route plan without sending
 
-`explainEmailRoutePlan(plan, request)` checks an explicit plan against the acquired accounts and returns ordered `Compatible` or `Incompatible` candidates. Each incompatible candidate carries the existing typed preparation failure. The explanation contains no message previews or idempotency keys.
+To check a plan before sending:
+
+1. Provide a Layer from `emailRouterLayer`.
+2. Call `explainEmailRoutePlan(plan, request)` with an explicit plan and a `{ message, options? }` request envelope.
+3. Run the returned Effect.
 
 <include lang="ts">./_examples/route-explanation.ts.template</include>
 
-Invalid message/options or malformed plan shape fail before candidate preparation. The result lists unknown route names and incompatible account modes as candidate failures. Defects and interruption stop the explanation instead of becoming incompatibility results.
+Read `candidates` in plan order. Each candidate has a `Compatible` or `Incompatible` tag. An incompatible candidate includes its typed preparation failure.
 
-This runs normal preparation, including application transformations and validation, but never invokes an operation's send Effect. It is a diagnostic snapshot, not approval, provider acceptance, or replay authority. If an application will approve and send a prepared intent, use `Email.prepare` or the selected route's `prepare` and retain that operation instead of explaining and preparing again.
+The function runs application validation and transformations but does not execute prepared send Effects. For result fields, input errors, and failure snapshots, see the [routing reference](/reference/routing#preparation-compatibility).
 
-`EmailRouter.routes` inspects registered account metadata, and `EmailRouter.select(plan?)` selects a route directly as an Effect. The existing yielded-service style remains supported.
+If you need approval before submission, prepare the message with `Email.prepare` or the selected route's `prepare`. Retain that operation through approval. Then execute its send Effect while the Layer's scope remains open.
 
 ### Understand when fallback stops
 
-Only an eligible definite rejection advances to a fallback account. Unknown outcomes, conflicts, terminal receipts, defects and interruption stop the chain. Partial, suppressed and simulated receipts are terminal outcomes, not reasons to try a backup.
+Stop fallback after an unknown outcome, a conflict, a terminal receipt, a defect, or interruption. Only an eligible definite rejection permits another account. Partial, suppressed, and simulated receipts stop fallback.
 
-Routed receipts identify the account selected. One routing deadline covers the whole chain rather than resetting for each account.
+Read the selected account from the routed receipt. Set `deadline` on the route plan to limit the complete chain. Do not reset the deadline for each account.
 
-Persist route selection for recovery across later executions. If a backup previously accepted the email, restarting at the primary can duplicate it. Native replay guarantees remain local to a provider account; they do not transfer across routes. See [receipts, errors and retries](./reliability).
+Persist route selection for recovery across executions. If a fallback account accepted the message, restarting at the primary can submit it again. Native replay guarantees apply to one provider account and do not transfer between routes.
+
+For outcome types and retry rules, see [receipts, errors, and retries](./reliability).
