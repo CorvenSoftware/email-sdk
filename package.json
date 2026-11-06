@@ -264,19 +264,20 @@
     "prepare": "effect-tsgo patch"
   },
   "devDependencies": {
+    "@alchemy.run/cloudflare": "2.0.0-beta.85",
     "@changesets/cli": "3.0.3",
-    "@effect/platform-node": "4.0.3",
+    "@effect/platform-node": "4.1.2",
     "@effect/tsgo": "0.51.1",
-    "@effect/vitest": "4.0.3",
+    "@effect/vitest": "4.1.2",
     "@oxlint/plugins": "1.87.0",
     "@react-email/render": "2.1.0",
     "@types/json-schema": "7.0.15",
     "@types/node": "24.13.6",
     "@types/react": "19.3.0",
     "ai": "7.0.140",
-    "alchemy": "2.0.0-beta.83",
+    "alchemy": "2.0.0-beta.85",
     "blume": "2.2.4",
-    "effect": "4.0.3",
+    "effect": "4.1.2",
     "oxfmt": "0.72.0",
     "oxlint": "1.87.0",
     "oxlint-tsgolint": "7.0.2004",
@@ -290,7 +291,7 @@
   },
   "peerDependencies": {
     "@react-email/render": "2.1.0",
-    "effect": "4.0.3",
+    "effect": "4.1.2",
     "react": "19.3.1",
     "react-dom": "19.3.1"
   },

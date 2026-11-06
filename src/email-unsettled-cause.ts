@@ -1,4 +1,4 @@
-import { Cause, Effect } from "effect";
+import { Cause, Effect, Result } from "effect";
 
 export const protectEmailUnsettledCause = <A, E, R>(
   operation: Effect.Effect<A, E, R>,
@@ -15,4 +15,18 @@ export const protectEmailUnsettledCause = <A, E, R>(
 
       return Effect.failCause(Cause.combine(Cause.fromReasons(unmodeled), Cause.die(cause)));
     }),
+  );
+
+export const settleEmailCallbackResult = <A, E, R>(
+  result: Result.Result<A, E>,
+  notification: Effect.Effect<void, never, R>,
+): Effect.Effect<A, E, R> =>
+  notification.pipe(
+    Effect.catchCause((cause) =>
+      Effect.failCause(
+        Result.isFailure(result) ? Cause.combine(Cause.fail(result.failure), cause) : cause,
+      ),
+    ),
+    Effect.andThen(Effect.fromResult(result)),
+    protectEmailUnsettledCause,
   );
