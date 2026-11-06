@@ -37,7 +37,7 @@ Check the existing store's `/version` response against the pinned client's state
 Only when bootstrap is needed, approve the exact account, resources, permissions and possible usage charges, then use an authorized local API-token profile or securely supplied environment credentials:
 
 ```sh
-ALCHEMY_TELEMETRY_DISABLED=1 pnpm exec alchemy provider cloudflare bootstrap
+ALCHEMY_TELEMETRY_DISABLED=1 pnpm exec alchemy state bootstrap --backend cloudflare
 ```
 
 This command changes cloud resources. It is not a verification command. `alchemy plan` can also initialize remote state and must not be treated as an offline check.

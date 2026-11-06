@@ -1,5 +1,8 @@
 import { Duration, Effect, Match, Option, Ref, Schedule, Schema } from "effect";
-import { protectEmailUnsettledCause, withEmailSubmissionDeadline } from "./email-unsettled-cause.js";
+import {
+  protectEmailUnsettledCause,
+  withEmailSubmissionDeadline,
+} from "./email-unsettled-cause.js";
 import { EmailDeliveryUnknown } from "./email-delivery-unknown.js";
 import { EmailDeliveryPolicySchema, ownEmailDeliveryPolicy } from "./email-delivery-policy.js";
 import type { EmailDeliveryPolicy } from "./email-delivery-policy.js";

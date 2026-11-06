@@ -18,10 +18,11 @@ export const protectEmailUnsettledCause = <A, E, R>(
     }),
   );
 
-export const withEmailSubmissionDeadline = <E2>(options: {
-  readonly duration: Duration.Input;
-  readonly orElse: () => Effect.Effect<never, E2>;
-}) =>
+export const withEmailSubmissionDeadline =
+  <E2>(options: {
+    readonly duration: Duration.Input;
+    readonly orElse: () => Effect.Effect<never, E2>;
+  }) =>
   <A, E, R>(operation: Effect.Effect<A, E, R>): Effect.Effect<A, E | E2, R> =>
     Effect.suspend(() => {
       let unsettled: Cause.Cause<E> | undefined;
