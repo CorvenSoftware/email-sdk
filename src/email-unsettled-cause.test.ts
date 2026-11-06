@@ -52,7 +52,10 @@ describe("unsettled compound email failures", () => {
         (kind) =>
           Effect.gen(function* preserveCancelledEmailCallback() {
             const entered = yield* Deferred.make<boolean>();
-            const completed = yield* Deferred.make<Exit.Exit<unknown, EmailSendError>>();
+
+            const completed =
+              yield* Deferred.make<Exit.Exit<unknown, EmailConfigurationError | EmailSendError>>();
+
             const calls = yield* Ref.make(0);
             const backups = yield* Ref.make(0);
 
@@ -86,7 +89,7 @@ describe("unsettled compound email failures", () => {
               ),
             );
 
-            const selected =
+            const selected: Layer.Layer<Email, EmailConfigurationError> =
               mode === "Routed"
                 ? emailRouterLayer(
                     [
@@ -120,11 +123,18 @@ describe("unsettled compound email failures", () => {
                           from: message.from,
                           subject: message.subject,
                         },
-                        recipients: ["first-key", "second-key"].map((idempotencyKey) => ({
-                          idempotencyKey,
-                          to: `${idempotencyKey}@fictional.invalid`,
-                          variables: { name: "Synthetic" },
-                        })),
+                        recipients: [
+                          {
+                            idempotencyKey: "first-key",
+                            to: "first-key@fictional.invalid",
+                            variables: { name: "Synthetic" },
+                          },
+                          {
+                            idempotencyKey: "second-key",
+                            to: "second-key@fictional.invalid",
+                            variables: { name: "Synthetic" },
+                          },
+                        ],
                       },
                       { concurrency: 1 },
                     ),
