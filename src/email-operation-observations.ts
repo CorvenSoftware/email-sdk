@@ -22,7 +22,7 @@ import { EmailRejected } from "./email-rejected.js";
 import { EmailRouteNameSchema, EmailRoutedReceiptSchema } from "./email-routing.js";
 import { Email } from "./email-service.js";
 import { emailOperationSpan } from "./email-tracing.js";
-import { protectEmailUnsettledCause } from "./email-unsettled-cause.js";
+import { protectEmailUnsettledCause, settleEmailCallbackResult } from "./email-unsettled-cause.js";
 
 export class EmailOperationObservationError extends Schema.TaggedError<EmailOperationObservationError>()(
   "EmailOperationObservationError",
@@ -160,14 +160,13 @@ export const observedEmailOperationLayer = <E, R, E2 = never, R2 = never>(
               Effect.result,
             );
 
-            return yield* Effect.fromResult(result).pipe(
-              Effect.onExit(() =>
-                Effect.gen(function* notifyEmailOperationOutcome() {
-                  const outcome = yield* operationOutcome(result);
-                  const event = Object.freeze({ outcome, previews });
-                  yield* restore(Effect.suspend(() => observe(event)).pipe(Effect.orDie));
-                }).pipe(emailOperationSpan("EmailOperation.observe")),
-              ),
+            return yield* settleEmailCallbackResult(
+              result,
+              Effect.gen(function* notifyEmailOperationOutcome() {
+                const outcome = yield* operationOutcome(result);
+                const event = Object.freeze({ outcome, previews });
+                yield* restore(Effect.suspend(() => observe(event)).pipe(Effect.orDie));
+              }).pipe(emailOperationSpan("EmailOperation.observe")),
             );
           }),
         ).pipe(protectEmailUnsettledCause);

@@ -1,8 +1,8 @@
-import { Duration, Effect, Match, Schema } from "effect";
+import { Duration, Effect, Match, Result, Schema } from "effect";
 import { EmailDeliveryUnknown } from "./email-delivery-unknown.js";
 import type { EmailSubmissionError } from "./email-errors.js";
 import { EmailRejected } from "./email-rejected.js";
-import { protectEmailUnsettledCause } from "./email-unsettled-cause.js";
+import { settleEmailCallbackResult } from "./email-unsettled-cause.js";
 
 const emailRetryDecisionFields = {
   attempt: Schema.Int.check(Schema.isBetween({ maximum: 5, minimum: 1 })),
@@ -86,24 +86,19 @@ export const approveEmailRetryDecision = Effect.fnUntraced(function* approveEmai
   const observation = Object.freeze(facts.decision);
   let permitted = true;
   yield* Effect.uninterruptibleMask((restore) =>
-    Effect.fail(failure).pipe(
-      Effect.onExit(() =>
-        restore(
-          Effect.gen(function* restrictAndObserveEmailRetry() {
-            permitted =
-              restriction === undefined
-                ? true
-                : yield* Effect.suspend(() => restriction(candidate));
+    settleEmailCallbackResult(
+      Result.fail(failure),
+      restore(
+        Effect.gen(function* restrictAndObserveEmailRetry() {
+          permitted =
+            restriction === undefined ? true : yield* Effect.suspend(() => restriction(candidate));
 
-            if (permitted && observer !== undefined) {
-              yield* Effect.suspend(() => observer(observation));
-            }
-          }),
-        ),
+          if (permitted && observer !== undefined) {
+            yield* Effect.suspend(() => observer(observation));
+          }
+        }),
       ),
-      protectEmailUnsettledCause,
-      Effect.result,
-    ),
+    ).pipe(Effect.result),
   );
 
   return permitted;

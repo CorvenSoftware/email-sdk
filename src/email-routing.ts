@@ -36,7 +36,10 @@ import type {
   PreparedEmailSubmission,
 } from "./email-preparation.js";
 import { Email } from "./email-service.js";
-import { protectEmailUnsettledCause } from "./email-unsettled-cause.js";
+import {
+  protectEmailUnsettledCause,
+  withEmailSubmissionDeadline,
+} from "./email-unsettled-cause.js";
 import { emailOperationSpan } from "./email-tracing.js";
 import type { IEmail } from "./email-service.js";
 import type { EmailRejected } from "./email-rejected.js";
@@ -397,7 +400,7 @@ const makeEmailRouterLayer = <E, R>(
           });
 
           const submit = attemptRoute(first, remaining).pipe(
-            Effect.timeoutOrElse({
+            withEmailSubmissionDeadline({
               duration: plan.deadline,
               orElse: () =>
                 Effect.fail(

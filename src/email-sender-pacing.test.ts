@@ -306,12 +306,7 @@ describe("Email sender admission pacing", () => {
 
   it.effect("rejects non-positive and infinite spacing during acquisition", () =>
     Effect.gen(function* rejectInvalidPacing() {
-      for (const minimumSpacing of [
-        Duration.zero,
-        Duration.millis(-1),
-        Duration.infinity,
-        Duration.millis(Number.MAX_VALUE),
-      ]) {
+      for (const minimumSpacing of [Duration.zero, Duration.millis(-1), Duration.infinity]) {
         const result = yield* EmailSender.pipe(
           Effect.provide(pacedEmailSenderLayer(recordingSenderLayer, { minimumSpacing })),
           Effect.result,

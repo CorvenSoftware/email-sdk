@@ -31,18 +31,18 @@ The SDK rejects unsupported message fields instead of removing them. Provider ca
 
 ## Install
 
-Use Node.js 24.18.0 or later and Effect 4.0.3. The required versions are in [`package.json`](package.json).
+Use Node.js 24.18.0 or later and Effect 4.1.2. The required versions are in [`package.json`](package.json).
 
 Install the package and its Effect peer with npm:
 
 ```sh
-npm install @corvencore/email-sdk effect@4.0.3
+npm install @corvencore/email-sdk effect@4.1.2
 ```
 
 Or use pnpm:
 
 ```sh
-pnpm add @corvencore/email-sdk effect@4.0.3
+pnpm add @corvencore/email-sdk effect@4.1.2
 ```
 
 Yarn and Bun can install the same packages. The examples below work with the published package.

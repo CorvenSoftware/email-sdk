@@ -2,7 +2,7 @@ import { Effect } from "effect";
 import type { Result } from "effect";
 import type { EmailSendError } from "./email-errors.js";
 import type { EmailReceipt } from "./email-message.js";
-import { protectEmailUnsettledCause } from "./email-unsettled-cause.js";
+import { protectEmailUnsettledCause, settleEmailCallbackResult } from "./email-unsettled-cause.js";
 
 export const settleEmailObservation = <E extends EmailSendError, Observation>(settlement: {
   readonly starting: () => Effect.Effect<void>;
@@ -21,8 +21,9 @@ export const settleEmailObservation = <E extends EmailSendError, Observation>(se
 
       const observation = yield* settlement.retain(outcome);
 
-      return yield* Effect.fromResult(outcome).pipe(
-        Effect.onExit(() => restore(settlement.observe(observation))),
+      return yield* settleEmailCallbackResult(
+        outcome,
+        restore(Effect.suspend(() => settlement.observe(observation))),
       );
     }),
   ).pipe(protectEmailUnsettledCause);
