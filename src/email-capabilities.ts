@@ -36,6 +36,33 @@ export const ownEmailSenderCapabilities = (
     tags: Object.freeze({ ...capabilities.tags }),
   });
 
+const emailHeaderIntersection = {
+  None: { None: "None", Repeated: "None", Unique: "None" },
+  Repeated: { None: "None", Repeated: "Repeated", Unique: "Unique" },
+  Unique: { None: "None", Repeated: "Unique", Unique: "Unique" },
+} as const satisfies Record<
+  EmailSenderCapabilities["headers"],
+  Record<EmailSenderCapabilities["headers"], EmailSenderCapabilities["headers"]>
+>;
+
+const emailAttachmentContentTypeIntersection = {
+  Both: { Both: "Both", Explicit: "Explicit", None: "None", ProviderSelected: "ProviderSelected" },
+  Explicit: { Both: "Explicit", Explicit: "Explicit", None: "None", ProviderSelected: "None" },
+  None: { Both: "None", Explicit: "None", None: "None", ProviderSelected: "None" },
+  ProviderSelected: {
+    Both: "ProviderSelected",
+    Explicit: "None",
+    None: "None",
+    ProviderSelected: "ProviderSelected",
+  },
+} as const satisfies Record<
+  EmailSenderCapabilities["attachmentContentTypes"],
+  Record<
+    EmailSenderCapabilities["attachmentContentTypes"],
+    EmailSenderCapabilities["attachmentContentTypes"]
+  >
+>;
+
 export const intersectEmailSenderCapabilities = (
   capabilities: readonly [EmailSenderCapabilities, ...EmailSenderCapabilities[]],
 ): EmailSenderCapabilities => {
@@ -43,35 +70,12 @@ export const intersectEmailSenderCapabilities = (
   let shared = primary;
 
   for (const next of fallbacks) {
-    let { headers } = shared;
+    const headers = emailHeaderIntersection[shared.headers][next.headers];
 
-    if (shared.headers === "None" || next.headers === "None") {
-      headers = "None";
-    } else if (shared.headers === "Unique" || next.headers === "Unique") {
-      headers = "Unique";
-    }
-
-    const explicit = [shared, next].every(
-      (candidate) =>
-        candidate.attachmentContentTypes === "Explicit" ||
-        candidate.attachmentContentTypes === "Both",
-    );
-
-    const providerSelected = [shared, next].every(
-      (candidate) =>
-        candidate.attachmentContentTypes === "ProviderSelected" ||
-        candidate.attachmentContentTypes === "Both",
-    );
-
-    let attachmentContentTypes: EmailSenderCapabilities["attachmentContentTypes"] = "None";
-
-    if (explicit && providerSelected) {
-      attachmentContentTypes = "Both";
-    } else if (explicit) {
-      attachmentContentTypes = "Explicit";
-    } else if (providerSelected) {
-      attachmentContentTypes = "ProviderSelected";
-    }
+    const attachmentContentTypes =
+      emailAttachmentContentTypeIntersection[shared.attachmentContentTypes][
+        next.attachmentContentTypes
+      ];
 
     const attachments = attachmentContentTypes !== "None";
     shared = {
