@@ -119,28 +119,21 @@ const heloCompleteSuppression = Effect.fnUntraced(function* heloCompleteSuppress
   return Object.freeze(receipt);
 });
 
-const classifyHeloFailureCode = (code: string) =>
-  Match.value(code).pipe(
-    Match.when(
-      (value) =>
-        value === "invalid_json" || value === "validation_failed" || value === "templating_error",
-      () => "invalid-message" as const,
-    ),
-    Match.when(
-      (value) =>
-        [
-          "resource_limit_exceeded",
-          "channel_not_found",
-          "invalid_channel",
-          "domain_unverified",
-          "account_forbidden",
-          "recipient_forbidden",
-          "send_limit_exceeded",
-        ].includes(value),
-      () => "rejected" as const,
-    ),
-    Match.orElse(() => "invalid-response" as const),
-  );
+const heloFailureReasons = {
+  account_forbidden: "rejected",
+  channel_not_found: "rejected",
+  domain_unverified: "rejected",
+  invalid_channel: "rejected",
+  invalid_json: "invalid-message",
+  recipient_forbidden: "rejected",
+  resource_limit_exceeded: "rejected",
+  send_limit_exceeded: "rejected",
+  templating_error: "invalid-message",
+  validation_failed: "invalid-message",
+} as const satisfies Record<string, "invalid-message" | "rejected">;
+
+const isHeloFailureCode = (code: string): code is keyof typeof heloFailureReasons =>
+  Object.hasOwn(heloFailureReasons, code);
 
 const readHeloProblemResponse = Effect.fnUntraced(function* readHeloProblemResponse(
   response: HttpClientResponse.HttpClientResponse,
@@ -207,10 +200,14 @@ const classifyHeloRejection = Effect.fnUntraced(function* classifyHeloRejection(
       return yield* new EmailRejected({ provider: "helo", reason: "rejected", status });
     }
 
-    const reason = classifyHeloFailureCode(code);
+    const reason = isHeloFailureCode(code) ? heloFailureReasons[code] : undefined;
 
-    if (reason === "invalid-response") {
-      return yield* new EmailDeliveryUnknown({ provider: "helo", reason, status });
+    if (reason === undefined) {
+      return yield* new EmailDeliveryUnknown({
+        provider: "helo",
+        reason: "invalid-response",
+        status,
+      });
     }
 
     return yield* new EmailRejected({ provider: "helo", reason, status });
@@ -385,9 +382,11 @@ export const heloSenderLayer = (
           return yield* invalid();
         }
 
-        const reason = classifyHeloFailureCode(failed.value.errorCode);
+        const code = failed.value.errorCode;
 
-        if (reason === "invalid-response") {
+        const reason = isHeloFailureCode(code) ? heloFailureReasons[code] : undefined;
+
+        if (reason === undefined) {
           return yield* invalid();
         }
 

@@ -583,6 +583,46 @@ describe("Helo actual transactional protocol", () => {
       reason: "rejected",
       status: 422,
     },
+    {
+      body: { errorCode: "invalid_json", status: "failed" },
+      reason: "invalid-message",
+      status: 200,
+    },
+    {
+      body: { code: "templating_error" },
+      reason: "invalid-message",
+      status: 422,
+    },
+    {
+      body: { errorCode: "channel_not_found", status: "failed" },
+      reason: "rejected",
+      status: 200,
+    },
+    {
+      body: { code: "invalid_channel" },
+      reason: "rejected",
+      status: 422,
+    },
+    {
+      body: { errorCode: "domain_unverified", status: "failed" },
+      reason: "rejected",
+      status: 200,
+    },
+    {
+      body: { code: "account_forbidden" },
+      reason: "rejected",
+      status: 422,
+    },
+    {
+      body: { errorCode: "recipient_forbidden", status: "failed" },
+      reason: "rejected",
+      status: 200,
+    },
+    {
+      body: { code: "resource_limit_exceeded" },
+      reason: "rejected",
+      status: 422,
+    },
     { body: {}, reason: "authentication", status: 401 },
     { body: {}, reason: "rejected", status: 403 },
   ])("advances only after definite $reason evidence at $status", (scenario) =>
@@ -617,6 +657,10 @@ describe("Helo actual transactional protocol", () => {
     { body: { code: "recipients_suppressed", status: 400 }, status: 422 },
     { body: { code: "unknown", detail: "private-reason" }, status: 422 },
     { body: {}, status: 422 },
+    ...["__proto__", "constructor", "toString"].flatMap((code) => [
+      { body: { code }, status: 422 },
+      { body: { errorCode: code, status: "failed" }, status: 200 },
+    ]),
     { body: { code: "unknown-conflict", detail: "private-reason" }, status: 409 },
     { body: acknowledgement, status: 201 },
   ])("does not reinterpret unsafe error/status evidence as non-submission (%j)", (scenario) =>
