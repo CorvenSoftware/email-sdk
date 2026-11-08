@@ -102,7 +102,7 @@ const captureAggregateLayer = <E, R>(
       const acquired = yield* acquireEmailAggregateSources(
         bindings,
         CaptureRegistrationsSchema,
-        (binding) =>
+        (binding, registration) =>
           Match.value(binding).pipe(
             Match.when({ kind: "Submission" }, (source) =>
               Layer.buildWithMemoMap(source.layer, memoMap, scope).pipe(
@@ -115,6 +115,25 @@ const captureAggregateLayer = <E, R>(
               ),
             ),
             Match.exhaustive,
+            Effect.map((view) => ({
+              read: view.snapshot.pipe(
+                Effect.flatMap((snapshot) =>
+                  parseSnapshot(snapshot).pipe(
+                    Effect.mapError(
+                      () => new EmailCaptureAggregateError({ reason: "invalid-source" }),
+                    ),
+                  ),
+                ),
+                Effect.map((snapshot) =>
+                  Object.freeze({
+                    name: registration.name,
+                    snapshot: ownCaptureSnapshot(snapshot),
+                    unit: captureObservationUnits[registration.kind],
+                  }),
+                ),
+              ),
+              view,
+            })),
           ),
         "Capture sources must be distinct views",
       );
@@ -122,22 +141,7 @@ const captureAggregateLayer = <E, R>(
       const readers = EffectArray.map<
         typeof acquired,
         Effect.Effect<EmailCaptureAggregateSource, EmailCaptureAggregateError>
-      >(({ view, registration }) =>
-        view.snapshot.pipe(
-          Effect.flatMap((snapshot) =>
-            parseSnapshot(snapshot).pipe(
-              Effect.mapError(() => new EmailCaptureAggregateError({ reason: "invalid-source" })),
-            ),
-          ),
-          Effect.map((snapshot) =>
-            Object.freeze({
-              name: registration.name,
-              snapshot: ownCaptureSnapshot(snapshot),
-              unit: captureObservationUnits[registration.kind],
-            }),
-          ),
-        ),
-      )(acquired);
+      >((source) => source.read)(acquired);
 
       const snapshot = Effect.gen(function* readCaptureAggregate() {
         const sources = yield* Effect.all(readers, { concurrency: 1 });

@@ -1,18 +1,17 @@
 import { Array as EffectArray, Context, Effect, Layer, Match, Schema, Struct } from "effect";
 import { acquireEmailAggregateSources } from "./email-aggregate-sources.js";
+import type { AcquiredEmailAggregateSource } from "./email-aggregate-sources.js";
 import type { EmailConfigurationError } from "./email-configuration-error.js";
 import {
   EmailNativeObservations,
   EmailNativeObservationSnapshotSchema,
 } from "./email-native-observations.js";
-import type { EmailNativeObservationSnapshot } from "./email-native-observations.js";
 import { EmailObservationAggregateError } from "./email-observation-aggregate-error.js";
 import type { EmailObservationSnapshot } from "./email-observation-retention.js";
 import {
   EmailSubmissionObservations,
   EmailSubmissionObservationSnapshotSchema,
 } from "./email-submission-observation-view.js";
-import type { EmailSubmissionObservationSnapshot } from "./email-submission-observation-view.js";
 import { emailOperationSpan } from "./email-tracing.js";
 
 export { EmailObservationAggregateError } from "./email-observation-aggregate-error.js";
@@ -88,12 +87,12 @@ const ObservationRegistrationsSchema = Schema.NonEmptyArray(ObservationRegistrat
   ),
 );
 
-const parseSubmissionSnapshot = Schema.decodeUnknownEffect(
+const parseSubmissionSnapshot = Schema.decodeEffect(
   Schema.toType(EmailSubmissionObservationSnapshotSchema),
   { errors: "all", onExcessProperty: "error" },
 );
 
-const parseNativeSnapshot = Schema.decodeUnknownEffect(
+const parseNativeSnapshot = Schema.decodeEffect(
   Schema.toType(EmailNativeObservationSnapshotSchema),
   { errors: "all", onExcessProperty: "error" },
 );
@@ -116,16 +115,63 @@ const observationAggregateLayer = <E, R>(
       const acquired = yield* acquireEmailAggregateSources(
         bindings,
         ObservationRegistrationsSchema,
-        (binding) =>
+        (
+          binding,
+          registration,
+        ): Effect.Effect<
+          AcquiredEmailAggregateSource<EmailObservationAggregateSource, Schema.SchemaError>,
+          E,
+          R
+        > =>
           Match.value(binding).pipe(
             Match.when({ kind: "Submission" }, (source) =>
               Layer.buildWithMemoMap(source.layer, memoMap, scope).pipe(
-                Effect.map((context) => Context.get(context, EmailSubmissionObservations)),
+                Effect.map((context) => {
+                  const view = Context.get(context, EmailSubmissionObservations);
+
+                  return {
+                    read: view.snapshot.pipe(
+                      Effect.flatMap(parseSubmissionSnapshot),
+                      Effect.map((snapshot) =>
+                        Object.freeze(
+                          Struct.evolve(
+                            EmailObservationAggregateSourceSchema.cases.SenderInvocation.make({
+                              name: registration.name,
+                              snapshot,
+                            }),
+                            { snapshot: (retained) => ownObservationSnapshot(retained) },
+                          ),
+                        ),
+                      ),
+                    ),
+                    view,
+                  };
+                }),
               ),
             ),
             Match.when({ kind: "Native" }, (source) =>
               Layer.buildWithMemoMap(source.layer, memoMap, scope).pipe(
-                Effect.map((context) => Context.get(context, EmailNativeObservations)),
+                Effect.map((context) => {
+                  const view = Context.get(context, EmailNativeObservations);
+
+                  return {
+                    read: view.snapshot.pipe(
+                      Effect.flatMap(parseNativeSnapshot),
+                      Effect.map((snapshot) =>
+                        Object.freeze(
+                          Struct.evolve(
+                            EmailObservationAggregateSourceSchema.cases.NativeOperation.make({
+                              name: registration.name,
+                              snapshot,
+                            }),
+                            { snapshot: (retained) => ownObservationSnapshot(retained) },
+                          ),
+                        ),
+                      ),
+                    ),
+                    view,
+                  };
+                }),
               ),
             ),
             Match.exhaustive,
@@ -136,50 +182,11 @@ const observationAggregateLayer = <E, R>(
       const readers = EffectArray.map<
         typeof acquired,
         Effect.Effect<EmailObservationAggregateSource, EmailObservationAggregateError>
-      >(({ view, registration }) => {
-        const sample: Effect.Effect<
-          EmailSubmissionObservationSnapshot | EmailNativeObservationSnapshot
-        > = view.snapshot;
-
-        return sample.pipe(
-          Effect.flatMap((snapshot) =>
-            Match.value(registration.kind).pipe(
-              Match.when("Submission", () =>
-                parseSubmissionSnapshot(snapshot).pipe(
-                  Effect.map((parsed) =>
-                    Object.freeze(
-                      Struct.evolve(
-                        EmailObservationAggregateSourceSchema.cases.SenderInvocation.make({
-                          name: registration.name,
-                          snapshot: parsed,
-                        }),
-                        { snapshot: (retained) => ownObservationSnapshot(retained) },
-                      ),
-                    ),
-                  ),
-                ),
-              ),
-              Match.when("Native", () =>
-                parseNativeSnapshot(snapshot).pipe(
-                  Effect.map((parsed) =>
-                    Object.freeze(
-                      Struct.evolve(
-                        EmailObservationAggregateSourceSchema.cases.NativeOperation.make({
-                          name: registration.name,
-                          snapshot: parsed,
-                        }),
-                        { snapshot: (retained) => ownObservationSnapshot(retained) },
-                      ),
-                    ),
-                  ),
-                ),
-              ),
-              Match.exhaustive,
-            ),
-          ),
+      >((source) =>
+        source.read.pipe(
           Effect.mapError(() => new EmailObservationAggregateError({ reason: "invalid-source" })),
-        );
-      })(acquired);
+        ),
+      )(acquired);
 
       const snapshot = Effect.gen(function* readObservationAggregate() {
         const sources = yield* Effect.all(readers, { concurrency: 1 });

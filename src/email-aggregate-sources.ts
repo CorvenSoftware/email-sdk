@@ -2,10 +2,16 @@ import { Array as EffectArray, Effect, Schema, Struct } from "effect";
 import { EmailConfigurationError } from "./email-configuration-error.js";
 import { emailInputIssues } from "./email-input-issues.js";
 
+export interface AcquiredEmailAggregateSource<A, E> {
+  readonly view: object;
+  readonly read: Effect.Effect<A, E>;
+}
+
 export const acquireEmailAggregateSources = <
   Binding extends { readonly layer: unknown },
   Registration extends object,
-  View extends object,
+  A,
+  ReadError,
   E,
   R,
 >(
@@ -14,7 +20,10 @@ export const acquireEmailAggregateSources = <
     readonly [Registration, ...Registration[]],
     readonly [Omit<Binding, "layer">, ...Omit<Binding, "layer">[]]
   >,
-  acquireView: (binding: Binding) => Effect.Effect<View, E, R>,
+  acquireSource: (
+    binding: Binding,
+    registration: Readonly<Registration>,
+  ) => Effect.Effect<AcquiredEmailAggregateSource<A, ReadError>, E, R>,
   duplicateProblem: string,
 ) =>
   Effect.gen(function* acquireNamedEmailViews() {
@@ -41,17 +50,17 @@ export const acquireEmailAggregateSources = <
         Binding,
         Registration,
       ]) {
-        const view = yield* acquireView(binding);
+        const source = yield* acquireSource(binding, Object.freeze(registration));
 
-        if (seen.has(view)) {
+        if (seen.has(source.view)) {
           return yield* new EmailConfigurationError({
             issues: [{ path: "sources", problem: duplicateProblem }],
           });
         }
 
-        seen.add(view);
+        seen.add(source.view);
 
-        return Object.freeze({ registration: Object.freeze(registration), view });
+        return Object.freeze(source);
       }),
       { concurrency: 1 },
     );
