@@ -74,6 +74,18 @@ const SesRefusalType = Schema.Literals([
   "TooManyRequestsException",
 ]);
 
+const sesRefusalClassifications = {
+  AccessDeniedException: { reason: "authentication", status: 403 },
+  AccountSuspendedException: { reason: "rejected", status: 400 },
+  ExpiredTokenException: { reason: "authentication", status: 403 },
+  MailFromDomainNotVerifiedException: { reason: "rejected", status: 400 },
+  SendingPausedException: { reason: "rejected", status: 400 },
+  TooManyRequestsException: { reason: "rate-limited", status: 429 },
+} as const satisfies Record<
+  typeof SesRefusalType.Type,
+  { readonly reason: "authentication" | "rejected" | "rate-limited"; readonly status: number }
+>;
+
 const SesProblem = Schema.Struct({
   __type: Schema.optionalKey(SesRefusalType),
   message: Schema.optionalKey(Schema.String),
@@ -166,31 +178,23 @@ const parseSesRejection = Effect.fnUntraced(function* parseSesRejection(
     return yield* invalid();
   }
 
-  if (status === 429 && errorType === "TooManyRequestsException") {
+  const classification = sesRefusalClassifications[errorType];
+
+  if (status !== classification.status) {
+    return yield* invalid();
+  }
+
+  const { reason } = classification;
+
+  if (reason === "rate-limited") {
     return yield* Option.match(parseEmailHttpRetryAfterMillis(response.headers["retry-after"]), {
-      onNone: () => new EmailRejected({ provider: "ses", reason: "rate-limited", status }),
+      onNone: () => new EmailRejected({ provider: "ses", reason, status }),
       onSome: (retryAfterMillis) =>
-        new EmailRejected({ provider: "ses", reason: "rate-limited", retryAfterMillis, status }),
+        new EmailRejected({ provider: "ses", reason, retryAfterMillis, status }),
     });
   }
 
-  if (
-    status === 403 &&
-    (errorType === "AccessDeniedException" || errorType === "ExpiredTokenException")
-  ) {
-    return yield* new EmailRejected({ provider: "ses", reason: "authentication", status });
-  }
-
-  if (
-    status === 400 &&
-    (errorType === "MailFromDomainNotVerifiedException" ||
-      errorType === "AccountSuspendedException" ||
-      errorType === "SendingPausedException")
-  ) {
-    return yield* new EmailRejected({ provider: "ses", reason: "rejected", status });
-  }
-
-  return yield* invalid();
+  return yield* new EmailRejected({ provider: "ses", reason, status });
 });
 
 export const sesSenderLayer = (

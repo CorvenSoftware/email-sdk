@@ -379,14 +379,14 @@ describe("SES constrained regional simple sends", () => {
   );
 
   it.live.each([
-    { errorType: "AccessDeniedException", status: 403 },
-    { errorType: "ExpiredTokenException", status: 403 },
-    { errorType: "MailFromDomainNotVerifiedException", status: 400 },
-    { errorType: "AccountSuspendedException", status: 400 },
-    { errorType: "SendingPausedException", status: 400 },
+    { errorType: "AccessDeniedException", reason: "authentication", status: 403 },
+    { errorType: "ExpiredTokenException", reason: "authentication", status: 403 },
+    { errorType: "MailFromDomainNotVerifiedException", reason: "rejected", status: 400 },
+    { errorType: "AccountSuspendedException", reason: "rejected", status: 400 },
+    { errorType: "SendingPausedException", reason: "rejected", status: 400 },
   ])(
     "allows explicit fallback only on coherent definite regional refusal (case %#)",
-    ({ errorType, status }) =>
+    ({ errorType, reason, status }) =>
       Effect.gen(function* routeSesRefusal() {
         const primary = yield* startEmailHttpFixture({
           body: JSON.stringify({ __type: errorType, message: "private reason" }),
@@ -398,6 +398,14 @@ describe("SES constrained regional simple sends", () => {
           body: JSON.stringify({ id: "backup" }),
           status: 200,
         });
+
+        const rejected = yield* Effect.gen(function* inspectSesRefusal() {
+          return yield* (yield* Email).send(message);
+        }).pipe(Effect.provide(fixtureSesLayer(primary)), Effect.result);
+
+        assert(Result.isFailure(rejected) && rejected.failure instanceof EmailRejected);
+        assert.strictEqual(rejected.failure.reason, reason);
+        yield* Queue.take(primary.received);
 
         const receipt = yield* Effect.gen(function* routeSesRejected() {
           return yield* (yield* (yield* EmailRouter).select()).send(message);
