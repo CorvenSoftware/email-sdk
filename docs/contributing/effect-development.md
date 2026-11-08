@@ -10,6 +10,8 @@ For shared behavior, inspect affected ordinary sends, batches, personalization, 
 
 Before new behavior, find the smallest useful behavior-preserving prefactor and verify it separately. It must preserve errors, requirements, ordering, optional-field absence, ownership, cancellation and diagnostics. A new helper or service earns its place by removing meaningful complexity from actual callers, not by anticipating hypothetical integrations. Keep a clear guard when a generic abstraction would hide the invariant.
 
+Use private, module-level tables for finite key-to-value classifications; check closed domains exhaustively with `satisfies Record<...>`. For open provider strings, check own-property membership before lookup so inherited object names cannot become submission evidence. Keep status/body coherence, effect sequencing and retry authority in explicit guards. Use exhaustive Schema/Match dispatch when variants carry different data or require different workflows rather than storing those workflows in a generic registry.
+
 ## Resolve material APIs locally
 
 [.agent-repos](../../.agent-repos) records reference names, paths and pinned revisions. The checked-in Effect source at `repos/effect/` is read-only. It is excluded from SDK build, test discovery, linting and formatting. Application code imports the installed Effect package.
@@ -38,7 +40,7 @@ Proceed when every material API has matching evidence and contract-sensitive unc
 - Keep domain calculations pure. Use Schema for boundary decoding and Schema.TaggedError for expected failures. Localize native callbacks/Promises to necessary integration boundaries; do not orchestrate application work through parallel Promises.
 - Prefer typed Struct transformations, non-empty-preserving Array operations, Option/UndefinedOr and exhaustive Match/Schema dispatch where they simplify the actual decision. Preserve brands, non-emptiness and exact optional fields without unchecked casts or manufactured defaults.
 - Detach caller-owned inputs before freezing. Preserve the same owned intent through queued work, approval and eligible retries; a readonly annotation is not runtime ownership.
-- Share Layer values deliberately. Rebuilding a query's source independently can create a different empty store; sharing a capability must also preserve its acquisition errors, memoization and scope. Do not extend an escaped service's resource lifetime by assertion.
+- Share Layer values deliberately. Rebuilding a query's source independently can create a different empty store; sharing a capability must also preserve its acquisition errors, memoization and scope. For aggregate views, bind source-specific readers during acquisition, compare original view identities for alias detection, and execute snapshots afresh on each query. Do not extend an escaped service's resource lifetime by assertion.
 
 For model/host approval, [email-agent.ts](../../src/email-agent.ts) demonstrates review followed by validation and dispatch of the same prepared operation. When changing preparation or decorators, inspect the [prepared-operation owner](../../src/email-prepared-operation.ts) and its callers rather than introducing a second preparation protocol.
 
