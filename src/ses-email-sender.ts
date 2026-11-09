@@ -1,8 +1,8 @@
 import type { Redacted } from "effect";
-import { DateTime, Effect, Layer, Option, Schema } from "effect";
+import { DateTime, Effect, Layer, Option, Predicate, Schema } from "effect";
 import { HttpClientRequest } from "effect/http";
 import type { HttpClient, HttpClientResponse } from "effect/http";
-import { EmailAddressSchema, formatEmailMailbox } from "./email-address.js";
+import { formatEmailMailbox } from "./email-address.js";
 import {
   EmailSenderCapabilitiesSchema,
   ownEmailSenderCapabilities,
@@ -23,12 +23,9 @@ import { EmailRejected } from "./email-rejected.js";
 import { EmailSenderIdempotencySchema } from "./email-sender.js";
 import type { EmailSender, EmailSubmission } from "./email-sender.js";
 import { emailLayer } from "./email-service.js";
-import type {
-  Email,
-  EmailDeliveryPolicy,
-  EmailRetryObserver,
-  EmailRetryRestriction,
-} from "./email-service.js";
+import type { Email } from "./email-service.js";
+import type { EmailDeliveryPolicy } from "./email-delivery-policy.js";
+import type { EmailRetryObserver, EmailRetryRestriction } from "./email-retry-decision.js";
 import { signSesEmailRequest } from "./ses-request-signature.js";
 
 export const sesEmailCapabilities = ownEmailSenderCapabilities(
@@ -220,8 +217,7 @@ export const sesSenderLayer = (
           ...(message.bcc ?? []),
           ...(message.replyTo ?? []),
         ].some(
-          (mailbox) =>
-            !Schema.is(EmailAddressSchema)(mailbox) && !Schema.is(SesAsciiText)(mailbox.name ?? ""),
+          (mailbox) => !Predicate.isString(mailbox) && !Schema.is(SesAsciiText)(mailbox.name ?? ""),
         )
       ) {
         issues.push("name");
@@ -260,9 +256,7 @@ export const sesSenderLayer = (
         issues.push("attachments");
       }
 
-      if (
-        new TextEncoder().encode(JSON.stringify(buildSesMessage(message))).byteLength > 8_000_000
-      ) {
+      if (Buffer.byteLength(JSON.stringify(buildSesMessage(message)), "utf-8") > 8_000_000) {
         issues.push("body");
       }
 

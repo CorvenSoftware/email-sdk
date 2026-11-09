@@ -1,4 +1,4 @@
-import { Schema, SchemaTransformation } from "effect";
+import { Predicate, Schema, SchemaTransformation } from "effect";
 
 export const EmailAddressSchema = Schema.String.check(
   Schema.isMaxLength(254),
@@ -73,7 +73,7 @@ export type EmailMailbox = typeof EmailMailboxSchema.Type;
 export type EmailMailboxInput = typeof EmailMailboxSchema.Encoded;
 
 export const emailMailboxAddress = (mailbox: EmailMailbox): EmailAddress =>
-  Schema.is(EmailAddressSchema)(mailbox) ? mailbox : mailbox.address;
+  Predicate.isString(mailbox) ? mailbox : mailbox.address;
 
 const SingleEmailRecipient = EmailMailboxSchema.pipe(
   Schema.decodeTo(
@@ -91,7 +91,7 @@ export const EmailRecipientsSchema = Schema.Union([
 ]);
 
 export const formatEmailMailbox = (mailbox: EmailMailbox): string => {
-  if (Schema.is(EmailAddressSchema)(mailbox)) {
+  if (Predicate.isString(mailbox)) {
     return mailbox;
   }
 
@@ -103,7 +103,7 @@ export const formatEmailMailbox = (mailbox: EmailMailbox): string => {
 };
 
 export const ownEmailMailbox = (mailbox: EmailMailbox): EmailMailbox => {
-  if (Schema.is(EmailAddressSchema)(mailbox)) {
+  if (Predicate.isString(mailbox)) {
     return mailbox;
   }
 

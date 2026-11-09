@@ -1,10 +1,10 @@
-import assert = require("node:assert/strict");
 import EffectLibrary = require("effect");
 import Agent = require("@corvencore/email-sdk/agent");
 import Ai = require("@corvencore/email-sdk/ai");
 import Testing = require("@corvencore/email-sdk/testing");
+import AiScenarios = require("./ai-scenarios.js");
 
-const { Effect, Exit, Layer } = EffectLibrary;
+const { Effect } = EffectLibrary;
 const proveCommonjsAi = (run: Ai.EmailAiRunner, tool: Ai.EmailAiTool, receipt: Ai.EmailAiReceipt): void => {
   const acquisition: EffectLibrary.Effect.Effect<Ai.EmailAiTool, never, Agent.EmailAgent | EffectLibrary.Scope.Scope> = Ai.emailAiTool(run);
   const tools = { sendEmail: tool };
@@ -16,19 +16,4 @@ const proveCommonjsAi = (run: Ai.EmailAiRunner, tool: Ai.EmailAiTool, receipt: A
 };
 void proveCommonjsAi;
 
-const layers = Agent.emailAgentLayer({ from: "host@example.test" }).pipe(
-  Layer.provide(Layer.succeed(Agent.EmailAgentApproval, Agent.EmailAgentApproval.of({ review: () => Effect.succeed("Approved" as const) }))),
-  Layer.provideMerge(Testing.recordingEmailLayer),
-);
-const app = Effect.scoped(Effect.gen(function* verifyCommonjsAiRuntime() {
-  const tool = yield* Ai.emailAiTool(Effect.runPromise);
-  const input = { body: { text: "Fictional CommonJS AI message" }, subject: "Synthetic AI", to: "recipient@example.test" };
-  const options = { context: undefined, messages: [], toolCallId: "reused-tool-call-id" };
-  assert.deepEqual(yield* Effect.promise(() => tool.execute(input, options)), { receiptKind: "Recorded" });
-  assert.deepEqual(yield* Effect.promise(() => tool.execute(input, options)), { receiptKind: "Recorded" });
-  assert.equal((yield* (yield* Testing.RecordedEmails).messages).length, 2);
-  const malformed = { ...input, approved: true };
-  assert.ok(Exit.isFailure(yield* Effect.exit(Effect.promise(() => tool.execute(malformed, options)))));
-})).pipe(Effect.provide(layers));
-
-void Effect.runPromise(app);
+void Effect.runPromise(AiScenarios.verifyInstalledAiTool({ EffectLibrary, Agent, Ai, Testing }));

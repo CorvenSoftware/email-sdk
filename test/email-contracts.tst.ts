@@ -33,8 +33,6 @@ import {
   emailLayer,
   transformedEmailLayer,
   observedEmailOperationLayer,
-  capturedEmailRouterLayer,
-  observedEmailRouterLayer,
   EmailOperationOutcomeSchema,
 } from "../src/index.js";
 import type {
@@ -1247,44 +1245,6 @@ export const proveCaptureAggregateCallSites = <E1, R1, E2, R2>(
   ]);
   // @ts-expect-error -- A read-only aggregate does not grant retention mutation.
   void view.purgeRecords;
-};
-
-export const proveOwnedEmailAccountCallSites = <E1, R1, E2, R2>(
-  capturedFirst: Layer.Layer<Email | EmailSubmissionCapture, E1, R1>,
-  capturedSecond: Layer.Layer<Email | EmailSubmissionCapture, E2, R2>,
-  observedFirst: Layer.Layer<Email | EmailSubmissionObservations, E1, R1>,
-  observedSecond: Layer.Layer<Email | EmailSubmissionObservations, E2, R2>,
-): void => {
-  expectTypeOf(
-    capturedEmailRouterLayer(
-      [
-        { layer: capturedFirst, name: "first" },
-        { layer: capturedSecond, name: "second" },
-      ],
-      { primary: "first" },
-    ),
-  ).toEqualTypeOf<
-    Layer.Layer<
-      Email | EmailRouter | EmailCaptureAggregate,
-      E1 | E2 | EmailConfigurationError,
-      R1 | R2
-    >
-  >();
-  expectTypeOf(
-    observedEmailRouterLayer(
-      [
-        { layer: observedFirst, name: "first" },
-        { layer: observedSecond, name: "second" },
-      ],
-      { primary: "first" },
-    ),
-  ).toEqualTypeOf<
-    Layer.Layer<
-      Email | EmailRouter | EmailObservationAggregate,
-      E1 | E2 | EmailConfigurationError,
-      R1 | R2
-    >
-  >();
 };
 
 export const proveEmailProviderAuthoringCallSites = <E, R, EO, RO, ER, RR>(

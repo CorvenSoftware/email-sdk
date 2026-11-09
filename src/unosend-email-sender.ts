@@ -24,12 +24,9 @@ import { EmailRejected } from "./email-rejected.js";
 import { EmailSenderIdempotencySchema } from "./email-sender.js";
 import type { EmailSender, EmailSubmission } from "./email-sender.js";
 import { emailLayer } from "./email-service.js";
-import type {
-  Email,
-  EmailDeliveryPolicy,
-  EmailRetryObserver,
-  EmailRetryRestriction,
-} from "./email-service.js";
+import type { Email } from "./email-service.js";
+import type { EmailDeliveryPolicy } from "./email-delivery-policy.js";
+import type { EmailRetryObserver, EmailRetryRestriction } from "./email-retry-decision.js";
 
 export const unosendEmailCapabilities = ownEmailSenderCapabilities(
   EmailSenderCapabilitiesSchema.make({

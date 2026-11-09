@@ -15,8 +15,15 @@ export const appendEmailObservation = <Observation>(
   current: EmailObservationSnapshot<Observation>,
   observation: Observation,
   capacity: number,
-): EmailObservationSnapshot<Observation> =>
-  Object.freeze({
-    observations: Object.freeze([...current.observations, observation].slice(-capacity)),
+): EmailObservationSnapshot<Observation> => {
+  const observations = current.observations.slice(
+    Math.max(0, current.observations.length - capacity + 1),
+  );
+
+  observations.push(observation);
+
+  return Object.freeze({
+    observations: Object.freeze(observations),
     truncated: current.truncated || current.observations.length >= capacity,
   });
+};

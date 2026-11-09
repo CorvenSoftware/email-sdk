@@ -1,28 +1,34 @@
-export {
-  Email,
-  EmailBatchOptionsSchema,
-  EmailDeliveryPolicySchema,
-  EmailExecutionMetadataSchema,
-  EmailPersonalizedOptionsSchema,
-  EmailSendOptionsSchema,
-  EmailSendRequestSchema,
-  emailLayer,
-  emailLayerFromSender,
-} from "./email-service.js";
+export { Email, emailLayer, emailLayerFromSender } from "./email-service.js";
+
+export type { IEmail } from "./email-service.js";
+
+export { EmailDeliveryPolicySchema } from "./email-delivery-policy.js";
+
+export type { EmailDeliveryPolicy } from "./email-delivery-policy.js";
+
+export { EmailExecutionMetadataSchema } from "./email-execution-metadata.js";
 
 export type {
-  IEmail,
-  EmailDeliveryPolicy,
-  EmailBatchOptionsInput,
   EmailExecutionMetadata,
   EmailExecutionMetadataInput,
   EmailExecutionMetadataValue,
   EmailExecutionMetadataInputValue,
+} from "./email-execution-metadata.js";
+
+export {
+  EmailBatchOptionsSchema,
+  EmailPersonalizedOptionsSchema,
+  EmailSendOptionsSchema,
+  EmailSendRequestSchema,
+} from "./email-preparation.js";
+
+export type {
+  EmailBatchOptionsInput,
   EmailPersonalizedOptionsInput,
   EmailSendOptions,
   EmailSendOptionsInput,
   EmailSendRequest,
-} from "./email-service.js";
+} from "./email-preparation.js";
 
 export { capturedEmailRouterLayer, observedEmailRouterLayer } from "./email-account-routing.js";
 

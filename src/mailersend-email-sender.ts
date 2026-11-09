@@ -1,4 +1,14 @@
-import { DateTime, Duration, Effect, Layer, Match, Option, Redacted, Schema } from "effect";
+import {
+  DateTime,
+  Duration,
+  Effect,
+  Layer,
+  Match,
+  Option,
+  Predicate,
+  Redacted,
+  Schema,
+} from "effect";
 import { HttpClientRequest } from "effect/http";
 import type { HttpClientResponse, HttpClient } from "effect/http";
 import { EmailAddressSchema, emailMailboxAddress } from "./email-address.js";
@@ -26,12 +36,9 @@ import { parseEmailPartialSuppressionReceipt } from "./email-suppression-receipt
 import { EmailSenderIdempotencySchema } from "./email-sender.js";
 import type { EmailSubmission, EmailSender } from "./email-sender.js";
 import { emailLayer } from "./email-service.js";
-import type {
-  Email,
-  EmailDeliveryPolicy,
-  EmailRetryObserver,
-  EmailRetryRestriction,
-} from "./email-service.js";
+import type { Email } from "./email-service.js";
+import type { EmailDeliveryPolicy } from "./email-delivery-policy.js";
+import type { EmailRetryObserver, EmailRetryRestriction } from "./email-retry-decision.js";
 
 export const mailersendEmailCapabilities = ownEmailSenderCapabilities(
   EmailSenderCapabilitiesSchema.make({
@@ -54,9 +61,7 @@ const MailersendConfiguration = Schema.Struct({
 });
 
 const formatMailersendMailbox = (mailbox: EmailMailbox) =>
-  Schema.is(EmailAddressSchema)(mailbox)
-    ? { email: mailbox }
-    : { email: mailbox.address, name: mailbox.name };
+  Predicate.isString(mailbox) ? { email: mailbox } : { email: mailbox.address, name: mailbox.name };
 
 const supportsMailersendScheduledInstant = (sendAt: DateTime.Utc, nowMillis: number): boolean => {
   const aheadMillis = DateTime.toEpochMillis(sendAt) - nowMillis;
@@ -222,9 +227,7 @@ const validateMailersendEmail = Effect.fnUntraced(function* validateMailersendEm
   const recipients = [...message.to, ...(message.cc ?? []), ...(message.bcc ?? [])];
 
   if (
-    recipients.some(
-      (mailbox) => !Schema.is(EmailAddressSchema)(mailbox) && /[;,]/u.test(mailbox.name ?? ""),
-    )
+    recipients.some((mailbox) => !Predicate.isString(mailbox) && /[;,]/u.test(mailbox.name ?? ""))
   ) {
     issues.push({
       path: "to",
@@ -262,7 +265,7 @@ const validateMailersendEmail = Effect.fnUntraced(function* validateMailersendEm
 
   if (
     [message.body.text, message.body.html].some(
-      (body) => body !== undefined && new TextEncoder().encode(body).byteLength > 2 * 1024 * 1024,
+      (body) => body !== undefined && Buffer.byteLength(body, "utf-8") > 2 * 1024 * 1024,
     )
   ) {
     issues.push({

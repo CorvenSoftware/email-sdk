@@ -20,12 +20,9 @@ import { EmailRejected } from "./email-rejected.js";
 import { EmailSender, EmailSenderIdempotencySchema } from "./email-sender.js";
 import type { EmailSubmission } from "./email-sender.js";
 import { emailLayer } from "./email-service.js";
-import type {
-  Email,
-  EmailDeliveryPolicy,
-  EmailRetryObserver,
-  EmailRetryRestriction,
-} from "./email-service.js";
+import type { Email } from "./email-service.js";
+import type { EmailDeliveryPolicy } from "./email-delivery-policy.js";
+import type { EmailRetryObserver, EmailRetryRestriction } from "./email-retry-decision.js";
 import { emailOperationSpan } from "./email-tracing.js";
 import { renderSmtpMessage } from "./smtp-message.js";
 import { connectSmtpSession } from "./smtp-session.js";

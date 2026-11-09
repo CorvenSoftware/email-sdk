@@ -1,0 +1,43 @@
+import assert from "node:assert/strict";
+
+const forbiddenPackageSpecifiers = [
+  "@corvencore/email-sdk/src/email-service.js",
+  "@corvencore/email-sdk/email-native-operations",
+  "@corvencore/email-sdk/dist/email-cli-main.js",
+  "@corvencore/email-sdk/dist/email-cli.js",
+  "@corvencore/email-sdk/dist/email-cli-node.js",
+  "@corvencore/email-sdk/dist/email-bounded-json.js",
+  "@corvencore/email-sdk/dist/loops-transactional-job.js",
+  "@corvencore/email-sdk/dist/email-retry-decision.js",
+  "@corvencore/email-sdk/dist/email-capture-aggregate.js",
+  "@corvencore/email-sdk/dist/email-submission-capture-view.js",
+  "@corvencore/email-sdk/dist/email-operation-observations.js",
+  "@corvencore/email-sdk/dist/email-observation-aggregate.js",
+  "@corvencore/email-sdk/dist/email-observation-aggregate-error.js",
+  "@corvencore/email-sdk/dist/email-submission-observation-view.js",
+  "@corvencore/email-sdk/dist/email-aggregate-sources.js",
+  "@corvencore/email-sdk/dist/email-execution-metadata.js",
+  "@corvencore/email-sdk/dist/email-preflight.js",
+  "@corvencore/email-sdk/dist/email-routing-diagnostics.js",
+  "@corvencore/email-sdk/dist/email-stream.js",
+  "@corvencore/email-sdk/dist/email-sender-pacing.js",
+  "@corvencore/email-sdk/dist/resend-batch-email.js",
+  "@corvencore/email-sdk/dist/resend-email-payload.js",
+  "@corvencore/email-sdk/dist/email-capture-retention.js",
+  "@corvencore/email-sdk/dist/email-capture-outcome.js",
+  "@corvencore/email-sdk/dist/email-observation-retention.js",
+  "@corvencore/email-sdk/dist/email-unsettled-cause.js",
+  "@corvencore/email-sdk/dist/iterable-campaign-job.js",
+  "@corvencore/email-sdk/dist/email-http-protocol.js",
+  "@corvencore/email-sdk/dist/email-http-execution.js",
+  "@corvencore/email-sdk/dist/email-capture-store.js",
+  "@corvencore/email-sdk/dist/email-message-identity.js",
+  "@corvencore/email-sdk/dist/email-react-components.js",
+  "@corvencore/email-sdk/dist/email-react-theme.js",
+] as const;
+
+export const verifyPrivatePackageExports = async (load: (specifier: string) => unknown): Promise<void> => {
+  for (const specifier of forbiddenPackageSpecifiers) {
+    await assert.rejects(async () => load(specifier), { code: "ERR_PACKAGE_PATH_NOT_EXPORTED" });
+  }
+};

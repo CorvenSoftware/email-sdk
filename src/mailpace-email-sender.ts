@@ -1,7 +1,7 @@
-import { Effect, Layer, Match, Option, Redacted, Schema } from "effect";
+import { Effect, Layer, Match, Option, Predicate, Redacted, Schema } from "effect";
 import type { HttpClient, HttpClientResponse } from "effect/http";
 import { HttpClientRequest } from "effect/http";
-import { EmailAddressSchema, formatEmailMailbox } from "./email-address.js";
+import { formatEmailMailbox } from "./email-address.js";
 import { emailAttachmentMimeType } from "./email-attachment.js";
 import {
   EmailSenderCapabilitiesSchema,
@@ -25,12 +25,9 @@ import { EmailRejected } from "./email-rejected.js";
 import { EmailSenderIdempotencySchema } from "./email-sender.js";
 import type { EmailSender, EmailSubmission } from "./email-sender.js";
 import { emailLayer } from "./email-service.js";
-import type {
-  Email,
-  EmailDeliveryPolicy,
-  EmailRetryObserver,
-  EmailRetryRestriction,
-} from "./email-service.js";
+import type { Email } from "./email-service.js";
+import type { EmailDeliveryPolicy } from "./email-delivery-policy.js";
+import type { EmailRetryObserver, EmailRetryRestriction } from "./email-retry-decision.js";
 
 export const mailpaceEmailCapabilities = ownEmailSenderCapabilities(
   EmailSenderCapabilitiesSchema.make({
@@ -142,7 +139,7 @@ const validateMailpaceIntent = Effect.fnUntraced(function* validateMailpaceInten
 
   if (
     message.replyTo !== undefined &&
-    (message.replyTo.length !== 1 || !message.replyTo.every(Schema.is(EmailAddressSchema)))
+    (message.replyTo.length !== 1 || !message.replyTo.every(Predicate.isString))
   ) {
     issues.push({ path: "replyTo", problem: "MailPace supports one plain reply-to address" });
   }

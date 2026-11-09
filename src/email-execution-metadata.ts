@@ -195,11 +195,19 @@ export const EmailExecutionMetadataSchema = Schema.declareConstructor<
   { title: "Bounded private email execution metadata" },
 );
 
-const isDecodedMetadataRecord = Schema.is(Schema.toType(metadataRecord(MetadataValue)));
-
 const ownExecutionMetadataValue = (
   value: EmailExecutionMetadataValue,
 ): EmailExecutionMetadataValue => {
+  if (
+    value === null ||
+    value === undefined ||
+    Predicate.isString(value) ||
+    Predicate.isNumber(value) ||
+    Predicate.isBoolean(value)
+  ) {
+    return value;
+  }
+
   if (DateTime.isDateTime(value)) {
     return ownEmailUtcInstant(DateTime.toUtc(value));
   }
@@ -208,11 +216,7 @@ const ownExecutionMetadataValue = (
     return Object.freeze(value.map(ownExecutionMetadataValue));
   }
 
-  if (isDecodedMetadataRecord(value)) {
-    return Object.freeze(EffectRecord.map(ownExecutionMetadataValue)(value));
-  }
-
-  return value;
+  return Object.freeze(EffectRecord.map(ownExecutionMetadataValue)(value));
 };
 
 export const ownEmailExecutionMetadata = (

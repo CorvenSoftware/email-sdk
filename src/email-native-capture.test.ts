@@ -14,7 +14,11 @@ import {
   Scope,
 } from "effect";
 import { TestClock } from "effect/testing";
-import { emailFixtureClientLayer, startEmailHttpFixture } from "../test/email-http-fixture.js";
+import {
+  emailFixtureClientLayer,
+  emailUnexpectedHttpClientLayer,
+  startEmailHttpFixture,
+} from "../test/email-http-fixture.js";
 import type { EmailHttpFixture } from "../test/email-http-fixture.js";
 import { startEmailTraceFixture } from "../test/email-tracing-fixture.js";
 import { EmailConfigurationError } from "./email-configuration-error.js";
@@ -64,15 +68,19 @@ const loopsReply = { body: '{"success":true}', status: 200 };
 
 const iterableReply = { body: '{"code":"Success","msg":"private reply"}', status: 200 };
 
+const loopsAccountLayer = loopsTransactionalLayer(
+  {
+    apiKey: Redacted.make("private-native-key"),
+    attachments: "AccountEnabled",
+    templateAuthority: "ProviderManaged",
+  },
+  policy,
+);
+
 const loopsLayer = (fixture: EmailHttpFixture) =>
-  loopsTransactionalLayer(
-    {
-      apiKey: Redacted.make("private-native-key"),
-      attachments: "AccountEnabled",
-      templateAuthority: "ProviderManaged",
-    },
-    policy,
-  ).pipe(Layer.provide(emailFixtureClientLayer(fixture.url, "https://app.loops.so")));
+  loopsAccountLayer.pipe(
+    Layer.provide(emailFixtureClientLayer(fixture.url, "https://app.loops.so")),
+  );
 
 const iterableLayer = (fixture: EmailHttpFixture) =>
   iterableCampaignLayer(
@@ -104,10 +112,7 @@ const readPayload = (record: EmailCaptureRecord) =>
     Redacted.value(record.payloadJson),
   );
 
-const suppliedLoopsLayer = (
-  base: Layer.Layer<LoopsTransactionalEmail, EmailConfigurationError>,
-  submission: Effect.Effect<EmailReceipt, EmailSendError>,
-) =>
+const suppliedLoopsLayer = (submission: Effect.Effect<EmailReceipt, EmailSendError>) =>
   Layer.effect(
     LoopsTransactionalEmail,
     Effect.gen(function* acquireControlledCaptureLoops() {
@@ -115,7 +120,7 @@ const suppliedLoopsLayer = (
 
       return LoopsTransactionalEmail.of({ ...native, send: () => submission });
     }),
-  ).pipe(Layer.provide(base));
+  ).pipe(Layer.provide(loopsAccountLayer.pipe(Layer.provide(emailUnexpectedHttpClientLayer))));
 
 describe("explicit private native operation capture", () => {
   it.effect(
@@ -283,8 +288,6 @@ describe("explicit private native operation capture", () => {
     receipt,
   ])("preserves delegated outcome identity and excludes late local invalidity", (outcome) =>
     Effect.gen(function* preserveCapturedNativeOutcome() {
-      const fixture = yield* startEmailHttpFixture(loopsReply);
-
       const submission = Schema.is(EmailReceiptSchema)(outcome)
         ? Effect.succeed(outcome)
         : Effect.fail(outcome);
@@ -331,12 +334,7 @@ describe("explicit private native operation capture", () => {
         );
         assert.deepStrictEqual(payload.outcome.failure, result.failure);
       }).pipe(
-        Effect.provide(
-          capturedLoopsTransactionalLayer(
-            suppliedLoopsLayer(loopsLayer(fixture), submission),
-            options,
-          ),
-        ),
+        Effect.provide(capturedLoopsTransactionalLayer(suppliedLoopsLayer(submission), options)),
       );
     }),
   );
@@ -351,9 +349,8 @@ describe("explicit private native operation capture", () => {
     },
     ({ capacity, texts }) =>
       Effect.gen(function* captureGeneratedNativeHistory() {
-        const fixture = yield* startEmailHttpFixture(loopsReply);
         const config = { ...options, capacity, maxBytes: 1_000_000 };
-        const base = suppliedLoopsLayer(loopsLayer(fixture), Effect.succeed(receipt));
+        const base = suppliedLoopsLayer(Effect.succeed(receipt));
         yield* Effect.gen(function* retainGeneratedNativeHistory() {
           const loops = yield* LoopsTransactionalEmail;
           const capture = yield* EmailNativeCapture;
@@ -410,8 +407,7 @@ describe("explicit private native operation capture", () => {
 
   it.effect("skips oversized UTF-8 records without erasing earlier retained payloads", () =>
     Effect.gen(function* boundNativeCaptureBytes() {
-      const fixture = yield* startEmailHttpFixture(loopsReply);
-      const base = suppliedLoopsLayer(loopsLayer(fixture), Effect.succeed(receipt));
+      const base = suppliedLoopsLayer(Effect.succeed(receipt));
       const job = { ...loopsJob, dataVariables: { note: "é" } };
 
       const size = yield* Effect.gen(function* calibrateNativeCaptureSize() {
@@ -586,7 +582,6 @@ describe("explicit private native operation capture", () => {
 
   it.effect("allows pending completions after purge but cannot reopen a scope-closed capture", () =>
     Effect.gen(function* closePendingNativeCapture() {
-      const fixture = yield* startEmailHttpFixture(loopsReply);
       const entered = yield* Queue.unbounded<boolean>();
       const release = yield* Queue.unbounded<boolean>();
 
@@ -598,10 +593,7 @@ describe("explicit private native operation capture", () => {
       const scope = yield* Scope.make();
 
       const context = yield* Layer.buildWithScope(
-        capturedLoopsTransactionalLayer(
-          suppliedLoopsLayer(loopsLayer(fixture), submission),
-          options,
-        ),
+        capturedLoopsTransactionalLayer(suppliedLoopsLayer(submission), options),
         scope,
       );
 
@@ -635,7 +627,6 @@ describe("explicit private native operation capture", () => {
 
   it.effect("preserves mixed local failures and defects without retaining private causes", () =>
     Effect.gen(function* preserveNativeCapturePrivacy() {
-      const fixture = yield* startEmailHttpFixture(loopsReply);
       const released = yield* Deferred.make<boolean>();
       const trace = yield* startEmailTraceFixture();
 
@@ -644,7 +635,6 @@ describe("explicit private native operation capture", () => {
       );
 
       const base = suppliedLoopsLayer(
-        loopsLayer(fixture),
         Effect.fail(new EmailInvalidOptions({ issues: [] })).pipe(
           Effect.ensuring(Effect.die("private original defect")),
         ),
@@ -748,8 +738,6 @@ describe("explicit private native operation capture", () => {
 
   it.effect("marks an encoding gap instead of replacing an already returned receipt", () =>
     Effect.gen(function* retainNativeEncodingGap() {
-      const fixture = yield* startEmailHttpFixture(loopsReply);
-
       const invalid = EmailReceiptSchema.cases.Recorded.make({ sequence: 1 });
 
       Reflect.set(invalid, "sequence", Number.NaN);
@@ -763,10 +751,7 @@ describe("explicit private native operation capture", () => {
         assert.strictEqual((yield* capture.snapshot).truncated, true);
       }).pipe(
         Effect.provide(
-          capturedLoopsTransactionalLayer(
-            suppliedLoopsLayer(loopsLayer(fixture), Effect.succeed(invalid)),
-            options,
-          ),
+          capturedLoopsTransactionalLayer(suppliedLoopsLayer(Effect.succeed(invalid)), options),
         ),
       );
     }),

@@ -1,0 +1,43 @@
+import assert from "node:assert/strict";
+import type { Effect } from "effect";
+import type { EmailConfigurationError } from "@corvencore/email-sdk";
+
+export const verifyInstalledAiTool = (loaded: {
+  readonly EffectLibrary: typeof import("effect");
+  readonly Agent: typeof import("@corvencore/email-sdk/agent");
+  readonly Ai: typeof import("@corvencore/email-sdk/ai");
+  readonly Testing: typeof import("@corvencore/email-sdk/testing");
+}): Effect.Effect<void, EmailConfigurationError> => {
+  const { Cause, Effect, Exit, Layer, Ref } = loaded.EffectLibrary;
+  const { EmailAgentApproval, emailAgentLayer } = loaded.Agent;
+  const { EmailAiToolError, emailAiTool } = loaded.Ai;
+  const { RecordedEmails, recordingEmailLayer } = loaded.Testing;
+  return Effect.scoped(Effect.gen(function* verifyInstalledAiTool() {
+    const reviews = yield* Ref.make(0);
+    const layers = emailAgentLayer({ from: "host@example.test" }).pipe(
+      Layer.provide(Layer.succeed(EmailAgentApproval, EmailAgentApproval.of({
+        review: () => Ref.updateAndGet(reviews, n => n + 1).pipe(Effect.map(n => n === 1 ? "Declined" as const : "Approved" as const)),
+      }))),
+      Layer.provideMerge(recordingEmailLayer),
+    );
+    yield* Effect.gen(function* runInstalledNativeTool() {
+      const tool = yield* emailAiTool(Effect.runPromise);
+      const input = { body: { text: "Fictional packed AI message" }, subject: "Synthetic AI", to: "recipient@example.test" };
+      const schema = tool.inputSchema["~standard"];
+      assert.equal(schema.jsonSchema.input({ target: "draft-07" }).type, "object");
+      const pending = schema.validate({ ...input, approved: true });
+      const invalid = yield* Effect.promise(() => Promise.resolve(pending));
+      assert.ok("issues" in invalid);
+      const options = { context: { approved: true }, messages: [], toolCallId: "reused-tool-call-id" };
+      const declined = yield* Effect.exit(Effect.promise(() => tool.execute(input, options)));
+      assert.ok(Exit.isFailure(declined));
+      assert.ok(Cause.squash(declined.cause) instanceof EmailAiToolError);
+      assert.deepEqual(yield* Effect.promise(() => tool.execute(input, options)), { receiptKind: "Recorded" });
+      assert.deepEqual(yield* Effect.promise(() => tool.execute(input, { ...options, context: undefined })), { receiptKind: "Recorded" });
+      assert.equal(yield* Ref.get(reviews), 3);
+      assert.equal((yield* (yield* RecordedEmails).messages).length, 2);
+      const malformed = { ...input, approved: true };
+      assert.ok(Exit.isFailure(yield* Effect.exit(Effect.promise(() => tool.execute(malformed, { ...options, context: undefined })))));
+    }).pipe(Effect.provide(layers));
+  }));
+};

@@ -11,6 +11,7 @@ import { EmailConfigurationError } from "./email-configuration-error.js";
 import { EmailDeliveryUnknown } from "./email-delivery-unknown.js";
 import type { EmailSendError, EmailSubmissionError } from "./email-errors.js";
 import { EmailHttpCredentialSchema } from "./email-http-credential.js";
+import { executeEmailHttpRequest } from "./email-http-execution.js";
 import { readEmailHttpJson } from "./email-http-response.js";
 import { emailInputIssues } from "./email-input-issues.js";
 import { EmailInvalidMessage } from "./email-invalid-message.js";
@@ -190,7 +191,14 @@ const readResendBatchResults = Effect.fnUntraced(function* readResendBatchResult
     { concurrency: 1 },
   );
 
-  const ids = advertised.flatMap((entry) => (Option.isSome(entry) ? [entry.value.id] : []));
+  const idFrequencies = new Map<string, number>();
+
+  for (const entry of advertised) {
+    if (Option.isSome(entry)) {
+      const { id } = entry.value;
+      idFrequencies.set(id, (idFrequencies.get(id) ?? 0) + 1);
+    }
+  }
 
   return Object.freeze(
     Array.from({ length: count }, (_, index): ResendBatchEmailResult => {
@@ -202,7 +210,7 @@ const readResendBatchResults = Effect.fnUntraced(function* readResendBatchResult
 
       const { id } = acknowledgement.value;
 
-      if (ids.filter((candidate) => candidate === id).length !== 1) {
+      if (idFrequencies.get(id) !== 1) {
         return Result.fail(unknown());
       }
 
@@ -291,13 +299,7 @@ export const resendBatchEmailLayer = (
             request = HttpClientRequest.setHeader(request, "Idempotency-Key", idempotencyKey);
           }
 
-          const response = yield* client.execute(request).pipe(
-            Effect.provideService(HttpClient.TracerDisabledWhen, () => true),
-            protectEmailUnsettledCause,
-            Effect.mapError(
-              () => new EmailDeliveryUnknown({ provider: "resend", reason: "transport" }),
-            ),
-          );
+          const response = yield* executeEmailHttpRequest(client, request, "resend");
 
           if (response.status < 200 || response.status >= 300) {
             return yield* rejectResendBatch(response, idempotencyKey !== undefined);

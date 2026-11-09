@@ -1,10 +1,12 @@
-// @effect-diagnostics nodeBuiltinImport:off -- This Oxlint plugin runs as Node tooling and reads repository files directly.
-import { existsSync } from "node:fs";
-import { isBuiltin } from "node:module";
-import path from "node:path";
-
 import { definePlugin, defineRule } from "@oxlint/plugins";
 import type { Context, Definition, ESTree, Scope, Variable } from "@oxlint/plugins";
+import {
+  sdkDevelopmentSource,
+  sdkImportPath,
+  sdkIntegrationSource,
+  sdkRepositoryPath,
+  sdkRuntimeSource,
+} from "./sdk-lint-paths.ts";
 
 type RuleContext = Context;
 
@@ -13,17 +15,6 @@ type NodeOfType<Type extends ESTree.Node["type"]> = Extract<ESTree.Node, { type:
 type PropertyNode = NodeOfType<"Property">;
 
 type StaticKeyValue = NodeOfType<"Literal">["value"] | null;
-
-const repoRoot = path.resolve(import.meta.dirname, "..");
-
-const clientNames = new Set(["AtomRpc", "FetchHttpClient", "HttpClient", "RpcClient"]);
-
-const clientFactories = new Set([
-  "createHttpClient",
-  "createRpcClient",
-  "makeHttpClient",
-  "makeRpcClient",
-]);
 
 const surfaceConstructorNames = new Set([
   "HttpApi",
@@ -34,34 +25,6 @@ const surfaceConstructorNames = new Set([
   "Tool",
   "Toolkit",
 ]);
-
-const browserContractModules = new Set([
-  "packages/capability/rpc-group",
-  "packages/core/contracts",
-  "packages/devtools/contracts",
-]);
-
-const workspacePath = (filename: string) => {
-  const relative = path.relative(repoRoot, path.resolve(filename)).split(path.sep).join("/");
-
-  const match = /(?:^|\/)(?<workspace>(?:apps|packages)\/.+)$/u.exec(relative);
-
-  return match?.groups?.workspace ?? relative;
-};
-
-const isWithin = (filename: string, directory: string) =>
-  filename === directory || filename.startsWith(`${directory}/`);
-
-const isPackage = (filename: string) => isWithin(filename, "packages");
-
-const isCapabilityPackage = (filename: string) => isWithin(filename, "packages/capability");
-
-const isInfraApp = (filename: string) => isWithin(filename, "apps/infra");
-
-const isFeature = (filename: string) => /^apps\/[^/]+\/src\/(?:dev\/)?features\/.+/u.test(filename);
-
-const isBrowserZone = (filename: string) =>
-  isFeature(filename) || /^apps\/[^/]+\/src\/(?:dev\/)?client\/.+/u.test(filename);
 
 const unwrapExpression = (node: ESTree.Expression): ESTree.Expression => {
   if (
@@ -93,103 +56,6 @@ const isStringModule = (node: ESTree.Expression): string | null => {
   }
 
   return null;
-};
-
-const normalizeWorkspacePath = (filename: string, specifier: string): string | null => {
-  if (specifier.startsWith(".")) {
-    return path.posix.normalize(path.posix.join(path.posix.dirname(filename), specifier));
-  }
-
-  if (specifier.startsWith("apps/") || specifier.startsWith("packages/")) {
-    return path.posix.normalize(specifier);
-  }
-
-  if (specifier.startsWith("/")) {
-    return workspacePath(specifier);
-  }
-
-  const workspacePackage = /^@[^/]+\/(?<name>[^/]+)(?:\/(?<suffix>.*))?$/u.exec(specifier);
-
-  if (workspacePackage === null) {
-    return null;
-  }
-
-  const name = workspacePackage.groups?.name;
-
-  if (name === undefined) {
-    return null;
-  }
-
-  const suffix = workspacePackage.groups?.suffix ?? "";
-  const appPackage = path.posix.join("apps", name, suffix);
-  const libraryPackage = path.posix.join("packages", name, suffix);
-
-  if (existsSync(path.join(repoRoot, "apps", name))) {
-    return appPackage;
-  }
-
-  if (existsSync(path.join(repoRoot, "packages", name))) {
-    return libraryPackage;
-  }
-
-  return null;
-};
-
-const importModule = (
-  context: RuleContext,
-  filename: string,
-  node: ESTree.Node,
-  specifier: string,
-) => {
-  const target = normalizeWorkspacePath(filename, specifier);
-
-  if (target !== null && isPackage(filename) && isWithin(target, "apps")) {
-    context.report({ messageId: "packageApp", node });
-  }
-
-  if (target !== null && isCapabilityPackage(filename) && isWithin(target, "packages/core")) {
-    context.report({ messageId: "capabilityDomain", node });
-  }
-
-  if (target !== null && !isInfraApp(filename) && isWithin(target, "apps/infra")) {
-    context.report({ messageId: "infraOwner", node });
-  }
-};
-
-const browserCapabilityModule = (filename: string, specifier: string) => {
-  const target = normalizeWorkspacePath(filename, specifier);
-
-  if (specifier.startsWith("@") && target !== null && browserContractModules.has(target)) {
-    return false;
-  }
-
-  return (
-    target !== null &&
-    (isWithin(target, "packages/capability") ||
-      isWithin(target, "packages/core") ||
-      isWithin(target, "packages/devtools") ||
-      /^apps\/[^/]+\/src\/capabilities(?:\/|$)/u.test(target))
-  );
-};
-
-const browserServerModule = (filename: string, specifier: string) => {
-  const normalized = specifier.toLowerCase();
-  const target = normalizeWorkspacePath(filename, specifier);
-
-  return (
-    isBuiltin(specifier) ||
-    normalized.startsWith("node:") ||
-    /^alchemy(?:\/|$)/u.test(normalized) ||
-    normalized === "cloudflare:workers" ||
-    normalized === "@effect/platform-node" ||
-    normalized.startsWith("@effect/platform-node/") ||
-    normalized === "server-only" ||
-    normalized.startsWith("server-only/") ||
-    normalized.includes("/httpserver") ||
-    /(?:^|\/)server(?:\/|$)/u.test(normalized) ||
-    /\.server(?:\.[^/]*)?$/u.test(normalized) ||
-    (target !== null && isWithin(target, "apps/infra"))
-  );
 };
 
 const staticPropertyKeyName = (node: PropertyNode): string | undefined => {
@@ -236,16 +102,6 @@ const staticPropertyName = (node: ESTree.MemberExpression) => {
 
   // oxlint-disable-next-line anti-slop/no-runtime-typeof -- ESTree Literal also represents numbers, booleans, and regexes, so a computed key needs a string check.
   return typeof value === "string" ? value : undefined;
-};
-
-const rootIdentifierNode = (node: ESTree.Expression): ESTree.Expression | null => {
-  let current = node;
-
-  while (current.type === "MemberExpression") {
-    current = current.object;
-  }
-
-  return current.type === "Identifier" ? current : null;
 };
 
 const importedName = (node: ESTree.ImportDeclaration["specifiers"][number]): string | null => {
@@ -507,43 +363,6 @@ const importIdentity = (
   return null;
 };
 
-type TransportKind = "client" | "factory";
-
-const transportKindForName = (name: string): TransportKind | null => {
-  if (clientNames.has(name)) {
-    return "client";
-  }
-
-  if (clientFactories.has(name)) {
-    return "factory";
-  }
-
-  return null;
-};
-
-const isTransportNamespace = (module: string) =>
-  /(?:^|\/)(?:atomrpc|fetchhttpclient|http|http-api|httpapi|httpclient|rpc|rpcclient)$/iu.test(
-    module,
-  );
-
-const transportKindForExpression = (
-  expression: ESTree.Expression,
-  scope: Scope | null,
-  context: RuleContext,
-): TransportKind | null => {
-  const identity = importIdentity(expression, scope, context);
-
-  if (identity === null) {
-    return null;
-  }
-
-  if (identity.name !== null) {
-    return transportKindForName(identity.name);
-  }
-
-  return isTransportNamespace(identity.module) ? "client" : null;
-};
-
 const isTypeOnlyDefinition = (definition: Definition) => {
   if (
     definition.node.type === "TSInterfaceDeclaration" ||
@@ -771,28 +590,28 @@ const moduleSourceVisitors = (
 
 const noCrossLayerImports = defineRule({
   create(context) {
-    const filename = workspacePath(context.filename);
+    const filename = sdkRepositoryPath(context.filename);
 
-    const report = (node: ESTree.Node, source: ESTree.Expression) => {
+    if (!sdkRuntimeSource(filename)) {
+      return {};
+    }
+
+    return moduleSourceVisitors(context, (node, source) => {
       const specifier = isStringModule(source);
+      const target = specifier === null ? null : sdkImportPath(filename, specifier);
 
-      if (specifier !== null) {
-        importModule(context, filename, node, specifier);
+      if (target !== null && !target.startsWith("src/")) {
+        context.report({ messageId: "sourceOwner", node });
       }
-    };
-
-    return moduleSourceVisitors(context, report);
+    });
   },
   meta: {
     docs: {
-      description:
-        "Keep package, capability, and infrastructure imports inside their owning layers.",
+      description: "Keep SDK runtime imports inside src rather than repository tooling or examples.",
     },
     messages: {
-      capabilityDomain: "packages/capability cannot import packages/core domain code.",
-      infraOwner:
-        "apps/infra owns its Stack wiring; import a capability or service contract instead.",
-      packageApp: "Packages cannot import application code.",
+      sourceOwner:
+        "SDK runtime code cannot import tests, examples, tooling, documentation, or reference repositories. Move shared runtime behavior into src.",
     },
     type: "problem",
   },
@@ -800,224 +619,41 @@ const noCrossLayerImports = defineRule({
 
 const noCoreAdapters = defineRule({
   create(context) {
-    const filename = workspacePath(context.filename);
+    const filename = sdkRepositoryPath(context.filename);
 
-    if (!isWithin(filename, "packages/core/src")) {
+    if (!sdkRuntimeSource(filename) || sdkIntegrationSource(filename)) {
       return {};
     }
 
-    const report = (node: ESTree.Node, source: ESTree.Expression) => {
+    return moduleSourceVisitors(context, (node, source) => {
       const specifier = isStringModule(source);
 
       if (specifier === null) {
         return;
       }
 
-      const target = normalizeWorkspacePath(filename, specifier);
-
+      const target = sdkImportPath(filename, specifier);
       const domainModule =
-        target !== null &&
-        (isWithin(target, "packages/core") || isWithin(target, "packages/capability"));
-
-      const domainLibrary = /^(?:effect|xstate|@xstate\/effect)(?:\/|$)/u.test(specifier);
-
-      const httpModule = /^effect\/(?:unstable\/)?http(?:[^/]*)(?:\/|$)/u.test(specifier);
-
+        target !== null && sdkRuntimeSource(target) && !sdkIntegrationSource(target);
+      const domainLibrary = /^effect(?:\/|$)/u.test(specifier) || specifier === "node:buffer";
+      const transportModule =
+        /^effect\/(?:unstable\/)?(?:ai|cli|cluster|eventlog|http[^/]*|net|observability|persistence|process|reactivity|rpc|socket|sql|workers|workflow)(?:\/|$)/u.test(
+          specifier,
+        );
       const adapterModule = /(?:^|\/)(?:adapters?|vendors?)(?:\/|$)/u.test(target ?? specifier);
 
-      if ((!domainModule && !domainLibrary) || httpModule || adapterModule) {
+      if ((!domainModule && !domainLibrary) || transportModule || adapterModule) {
         context.report({ messageId: "coreAdapter", node });
       }
-    };
-
-    return moduleSourceVisitors(context, report);
+    });
   },
   meta: {
     docs: {
-      description:
-        "Core owns ports and domain logic; HTTP clients and vendor implementations belong in adapter cartridges.",
+      description: "Keep SDK domain and operation policy independent of concrete runtime adapters.",
     },
     messages: {
       coreAdapter:
-        "Core cannot import HTTP clients or adapters. Provide a domain port from the composition root instead.",
-    },
-    type: "problem",
-  },
-});
-
-const noBrowserServerImports = defineRule({
-  create(context) {
-    const filename = workspacePath(context.filename);
-
-    if (!isBrowserZone(filename)) {
-      return {};
-    }
-
-    const report = (node: ESTree.Node, source: ESTree.Expression) => {
-      const specifier = isStringModule(source);
-
-      if (specifier !== null) {
-        if (browserServerModule(filename, specifier)) {
-          context.report({ messageId: "serverImport", node });
-        }
-
-        if (browserCapabilityModule(filename, specifier)) {
-          context.report({ messageId: "capabilityImport", node });
-        }
-      }
-    };
-
-    return moduleSourceVisitors(context, report);
-  },
-  meta: {
-    docs: {
-      description:
-        "Keep Node, Alchemy, Worker, infrastructure, and server-only modules out of browser zones.",
-    },
-    messages: {
-      capabilityImport:
-        "Feature and client modules can import only browser-safe contract entry points; capability handlers and other domain implementation modules stay server-side.",
-      serverImport:
-        "Feature and client modules cannot import Node, Alchemy, Worker, infra, or server-only modules.",
-    },
-    type: "problem",
-  },
-});
-
-const noFeatureTransport = defineRule({
-  create(context) {
-    const filename = workspacePath(context.filename);
-
-    if (!isFeature(filename)) {
-      return {};
-    }
-
-    const report = (node: ESTree.Node) => {
-      context.report({ messageId: "featureTransport", node });
-    };
-
-    const isGlobalFetch = (node: ESTree.Node, scope: Scope | null) =>
-      node.type === "Identifier" && node.name === "fetch" && !isDeclaredLocally("fetch", scope);
-
-    return {
-      CallExpression(node) {
-        const scope = context.sourceCode.getScope(node);
-        const callee = unwrapExpression(node.callee);
-        const root = rootIdentifierNode(callee);
-        const [moduleArgument] = node.arguments;
-
-        const rootScope = root === null ? null : context.sourceCode.getScope(root);
-
-        if (
-          isGlobalFetch(callee, scope) ||
-          isGlobalFetch(root ?? node, rootScope) ||
-          transportKindForExpression(callee, scope, context) !== null ||
-          (root !== null && transportKindForExpression(root, rootScope, context) !== null) ||
-          (moduleArgument !== undefined &&
-            moduleArgument.type !== "SpreadElement" &&
-            isTransportNamespace(isStringModule(moduleArgument) ?? "") &&
-            isRequireFunction(node.callee, scope, context))
-        ) {
-          report(node);
-        }
-      },
-      Identifier(node) {
-        const scope = context.sourceCode.getScope(node);
-        const { parent } = node;
-
-        if (
-          node.name !== "fetch" ||
-          !isReference(node, scope) ||
-          isDeclaredLocally("fetch", scope) ||
-          (parent.type === "MemberExpression" &&
-            (parent.object === node || (parent.property === node && !parent.computed))) ||
-          (parent.type === "CallExpression" && parent.callee === node)
-        ) {
-          return;
-        }
-
-        report(node);
-      },
-      ImportDeclaration(node) {
-        for (const specifier of node.specifiers) {
-          const name = importedName(specifier);
-
-          if (name !== null && (clientNames.has(name) || name === "fetch")) {
-            report(specifier);
-          }
-
-          if (
-            specifier.type === "ImportNamespaceSpecifier" &&
-            isTransportNamespace(node.source.value)
-          ) {
-            report(specifier);
-          }
-        }
-      },
-      ImportExpression(node) {
-        const source = isStringModule(node.source);
-
-        if (source !== null && isTransportNamespace(source)) {
-          report(node);
-        }
-      },
-      MemberExpression(node) {
-        const property = staticPropertyName(node);
-        const scope = context.sourceCode.getScope(node);
-
-        if (property === "fetch" && resolvesGlobalObject(node.object, scope, context)) {
-          report(node);
-
-          return;
-        }
-
-        if (
-          node.object.type === "Identifier" &&
-          node.object.name === "fetch" &&
-          !isDeclaredLocally("fetch", scope) &&
-          !(node.parent.type === "CallExpression" && node.parent.callee === node)
-        ) {
-          report(node);
-        }
-      },
-      NewExpression(node) {
-        const scope = context.sourceCode.getScope(node);
-        const root = rootIdentifierNode(node.callee);
-
-        if (
-          (node.callee.type === "Identifier" && node.callee.name === "HttpClient") ||
-          transportKindForExpression(node.callee, scope, context) !== null ||
-          (root !== null &&
-            transportKindForExpression(root, context.sourceCode.getScope(root), context) !== null)
-        ) {
-          report(node);
-        }
-      },
-      VariableDeclarator(node) {
-        if (
-          node.id.type !== "ObjectPattern" ||
-          node.init === null ||
-          !resolvesGlobalObject(node.init, context.sourceCode.getScope(node), context)
-        ) {
-          return;
-        }
-
-        for (const property of node.id.properties) {
-          if (property.type === "Property" && staticPropertyKeyName(property) === "fetch") {
-            report(property.key);
-          }
-        }
-      },
-    };
-  },
-  meta: {
-    docs: {
-      description:
-        "Keep feature views on their client module instead of constructing transport or making requests.",
-    },
-    messages: {
-      featureTransport:
-        "Features read atoms and call named commands from apps/web/src/client; do not use fetch or construct transport clients here.",
+        "SDK domain code cannot import transports, framework or provider adapters, or their composition roots. Depend on a domain capability; wire concrete adapters at an explicitly owned integration boundary.",
     },
     type: "problem",
   },
@@ -1103,10 +739,6 @@ const surfaceCallName = (
 
 const noHandRolledSurface = defineRule({
   create(context) {
-    if (isCapabilityPackage(workspacePath(context.filename))) {
-      return {};
-    }
-
     return {
       CallExpression(node) {
         let callee = unwrapExpression(node.callee);
@@ -1132,12 +764,11 @@ const noHandRolledSurface = defineRule({
   },
   meta: {
     docs: {
-      description:
-        "Build RPC, HTTP, and MCP surfaces from contracts through packages/capability projections.",
+      description: "Keep transport surfaces outside the SDK's email operation and approval contracts.",
     },
     messages: {
       handRolled:
-        "{{call}} hand-rolls a surface. Define a contract with defineContract, implement it, and project it with toRpcGroup, toRpc, toHttpApi, or toToolkit so every surface shares one definition.",
+        "{{call}} hand-rolls a transport surface. Expose email operations through the SDK service or host-reviewed agent contract; keep HTTP, RPC, and framework transport wiring in the consuming application.",
     },
     type: "problem",
   },
@@ -1151,12 +782,9 @@ const browserGlobals = new Set([
   "window",
 ]);
 
-const isServerSource = (filename: string) =>
-  /^(?:apps|packages)\/[^/]+\/src\/.+/u.test(filename) && !isBrowserZone(filename);
-
 const noBrowserGlobalsOnServer = defineRule({
   create(context) {
-    if (!isServerSource(workspacePath(context.filename))) {
+    if (!sdkRuntimeSource(sdkRepositoryPath(context.filename))) {
       return {};
     }
 
@@ -1243,115 +871,47 @@ const noBrowserGlobalsOnServer = defineRule({
   },
   meta: {
     docs: {
-      description: "Keep browser-only globals in apps/*/src/client and apps/*/src/features.",
+      description: "Keep browser-only globals out of SDK runtime modules.",
     },
     messages: {
       browserGlobal:
-        "{{name}} exists only in a browser. Server, Worker, and package code runs without it; move this into apps/*/src/client or apps/*/src/features.",
+        "{{name}} exists only in a browser. SDK runtime code must work without browser globals; supply host capabilities explicitly.",
     },
     type: "problem",
   },
 });
-
-const isDevtoolsModule = (target: string) =>
-  isWithin(target, "packages/devtools") ||
-  /^packages\/auth\/(?:(?:src|dist)\/)?devtools(?:\/|\.|$)/u.test(target);
-
-const devFolderOf = (target: string) =>
-  /^(?<folder>apps\/[^/]+\/src\/dev)(?:\/|$)/u.exec(target)?.groups?.folder;
-
-const isTestSource = (filename: string) =>
-  /^(?:apps|packages)\/[^/]+\/test(?:\/|$)/u.test(filename);
-
-const mayUseDevtools = (filename: string) =>
-  isWithin(filename, "packages/devtools") ||
-  isWithin(filename, "apps/cli") ||
-  isTestSource(filename) ||
-  devFolderOf(filename) !== undefined;
 
 const noDevtoolsInProduction = defineRule({
   create(context) {
-    const filename = workspacePath(context.filename);
+    const filename = sdkRepositoryPath(context.filename);
 
-    const check = (node: ESTree.Node, source: ESTree.Expression) => {
-      const specifier = isStringModule(source);
+    if (!sdkRuntimeSource(filename)) {
+      return {};
+    }
 
-      const target = specifier === null ? null : normalizeWorkspacePath(filename, specifier);
-
-      if (target === null) {
-        return;
-      }
-
-      if (isDevtoolsModule(target) && !mayUseDevtools(filename)) {
-        context.report({ messageId: "devtools", node });
-      }
-
-      const folder = devFolderOf(target);
-
-      if (folder !== undefined && !isWithin(filename, folder) && !isTestSource(filename)) {
-        context.report({ data: { folder }, messageId: "devFolder", node });
-      }
-    };
-
-    return moduleSourceVisitors(context, check);
-  },
-  meta: {
-    docs: {
-      description: "Keep devtools and test people out of anything a production entry can reach.",
-    },
-    messages: {
-      devFolder:
-        "Only modules inside {{folder}} may import it. The dev composition is an entry of its own; production code must not reach it.",
-      devtools:
-        "Devtools and test people (@rat-stack/devtools, @rat-stack/auth/devtools) belong in apps/*/src/dev/**, apps/cli, or tests. rat_call and rat_test_person bypass per-request auth and create accounts with a fixed password, so a production composition must never include them.",
-    },
-    type: "problem",
-  },
-});
-
-const noCodeSnippetsInRuntime = defineRule({
-  create(context) {
-    const filename = workspacePath(context.filename);
-    const runtime = /^(?:apps|packages)\/[^/]+\/src\//u.test(filename);
-
-    const check = (node: ESTree.Node, source: ESTree.Expression) => {
+    return moduleSourceVisitors(context, (node, source) => {
       const specifier = isStringModule(source);
 
       if (specifier === null) {
         return;
       }
 
-      const target = normalizeWorkspacePath(filename, specifier);
+      const target = sdkImportPath(filename, specifier);
+      const developmentLibrary =
+        /^(?:@effect\/(?:vitest|devtools)|@oxlint\/plugins|vitest|fast-check|effect\/(?:devtools|testing))(?:\/|$)/u.test(specifier);
 
-      const snippets = target !== null && isWithin(target, "packages/code-snippets");
-
-      const engine =
-        specifier === "shiki" ||
-        specifier.startsWith("shiki/") ||
-        specifier.startsWith("@shikijs/");
-
-      if (runtime && !isWithin(filename, "packages/code-snippets") && (snippets || engine)) {
-        context.report({ messageId: "buildOnly", node });
+      if (developmentLibrary || (target !== null && sdkDevelopmentSource(target))) {
+        context.report({ messageId: "devtools", node });
       }
-
-      if (
-        isWithin(filename, "packages/code-snippets/src") &&
-        !filename.endsWith("/shiki.ts") &&
-        engine
-      ) {
-        context.report({ messageId: "adapterOnly", node });
-      }
-    };
-
-    return moduleSourceVisitors(context, check);
+    });
   },
   meta: {
     docs: {
-      description: "Keep code snippets build-only and Shiki behind its adapter.",
+      description: "Keep test fixtures and development-only libraries out of SDK runtime modules.",
     },
     messages: {
-      adapterOnly: "Code-snippets core cannot import Shiki; use the Highlighter port.",
-      buildOnly: "Code snippets and Shiki are build-only; keep them out of runtime src modules.",
+      devtools:
+        "SDK runtime code cannot import test fixtures or development-only libraries. Keep test acquisition in tests and expose intentional recording/failing senders through their existing SDK capabilities.",
     },
     type: "problem",
   },
@@ -1361,12 +921,9 @@ export default definePlugin({
   meta: { name: "rat-stack-boundaries" },
   rules: {
     "no-browser-globals-on-server": noBrowserGlobalsOnServer,
-    "no-browser-server-imports": noBrowserServerImports,
-    "no-code-snippets-in-runtime": noCodeSnippetsInRuntime,
     "no-core-adapters": noCoreAdapters,
     "no-cross-layer-imports": noCrossLayerImports,
     "no-devtools-in-production": noDevtoolsInProduction,
-    "no-feature-transport": noFeatureTransport,
     "no-hand-rolled-surface": noHandRolledSurface,
   },
 });

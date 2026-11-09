@@ -1,32 +1,16 @@
-// @effect-diagnostics nodeBuiltinImport:off -- This Oxlint plugin runs as Node tooling and reads repository files directly.
-import path from "node:path";
-
 import { definePlugin, defineRule } from "@oxlint/plugins";
 import type { Context, Definition, ESTree, Scope, Variable } from "@oxlint/plugins";
+import { sdkRepositoryPath, sdkRuntimeSource } from "./sdk-lint-paths.ts";
 
 type RuleContext = Context;
 
 type NodeOfType<Type extends ESTree.Node["type"]> = Extract<ESTree.Node, { type: Type }>;
-
-type IdentifierNode = NodeOfType<"Identifier">;
 
 type AssignmentPatternNode = ESTree.AssignmentPattern;
 
 type ReturnStatementNode = NodeOfType<"ReturnStatement">;
 
 type FunctionThunk = ESTree.ArrowFunctionExpression | ESTree.Function;
-
-const repoRoot = path.resolve(import.meta.dirname, "..");
-
-const workspacePath = (filename: string) => {
-  const relative = path.relative(repoRoot, path.resolve(filename)).split(path.sep).join("/");
-
-  const match = /(?:^|\/)(?<workspace>(?:apps|packages)\/.+)$/u.exec(relative);
-
-  return match?.groups?.workspace ?? relative;
-};
-
-const isRuntimeSource = (filename: string) => /^(?:apps|packages)\/[^/]+\/src\/.+/u.test(filename);
 
 const unwrapExpression = (node: ESTree.Expression): ESTree.Expression => {
   if (
@@ -462,7 +446,7 @@ const isSharedConstruction = (node: ESTree.Node, context: RuleContext) => {
 
 const noSharedPendingCache = defineRule({
   create(context) {
-    if (!isRuntimeSource(workspacePath(context.filename))) {
+    if (!sdkRuntimeSource(sdkRepositoryPath(context.filename))) {
       return {};
     }
 
@@ -483,7 +467,7 @@ const noSharedPendingCache = defineRule({
     },
     messages: {
       pendingCache:
-        "Cache completed values only at module, service, or Worker initialization scope. Effect.cached* shares pending work across requests. Move the cache into the request or store completed values; a scoped exception must name its lifetime with a -- reason.",
+        "Cache completed values only at module or shared Layer initialization scope. Effect.cached* shares pending work across operations. Move the cache into the operation or store completed values; a scoped exception must name its lifetime with a -- reason.",
     },
     type: "problem",
   },
@@ -664,7 +648,7 @@ const isModuleScopedVar = (node: ESTree.Node) => {
 
 const noModuleLevelMutableState = defineRule({
   create(context) {
-    if (!isRuntimeSource(workspacePath(context.filename))) {
+    if (!sdkRuntimeSource(sdkRepositoryPath(context.filename))) {
       return {};
     }
 
@@ -693,449 +677,7 @@ const noModuleLevelMutableState = defineRule({
     },
     messages: {
       moduleState:
-        "Module-level let and var are shared by every request a Worker isolate or server process handles. Keep state in a Ref inside a Layer, a Durable Object, or the database.",
-    },
-    type: "problem",
-  },
-});
-
-const camelCase = (name: string) =>
-  name
-    .split(/[^A-Za-z0-9]+/u)
-    .filter((part) => part !== "")
-    .map((part, index) =>
-      index === 0
-        ? `${part.charAt(0).toLowerCase()}${part.slice(1)}`
-        : `${part.charAt(0).toUpperCase()}${part.slice(1)}`,
-    )
-    .join("");
-
-const resolvesToName = (
-  expression: ESTree.Expression,
-  expected: string,
-  scope: Scope | null,
-  context: RuleContext,
-): boolean => {
-  const identity = importIdentity(expression, scope, context);
-
-  return (
-    identity?.name === expected && /^@[^/]+\/capability(?:\/contract)?$/u.test(identity.module)
-  );
-};
-
-const contractName = (
-  node: ESTree.Expression,
-  scope: Scope | null,
-  context: RuleContext,
-): string | null => {
-  const expression = unwrapExpression(node);
-
-  if (expression.type !== "CallExpression") {
-    return null;
-  }
-
-  if (!resolvesToName(expression.callee, "defineContract", scope, context)) {
-    return null;
-  }
-
-  const [first] = expression.arguments;
-
-  return first === undefined || first.type === "SpreadElement" ? null : stringValue(first);
-};
-
-const contractBindingMatchesName = defineRule({
-  create(context) {
-    const check = (identifier: IdentifierNode, expression: ESTree.Expression) => {
-      const name = contractName(expression, context.sourceCode.getScope(identifier), context);
-
-      if (name === null) {
-        return;
-      }
-
-      const expected = camelCase(name);
-
-      if (identifier.name !== expected && identifier.name !== `${expected}Contract`) {
-        context.report({
-          data: { expected, name },
-          messageId: "binding",
-          node: identifier,
-        });
-      }
-    };
-
-    return {
-      AssignmentExpression(node) {
-        if (node.left.type !== "Identifier") {
-          return;
-        }
-
-        const definition = declarationOf(node.left.name, context.sourceCode.getScope(node.left));
-
-        if (definition?.type === "Variable" && definition.node.type === "VariableDeclarator") {
-          check(node.left, node.right);
-        }
-      },
-      VariableDeclarator(node) {
-        if (node.id.type === "Identifier" && node.init !== null) {
-          check(node.id, node.init);
-        }
-      },
-    };
-  },
-  meta: {
-    docs: {
-      description:
-        "Name a defineContract binding after the contract, so a search for the name finds it.",
-    },
-    messages: {
-      binding:
-        'Name this binding {{expected}}Contract or {{expected}}, to match the contract name "{{name}}".',
-    },
-    type: "suggestion",
-  },
-});
-
-const isCapabilityWatcherModule = (module: string) =>
-  /^@[^/]+\/capability(?:\/actor-watch)?$/u.test(module);
-
-const callTarget = (node: ESTree.CallExpression) => {
-  const callee = unwrapExpression(node.callee);
-
-  if (callee.type !== "MemberExpression") {
-    return { expression: callee, method: null };
-  }
-
-  const method = staticPropertyName(callee);
-
-  return method === "call" || method === "apply"
-    ? { expression: unwrapExpression(callee.object), method }
-    : { expression: callee, method: null };
-};
-
-const callTargetIdentity = (
-  node: ESTree.CallExpression,
-  context: RuleContext,
-): ImportIdentity | null =>
-  importIdentity(callTarget(node).expression, context.sourceCode.getScope(node), context);
-
-const callArgument = (node: ESTree.CallExpression, index: number): ESTree.Expression | null => {
-  const { method } = callTarget(node);
-
-  if (method === "call") {
-    const argument = node.arguments[index + 1];
-
-    return argument === undefined || argument.type === "SpreadElement" ? null : argument;
-  }
-
-  if (method === "apply") {
-    const [, argumentList] = node.arguments;
-
-    if (argumentList?.type !== "ArrayExpression") {
-      return null;
-    }
-
-    const argument = argumentList.elements[index];
-
-    return argument === null || argument === undefined || argument.type === "SpreadElement"
-      ? null
-      : argument;
-  }
-
-  const argument = node.arguments[index];
-
-  return argument === undefined || argument.type === "SpreadElement" ? null : argument;
-};
-
-const isTransparentWrapper = (parent: ESTree.Node, child: ESTree.Node) => {
-  if (parent.type === "AwaitExpression" || parent.type === "YieldExpression") {
-    return parent.argument === child;
-  }
-
-  return (
-    (parent.type === "ChainExpression" ||
-      parent.type === "ParenthesizedExpression" ||
-      parent.type === "TSAsExpression" ||
-      parent.type === "TSNonNullExpression" ||
-      parent.type === "TSSatisfiesExpression" ||
-      parent.type === "TSTypeAssertion" ||
-      parent.type === "TSInstantiationExpression") &&
-    parent.expression === child
-  );
-};
-
-const expressionForVariable = (
-  node: ESTree.CallExpression,
-  context: RuleContext,
-): ESTree.VariableDeclarator | null => {
-  let current: ESTree.Node = node;
-  let ancestor: ESTree.Node | null = current.parent;
-
-  while (ancestor !== null) {
-    if (isTransparentWrapper(ancestor, current)) {
-      current = ancestor;
-      ancestor = current.parent;
-      continue;
-    }
-
-    if (ancestor.type === "VariableDeclarator" && ancestor.init === current) {
-      return ancestor;
-    }
-
-    if (
-      ancestor.type === "AssignmentExpression" &&
-      ancestor.right === current &&
-      ancestor.left.type === "Identifier"
-    ) {
-      const definition = declarationOf(
-        ancestor.left.name,
-        context.sourceCode.getScope(ancestor.left),
-      );
-
-      return definition?.node.type === "VariableDeclarator" ? definition.node : null;
-    }
-
-    return null;
-  }
-
-  return null;
-};
-
-const variableBinding = (
-  identifier: IdentifierNode,
-  context: RuleContext,
-  seen = new Set<Definition["node"]>(),
-): ESTree.VariableDeclarator | null => {
-  const variable = variableOf(identifier.name, context.sourceCode.getScope(identifier));
-
-  const definition = variable?.defs[0];
-
-  if (
-    definition?.type !== "Variable" ||
-    definition.node.type !== "VariableDeclarator" ||
-    seen.has(definition.node)
-  ) {
-    return null;
-  }
-
-  seen.add(definition.node);
-
-  const initializer = definition.node.init === null ? null : unwrapExpression(definition.node.init);
-
-  if (initializer?.type === "Identifier" && variable !== undefined && isStableVariable(variable)) {
-    return variableBinding(initializer, context, seen) ?? definition.node;
-  }
-
-  return definition.node;
-};
-
-const watchEffectActors = defineRule({
-  create(context) {
-    if (!isRuntimeSource(workspacePath(context.filename))) {
-      return {};
-    }
-
-    const started: {
-      readonly binding: ESTree.VariableDeclarator | null;
-      readonly node: ESTree.CallExpression;
-    }[] = [];
-
-    const watchedBindings = new Set<ESTree.VariableDeclarator>();
-    const watchedCalls = new Set<ESTree.CallExpression>();
-
-    const bindingIsStable = (binding: ESTree.VariableDeclarator, actor: ESTree.CallExpression) => {
-      if (binding.id.type !== "Identifier") {
-        return false;
-      }
-
-      const variable = variableOf(binding.id.name, context.sourceCode.getScope(binding));
-
-      return (
-        variable !== undefined &&
-        variable.references.every(
-          (reference) =>
-            !reference.isWrite() ||
-            reference.init ||
-            (reference.writeExpr !== null && isNodeWithin(actor, reference.writeExpr)),
-        )
-      );
-    };
-
-    return {
-      CallExpression(node) {
-        const identity = callTargetIdentity(node, context);
-
-        if (identity?.module === "@xstate/effect" && identity.name === "createEffectActor") {
-          started.push({ binding: expressionForVariable(node, context), node });
-        }
-
-        if (
-          identity === null ||
-          !isCapabilityWatcherModule(identity.module) ||
-          identity.name !== "watchActor"
-        ) {
-          return;
-        }
-
-        const argument = callArgument(node, 1);
-
-        if (argument === null) {
-          return;
-        }
-
-        const actor = unwrapExpression(argument);
-
-        if (actor.type === "Identifier") {
-          const binding = variableBinding(actor, context);
-
-          if (binding !== null) {
-            watchedBindings.add(binding);
-          }
-
-          return;
-        }
-
-        if (actor.type === "CallExpression") {
-          watchedCalls.add(actor);
-        }
-      },
-      "Program:exit"() {
-        for (const actor of started) {
-          const watched =
-            actor.binding === null
-              ? watchedCalls.has(actor.node)
-              : watchedBindings.has(actor.binding) && bindingIsStable(actor.binding, actor.node);
-
-          if (!watched) {
-            context.report({ messageId: "unwatched", node: actor.node });
-          }
-        }
-      },
-    };
-  },
-  meta: {
-    docs: {
-      description: "Hand every Effect-backed actor to watchActor so devtools can inspect it.",
-    },
-    messages: {
-      unwatched:
-        'Call watchActor("<machine>", actor) from @rat-stack/capability/actor-watch after createEffectActor. It is a no-op until devtools provides a watcher, and without it rat_list_actors cannot see this machine.',
-    },
-    type: "suggestion",
-  },
-});
-
-const isLearnSnippet = (filename: string) =>
-  /(?:^|\/)\.brain\/data\/learn-cards\/.+\.ts$/u.test(filename);
-
-const primitiveServiceTypes = new Set([
-  "TSAnyKeyword",
-  "TSBigIntKeyword",
-  "TSBooleanKeyword",
-  "TSLiteralType",
-  "TSNumberKeyword",
-  "TSStringKeyword",
-  "TSSymbolKeyword",
-  "TSUnknownKeyword",
-]);
-
-const serviceDeclaration = (superClass: ESTree.Expression | null) => {
-  if (superClass?.type !== "CallExpression") {
-    return null;
-  }
-
-  const factory = superClass.callee;
-
-  if (
-    factory.type !== "CallExpression" ||
-    factory.callee.type !== "MemberExpression" ||
-    staticPropertyName(factory.callee) !== "Service"
-  ) {
-    return null;
-  }
-
-  const [key] = superClass.arguments;
-
-  return {
-    key: key === undefined || key.type === "SpreadElement" ? null : key,
-    operations: factory.typeArguments?.params[1] ?? null,
-  };
-};
-
-const staticLayerOf = (body: ESTree.ClassBody) =>
-  body.body.find(
-    (member) =>
-      member.type === "PropertyDefinition" &&
-      member.static &&
-      member.key.type === "Identifier" &&
-      member.key.name === "layer",
-  );
-
-const learnSnippetIdiom = defineRule({
-  create(context) {
-    if (!isLearnSnippet(workspacePath(context.filename))) {
-      return {};
-    }
-
-    const checkService = (node: ESTree.Class) => {
-      const service = serviceDeclaration(node.superClass);
-
-      if (service === null) {
-        return;
-      }
-
-      if (service.operations !== null && primitiveServiceTypes.has(service.operations.type)) {
-        context.report({ messageId: "operations", node: service.operations });
-      }
-
-      const key = service.key === null ? null : stringValue(service.key);
-
-      if (key === null || !key.includes("/")) {
-        context.report({
-          messageId: "namespacedKey",
-          node: service.key ?? node,
-        });
-      }
-
-      const layer = staticLayerOf(node.body);
-
-      const className = node.id?.name;
-
-      const usesOf =
-        layer !== undefined &&
-        className !== undefined &&
-        context.sourceCode.getText(layer).includes(`${className}.of(`);
-
-      if (!usesOf) {
-        context.report({ messageId: "staticLayer", node: layer ?? node });
-      }
-    };
-
-    return {
-      CallExpression(node) {
-        if (
-          node.callee.type === "MemberExpression" &&
-          staticPropertyName(node.callee)?.startsWith("provideService") === true
-        ) {
-          context.report({ messageId: "provideLayer", node });
-        }
-      },
-      ClassDeclaration: checkService,
-      ClassExpression: checkService,
-    };
-  },
-  meta: {
-    docs: {
-      description: "Keep learn card snippets on the installed effect/AGENTS.md service idiom.",
-    },
-    messages: {
-      namespacedKey:
-        'Give the service a namespaced key such as "myapp/Greeter", so two services never share an identifier.',
-      operations:
-        "Shape the service as operations, for example { readonly greet: (name: string) => Effect.Effect<string> }. A primitive value belongs in Config or a Context.Reference.",
-      provideLayer:
-        "Provide the service's static layer at the edge with Effect.provide(Service.layer). provideService hides how the implementation is built.",
-      staticLayer:
-        "Attach static readonly layer to the service and build its value with Service.of, so the implementation sits beside the interface.",
+        "Module-level let and var are shared by every SDK consumer. Keep mutable state in a Ref acquired inside its owning Layer or operation.",
     },
     type: "problem",
   },
@@ -1145,10 +687,7 @@ export default definePlugin({
   meta: { name: "rat-stack-patterns" },
   rules: {
     "acquire-release-constructs-in-acquire-body": acquireReleaseConstructsInAcquireBody,
-    "contract-binding-matches-name": contractBindingMatchesName,
-    "learn-snippet-idiom": learnSnippetIdiom,
     "no-module-level-mutable-state": noModuleLevelMutableState,
     "no-shared-pending-cache": noSharedPendingCache,
-    "watch-effect-actors": watchEffectActors,
   },
 });

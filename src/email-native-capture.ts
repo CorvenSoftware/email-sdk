@@ -1,14 +1,8 @@
 import type { Exit } from "effect";
-import { Context, Effect, Layer, Option, Ref, Result, Schema } from "effect";
+import { Context, Effect, Layer, Option, Result, Schema } from "effect";
 import { encodeEmailCaptureOutcome } from "./email-capture-outcome.js";
-import {
-  EmailCaptureOptionsSchema,
-  EmailCaptureOutcomeSchema,
-  appendEmailCapture,
-  closeEmailCapture,
-  markEmailCaptureGap,
-  purgeEmailCapture,
-} from "./email-capture-retention.js";
+import { EmailCaptureOptionsSchema, EmailCaptureOutcomeSchema } from "./email-capture-retention.js";
+import { acquireEmailCaptureStore } from "./email-capture-store.js";
 import type { EmailCaptureOptions, EmailCaptureSnapshot } from "./email-capture-retention.js";
 import { EmailConfigurationError } from "./email-configuration-error.js";
 import type { EmailSendError } from "./email-errors.js";
@@ -74,16 +68,7 @@ const encodeIterableRequest = Schema.encodeEffect(
 const acquireNativeCapture = Effect.fnUntraced(function* acquireNativeCapture(
   options: EmailCaptureOptions,
 ) {
-  const captured = yield* Ref.make<EmailCaptureSnapshot>(
-    Object.freeze({
-      closed: false,
-      records: Object.freeze([]),
-      retainedBytes: 0,
-      truncated: false,
-    }),
-  );
-
-  yield* Effect.addFinalizer(() => Ref.update(captured, closeEmailCapture));
+  const capture = yield* acquireEmailCaptureStore(options);
 
   const retain = Effect.fnUntraced(function* retainNativeCapture(
     requestJson: Option.Option<string>,
@@ -92,7 +77,7 @@ const acquireNativeCapture = Effect.fnUntraced(function* acquireNativeCapture(
     const outcome = yield* encodeEmailCaptureOutcome(exit).pipe(Effect.result);
 
     if (Result.isFailure(outcome)) {
-      return yield* Ref.update(captured, markEmailCaptureGap);
+      return yield* capture.markGap;
     }
 
     if (Option.isNone(outcome.success)) {
@@ -100,24 +85,20 @@ const acquireNativeCapture = Effect.fnUntraced(function* acquireNativeCapture(
     }
 
     if (Option.isNone(requestJson)) {
-      return yield* Ref.update(captured, markEmailCaptureGap);
+      return yield* capture.markGap;
     }
 
     const payloadJson = `{"outcome":${outcome.success.value},"request":${requestJson.value}}`;
 
-    return yield* Ref.update(captured, (current) =>
-      appendEmailCapture(current, payloadJson, options),
-    );
+    return yield* capture.append(payloadJson);
   });
 
   const view = EmailNativeCapture.of({
-    purgeRecords: Ref.modify(captured, purgeEmailCapture).pipe(
-      emailOperationSpan("EmailNativeCapture.purgeRecords"),
-    ),
-    snapshot: Ref.get(captured).pipe(emailOperationSpan("EmailNativeCapture.snapshot")),
+    purgeRecords: capture.purgeRecords.pipe(emailOperationSpan("EmailNativeCapture.purgeRecords")),
+    snapshot: capture.snapshot.pipe(emailOperationSpan("EmailNativeCapture.snapshot")),
   });
 
-  return { closed: Ref.get(captured).pipe(Effect.map((current) => current.closed)), retain, view };
+  return { closed: capture.closed, retain, view };
 });
 
 const capturedNativeOperations = <Input, Job extends Input>(

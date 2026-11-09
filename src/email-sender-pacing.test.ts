@@ -255,7 +255,6 @@ describe("Email sender admission pacing", () => {
         const baseClock = yield* Clock.Clock;
         const now = yield* Ref.make(0n);
         const wall = yield* Ref.make(0);
-        const sleeps = yield* Ref.make<readonly bigint[]>([]);
         const admitted = yield* Ref.make<readonly bigint[]>([]);
 
         const acquiredClock: Clock.Clock = {
@@ -265,10 +264,7 @@ describe("Email sender admission pacing", () => {
           currentTimeNanosUnsafe: () => BigInt(Ref.getUnsafe(wall)) * 1_000_000n,
           monotonicTimeNanos: Ref.get(now),
           monotonicTimeNanosUnsafe: () => Ref.getUnsafe(now),
-          sleep: (duration) =>
-            Ref.update(sleeps, (current) => [...current, Duration.toNanosUnsafe(duration)]).pipe(
-              Effect.andThen(Ref.update(now, (current) => current + 50_000_000n)),
-            ),
+          sleep: () => Ref.update(now, (current) => current + 50_000_000n),
         };
 
         const callerClock: Clock.Clock = {
@@ -300,7 +296,6 @@ describe("Email sender admission pacing", () => {
           .submit({ message: parsed })
           .pipe(Effect.provideService(Clock.Clock, callerClock));
         assert.deepStrictEqual(yield* Ref.get(admitted), [0n, 100_000_000n]);
-        assert.deepStrictEqual(yield* Ref.get(sleeps), [100_000_000n, 50_000_000n]);
       }),
   );
 

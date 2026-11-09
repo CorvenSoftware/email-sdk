@@ -8,6 +8,7 @@ import type { EmailDeliveryPolicy } from "./email-delivery-policy.js";
 import type { EmailRetryObserver, EmailRetryRestriction } from "./email-retry-decision.js";
 import type { EmailSendError, EmailSubmissionError } from "./email-errors.js";
 import { EmailHttpCredentialSchema } from "./email-http-credential.js";
+import { executeEmailHttpRequest } from "./email-http-execution.js";
 import { readEmailHttpJson } from "./email-http-response.js";
 import { emailInputIssues } from "./email-input-issues.js";
 import { EmailInvalidMessage } from "./email-invalid-message.js";
@@ -238,7 +239,7 @@ export const iterableCampaignLayer = (
                   .replace(/\.000Z$/u, ""),
         });
 
-        if (new TextEncoder().encode(payload).byteLength > 65_536) {
+        if (Buffer.byteLength(payload, "utf-8") > 65_536) {
           return yield* new EmailInvalidMessage({
             issues: [
               {
@@ -270,12 +271,7 @@ export const iterableCampaignLayer = (
             HttpClientRequest.bodyText(prepared.payload, "application/json"),
           );
 
-          const response = yield* client.execute(request).pipe(
-            Effect.provideService(HttpClient.TracerDisabledWhen, () => true),
-            Effect.mapError(
-              () => new EmailDeliveryUnknown({ provider: "iterable", reason: "transport" }),
-            ),
-          );
+          const response = yield* executeEmailHttpRequest(client, request, "iterable");
 
           return yield* readIterableAcknowledgement(response);
         },

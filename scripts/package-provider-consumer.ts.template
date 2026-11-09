@@ -1,27 +1,32 @@
-import assert from "node:assert/strict";
-import { verifyAuthoredProvider } from "./author.js";
-import { defineEmailHttpProvider } from "@corvencore/email-sdk/provider";
-import { Effect, Layer, Redacted, Ref, Result, Schema } from "effect";
+import * as ProviderKit from "@corvencore/email-sdk/provider";
+import * as EffectLibrary from "effect";
+import * as EffectHttp from "effect/http";
+import * as EmailSdk from "@corvencore/email-sdk";
+import * as Brevo from "@corvencore/email-sdk/brevo";
+import * as Sequenzy from "@corvencore/email-sdk/sequenzy";
+import * as Sendheron from "@corvencore/email-sdk/sendheron";
+import * as Iterable from "@corvencore/email-sdk/iterable";
+import * as IterableDefaults from "@corvencore/email-sdk/iterable-defaults";
+import * as NativeObservations from "@corvencore/email-sdk/native-observations";
+import * as NativeCapture from "@corvencore/email-sdk/native-capture";
+import { verifyInstalledProviders } from "./provider-scenarios.js";
+import { Effect, Layer, Redacted } from "effect";
 import { HttpClient } from "effect/http";
-import { Email, EmailDeliveryUnknown, EmailInvalidMessage, EmailRejected } from "@corvencore/email-sdk";
+import { Email, EmailRejected } from "@corvencore/email-sdk";
 import type { EmailConfigurationError } from "@corvencore/email-sdk";
 import { brevoEmailLayer } from "@corvencore/email-sdk/brevo";
 import { sequenzyEmailLayer } from "@corvencore/email-sdk/sequenzy";
 import { sendheronEmailLayer } from "@corvencore/email-sdk/sendheron";
 import { IterableCampaignEmail, iterableCampaignLayer } from "@corvencore/email-sdk/iterable";
 import type { IIterableCampaignEmail, IterableCampaignJob } from "@corvencore/email-sdk/iterable";
-import { defaultedIterableCampaignLayer, IterableCampaignDefaultsSchema } from "@corvencore/email-sdk/iterable-defaults";
+import { defaultedIterableCampaignLayer } from "@corvencore/email-sdk/iterable-defaults";
 import type { IterableCampaignDefaultsInput } from "@corvencore/email-sdk/iterable-defaults";
-import { EmailNativeObservations, observedIterableCampaignLayer, observedLoopsTransactionalLayer, EmailNativeObservationSnapshotSchema, EmailNativeOperationStartingSchema } from "@corvencore/email-sdk/native-observations";
+import { EmailNativeObservations, observedIterableCampaignLayer, observedLoopsTransactionalLayer } from "@corvencore/email-sdk/native-observations";
 import type { EmailNativeObserver, EmailNativeOperationStarting, EmailNativeStartingObserver } from "@corvencore/email-sdk/native-observations";
 import type { LoopsTransactionalEmail } from "@corvencore/email-sdk/loops";
-import { EmailNativeCapture, EmailNativeCapturePayloadSchema, capturedLoopsTransactionalLayer, capturedIterableCampaignLayer } from "@corvencore/email-sdk/native-capture";
-
-await Effect.runPromise(verifyAuthoredProvider(defineEmailHttpProvider));
+import { EmailNativeCapture, capturedLoopsTransactionalLayer, capturedIterableCampaignLayer } from "@corvencore/email-sdk/native-capture";
 
 const apiKey = Redacted.make("fictional-unused-key");
-const message = { body: { html: "<p>Fictional packed notification</p>" }, from: { address: "host@fictional.invalid", name: "Fictional Host" }, replyTo: "reply@fictional.invalid", subject: "Fictional packed notification", to: "recipient@fictional.invalid" } as const;
-const noTransport = Layer.succeed(HttpClient.HttpClient, HttpClient.make(() => Effect.die("Unexpected packed provider transport")));
 const brevo: Layer.Layer<Email, EmailConfigurationError, HttpClient.HttpClient> = brevoEmailLayer({ apiKey, contentAuthority: "AuthorizeProviderRendering", submissionMode: "TransactionalOnly", tracking: "AuthorizeProviderTracking" });
 const sequenzy: Layer.Layer<Email, EmailConfigurationError, HttpClient.HttpClient> = sequenzyEmailLayer({ apiKey, automaticUtm: "AccountDisabled", contactWrites: "AuthorizeProviderManagedProfiles", contentAuthority: "AuthorizeProviderRenderingAndRetention", replyTracking: "AccountDisabled", senderIdentity: "ExistingVerifiedProfile", submissionMode: "TransactionalOnly" });
 const sendheron: Layer.Layer<Email, EmailConfigurationError, HttpClient.HttpClient> = sendheronEmailLayer({ apiKey, submissionMode: "TransactionalOnly", tracking: "AuthorizeProviderTracking" });
@@ -88,113 +93,22 @@ const proveProviderTypes = (native: IIterableCampaignEmail, preview: IterableCam
 };
 void proveProviderTypes;
 
-await Effect.runPromise(Effect.gen(function* verifyManagedProviderContracts() {
-  yield* Effect.gen(function* preflightPackedBrevo() {
-    const email = yield* Email;
-    const preview = yield* email.validate(message);
-    assert.equal(preview.body.html, message.body.html);
-    const error = yield* email.send(message, { idempotencyKey: "unsupported-key" }).pipe(Effect.flip);
-    assert(error instanceof EmailRejected);
-    assert.equal(error.reason, "unsupported-idempotency");
-  }).pipe(Effect.provide(brevo.pipe(Layer.provide(noTransport))));
-  yield* Effect.gen(function* preflightPackedSequenzy() {
-    const email = yield* Email;
-    yield* email.validate(message, { idempotencyKey: "forwarded-key" });
-    const error = yield* email.send({ ...message, headers: [{ name: "X-Workflow", value: "not-durable" }] }).pipe(Effect.flip);
-    assert(error instanceof EmailInvalidMessage);
-  }).pipe(Effect.provide(sequenzy.pipe(Layer.provide(noTransport))));
-  yield* Effect.gen(function* preflightPackedSendheron() {
-    const email = yield* Email;
-    yield* email.validate(message, { idempotencyKey: "forwarded-key" });
-    const error = yield* email.send({ ...message, body: { text: "must not become HTML" } }).pipe(Effect.flip);
-    assert(error instanceof EmailInvalidMessage);
-  }).pipe(Effect.provide(sendheron.pipe(Layer.provide(noTransport))));
-  yield* Effect.gen(function* preflightPackedIterable() {
-    const native = yield* IterableCampaignEmail;
-    const preview = yield* native.validate({ campaignId: 123, dataFields: { values: [0, false, "fictional"] }, recipientEmail: "recipient@fictional.invalid" });
-    assert(Object.isFrozen(preview.dataFields?.values));
-    const error = yield* native.send(preview, { idempotencyKey: "not-native" }).pipe(Effect.flip);
-    assert(error instanceof EmailRejected);
-    assert.equal(error.reason, "unsupported-idempotency");
-  }).pipe(Effect.provide(iterable.pipe(Layer.provide(noTransport))));
-  yield* Effect.gen(function* inspectPackedNativeObservations() {
-    const deliveries = yield* Ref.make(0);
-    const starts: EmailNativeOperationStarting[] = [];
-    const startingObserver: EmailNativeStartingObserver = (fact) => Effect.sync(() => {
-      assert(Object.isFrozen(fact));
-      assert.equal(fact.operation, "IterableCampaign");
-      const codec = Schema.fromJsonString(EmailNativeOperationStartingSchema);
-      const encoded = Schema.encodeSync(codec)(fact);
-      assert.deepEqual(Schema.decodeSync(codec)(encoded), fact);
-      assert(!encoded.includes("recipient@"));
-      starts.push(fact);
-    });
-    const observer: EmailNativeObserver = () => Ref.update(deliveries, (count) => count + 1);
-    const native = yield* IterableCampaignEmail;
-    const failure = new EmailDeliveryUnknown({ provider: "iterable", reason: "transport" });
-    const supplied = Layer.succeed(IterableCampaignEmail, IterableCampaignEmail.of({ ...native, send: () => Effect.fail(failure) }));
-    yield* Effect.gen(function* observePackedNativeOperation() {
-      const current = yield* IterableCampaignEmail;
-      const view = yield* EmailNativeObservations;
-      yield* current.validate({ campaignId: 123, recipientEmail: "recipient@fictional.invalid" });
-      assert.equal((yield* view.snapshot).observations.length, 0);
-      const result = yield* current.send({ campaignId: 123, recipientEmail: "recipient@fictional.invalid" }).pipe(Effect.result);
-      assert(Result.isFailure(result));
-      assert.equal(result.failure, failure);
-      const snapshot = yield* view.snapshot;
-      assert.deepEqual(snapshot.observations.map((value) => [value._tag, value.operation]), [["Unknown", "IterableCampaign"]]);
-      assert(Object.isFrozen(snapshot.observations));
-      const encoded = yield* Schema.encodeEffect(Schema.fromJsonString(EmailNativeObservationSnapshotSchema))(snapshot);
-      assert(!encoded.includes("recipient@"));
-      assert.equal(yield* Ref.get(deliveries), 1);
-      assert.equal(starts.length, 1);
-    }).pipe(Effect.provide(observedIterableCampaignLayer(supplied, { capacity: 1 }, observer, startingObserver)));
-    const escapedCapture = yield* Effect.gen(function* inspectInstalledNativeCapture() {
-      const current = yield* IterableCampaignEmail;
-      const capture = yield* EmailNativeCapture;
-      const result = yield* current.send({ campaignId: 123, recipientEmail: "recipient@fictional.invalid" }).pipe(Effect.result);
-      assert(Result.isFailure(result));
-      assert.equal(result.failure, failure);
-      const snapshot = yield* capture.snapshot;
-      const record = snapshot.records[0];
-      assert(record);
-      const payload = yield* Schema.decodeEffect(Schema.fromJsonString(EmailNativeCapturePayloadSchema))(Redacted.value(record.payloadJson));
-      assert.equal(payload.request._tag, "IterableCampaign");
-      assert.equal(payload.outcome._tag, "Unknown");
-      assert.equal(payload.request.options.idempotencyKey, undefined);
-      assert(!JSON.stringify(snapshot).includes("recipient@"));
-      assert.equal(yield* capture.purgeRecords, 1);
-      assert.equal((yield* capture.snapshot).truncated, true);
-      assert.equal((yield* capture.snapshot).records.length, 0);
-      return capture;
-    }).pipe(Effect.provide(capturedIterableCampaignLayer(supplied, { capacity: 1, maxBytes: 10000, privateData: "AuthorizePayloadCapture" })));
-    assert.equal((yield* escapedCapture.snapshot).closed, true);
-    assert.equal(yield* escapedCapture.purgeRecords, 0);
-  }).pipe(Effect.provide(iterable.pipe(Layer.provide(noTransport))));
-  const defaults = yield* Schema.decodeEffect(IterableCampaignDefaultsSchema)({ dataFields: { collision: true, items: [null, false, 0] }, metadata: { retained: "default" } });
-  yield* Effect.gen(function* preflightPackedIterableDefaults() {
-    const native = yield* IterableCampaignEmail;
-    const preview = yield* native.validate({ campaignId: 123, dataFields: { collision: false, items: [] }, metadata: { retained: "caller" }, recipientEmail: "recipient@fictional.invalid" });
-    assert.deepEqual(preview.dataFields, { collision: false, items: [], inner: true });
-    assert.deepEqual(preview.metadata, { retained: "caller" });
-    assert(Object.isFrozen(preview.dataFields?.items));
-    assert.equal(native.idempotency._tag, "None");
-    const result = yield* native.send(preview, { idempotencyKey: "unsupported-key" }).pipe(Effect.result);
-    assert(Result.isFailure(result) && result.failure instanceof EmailRejected);
-    assert.equal(result.failure.reason, "unsupported-idempotency");
-  }).pipe(Effect.provide(defaultedIterableCampaignLayer(defaultedIterableCampaignLayer(iterable, { dataFields: { inner: true } }), defaults).pipe(Layer.provide(noTransport))));
-}));
-// @ts-expect-error -- Native orchestration is private to the installed package.
-await assert.rejects(import("@corvencore/email-sdk/email-native-operations"), { code: "ERR_PACKAGE_PATH_NOT_EXPORTED" });
-// @ts-expect-error -- Capture retention is private value logic, not a reset service.
-await assert.rejects(import("@corvencore/email-sdk/dist/email-capture-retention.js"), { code: "ERR_PACKAGE_PATH_NOT_EXPORTED" });
-// @ts-expect-error -- Outcome encoding does not grant a public capture/replay capability.
-await assert.rejects(import("@corvencore/email-sdk/dist/email-capture-outcome.js"), { code: "ERR_PACKAGE_PATH_NOT_EXPORTED" });
-// @ts-expect-error -- Observation retention is private implementation, not another service.
-await assert.rejects(import("@corvencore/email-sdk/dist/email-observation-retention.js"), { code: "ERR_PACKAGE_PATH_NOT_EXPORTED" });
-// @ts-expect-error -- Compound failure protection is not a public entrypoint.
-await assert.rejects(import("@corvencore/email-sdk/dist/email-unsettled-cause.js"), { code: "ERR_PACKAGE_PATH_NOT_EXPORTED" });
-// @ts-expect-error -- Canonical native job ownership remains private.
-await assert.rejects(import("@corvencore/email-sdk/dist/iterable-campaign-job.js"), { code: "ERR_PACKAGE_PATH_NOT_EXPORTED" });
-// @ts-expect-error -- Public authoring does not expose internal transport orchestration.
-await assert.rejects(import("@corvencore/email-sdk/dist/email-http-protocol.js"), { code: "ERR_PACKAGE_PATH_NOT_EXPORTED" });
+const provePrivateDeclarations = (): void => {
+  // @ts-expect-error -- Native orchestration is private to the installed package.
+  void import("@corvencore/email-sdk/email-native-operations");
+  // @ts-expect-error -- Capture retention is private value logic, not a reset service.
+  void import("@corvencore/email-sdk/dist/email-capture-retention.js");
+  // @ts-expect-error -- Outcome encoding does not grant a public capture/replay capability.
+  void import("@corvencore/email-sdk/dist/email-capture-outcome.js");
+  // @ts-expect-error -- Observation retention is private implementation, not another service.
+  void import("@corvencore/email-sdk/dist/email-observation-retention.js");
+  // @ts-expect-error -- Compound failure protection is not a public entrypoint.
+  void import("@corvencore/email-sdk/dist/email-unsettled-cause.js");
+  // @ts-expect-error -- Canonical native job ownership remains private.
+  void import("@corvencore/email-sdk/dist/iterable-campaign-job.js");
+  // @ts-expect-error -- Public authoring does not expose internal transport orchestration.
+  void import("@corvencore/email-sdk/dist/email-http-protocol.js");
+};
+void provePrivateDeclarations;
+
+await Effect.runPromise(verifyInstalledProviders({ ProviderKit, EffectLibrary, EffectHttp, EmailSdk, Brevo, Sequenzy, Sendheron, Iterable, IterableDefaults, NativeObservations, NativeCapture }));
