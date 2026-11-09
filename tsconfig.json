@@ -86,6 +86,7 @@
               "src/iterable-campaign-email.ts",
               "src/email-http-response.ts",
               "src/email-http-protocol.ts",
+              "src/email-http-execution.ts",
               "src/email-provider.ts",
               "test/email-http-fixture.ts",
               "examples/resend.ts",

@@ -1,4 +1,4 @@
-import { Effect, Layer, Option, Redacted, Schema } from "effect";
+import { Effect, Layer, Option, Predicate, Redacted, Schema } from "effect";
 import { HttpClientRequest } from "effect/http";
 import type { HttpClient, HttpClientResponse } from "effect/http";
 import { EmailAddressSchema, emailMailboxAddress } from "./email-address.js";
@@ -23,12 +23,9 @@ import { EmailRejected } from "./email-rejected.js";
 import { EmailSenderIdempotencySchema } from "./email-sender.js";
 import type { EmailSender, EmailSubmission } from "./email-sender.js";
 import { emailLayer } from "./email-service.js";
-import type {
-  Email,
-  EmailDeliveryPolicy,
-  EmailRetryObserver,
-  EmailRetryRestriction,
-} from "./email-service.js";
+import type { Email } from "./email-service.js";
+import type { EmailDeliveryPolicy } from "./email-delivery-policy.js";
+import type { EmailRetryObserver, EmailRetryRestriction } from "./email-retry-decision.js";
 
 export const graphEmailCapabilities = ownEmailSenderCapabilities(
   EmailSenderCapabilitiesSchema.make({
@@ -80,7 +77,7 @@ const GraphProblem = Schema.Struct({
 });
 
 const graphRecipient = (mailbox: EmailMailbox) => ({
-  emailAddress: Schema.is(EmailAddressSchema)(mailbox) ? { address: mailbox } : mailbox,
+  emailAddress: Predicate.isString(mailbox) ? { address: mailbox } : mailbox,
 });
 
 const buildGraphMessage = (message: EmailMessage, sentItems: GraphEmailOptions["sentItems"]) => ({
@@ -213,9 +210,10 @@ export const graphSenderLayer = (
       }
 
       if (
-        new TextEncoder().encode(
+        Buffer.byteLength(
           JSON.stringify(buildGraphMessage(message, configuration.sentItems)),
-        ).byteLength > 3_000_000
+          "utf-8",
+        ) > 3_000_000
       ) {
         issues.push("body");
       }

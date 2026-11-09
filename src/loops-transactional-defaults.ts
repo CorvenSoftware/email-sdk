@@ -1,11 +1,10 @@
 import { Effect, Layer, Schema } from "effect";
 import { EmailConfigurationError } from "./email-configuration-error.js";
-import { ownEmailDeliveryPolicy } from "./email-delivery-policy.js";
 import { emailInputIssues } from "./email-input-issues.js";
 import { EmailInvalidMessage } from "./email-invalid-message.js";
 import { EmailInvalidOptions } from "./email-invalid-options.js";
 import { EmailIdempotencyKeySchema } from "./email-message.js";
-import { emailNativeOperations } from "./email-native-operations.js";
+import { emailNativeOperations, prepareEmailNativeOperation } from "./email-native-operations.js";
 import { EmailPolicyOptionsSchema as EmailSendOptionsSchema } from "./email-preparation.js";
 import { LoopsTransactionalEmail } from "./loops-transactional-email.js";
 import {
@@ -69,8 +68,6 @@ export const defaultedLoopsTransactionalLayer = <E, R>(
               ),
             );
 
-            const ownedJob = ownLoopsJob(merged);
-
             const sendOptions =
               owned.idempotencyKeyPrefix === undefined || options.idempotencyKey === undefined
                 ? { ...options }
@@ -78,10 +75,6 @@ export const defaultedLoopsTransactionalLayer = <E, R>(
                     ...options,
                     idempotencyKey: `${owned.idempotencyKeyPrefix}${options.idempotencyKey}`,
                   };
-
-            if (options.policy !== undefined) {
-              sendOptions.policy = ownEmailDeliveryPolicy(options.policy);
-            }
 
             const parsedOptions = yield* Schema.decodeEffect(EmailSendOptionsSchema, {
               errors: "all",
@@ -92,10 +85,7 @@ export const defaultedLoopsTransactionalLayer = <E, R>(
               ),
             );
 
-            const ownedOptions = Object.freeze(parsedOptions);
-            const preview = yield* loops.validate(ownedJob, ownedOptions);
-
-            return Object.freeze({ job: ownedJob, options: ownedOptions, preview });
+            return yield* prepareEmailNativeOperation(loops, ownLoopsJob, merged, parsedOptions);
           });
 
           const operations = emailNativeOperations({

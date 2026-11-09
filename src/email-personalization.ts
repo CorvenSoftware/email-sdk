@@ -11,8 +11,9 @@ import {
   maxEmailSubjectCharacters,
 } from "./email-message.js";
 import type { EmailMessage } from "./email-message.js";
-import { ownEmailExecutionMetadata } from "./email-preparation.js";
-import type { EmailExecutionMetadata, PreparedEmailSubmission } from "./email-preparation.js";
+import { ownEmailExecutionMetadata } from "./email-execution-metadata.js";
+import type { EmailExecutionMetadata } from "./email-execution-metadata.js";
+import type { PreparedEmailSubmission } from "./email-preparation.js";
 
 export const EmailTemplateSchema = EmailMessageSchema.mapFields(Struct.omit(["to", "cc", "bcc"]));
 

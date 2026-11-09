@@ -5,6 +5,7 @@ import type { HttpClientRequest, HttpClientResponse } from "effect/http";
 import { EmailConfigurationError } from "./email-configuration-error.js";
 import { EmailDeliveryUnknown } from "./email-delivery-unknown.js";
 import type { EmailSubmissionError } from "./email-errors.js";
+import { executeEmailHttpRequest } from "./email-http-execution.js";
 import { emailInputIssues } from "./email-input-issues.js";
 import type { EmailInvalidMessage } from "./email-invalid-message.js";
 import { EmailReceiptSchema } from "./email-message.js";
@@ -29,17 +30,6 @@ import type {
   IEmailSender,
 } from "./email-sender.js";
 import { emailOperationSpan } from "./email-tracing.js";
-
-const executeEmailHttpRequest = <E, R>(
-  client: HttpClient.HttpClient.With<E, R>,
-  request: HttpClientRequest.HttpClientRequest,
-  provider: string,
-): Effect.Effect<HttpClientResponse.HttpClientResponse, EmailDeliveryUnknown, R> =>
-  client.execute(request).pipe(
-    Effect.provideService(HttpClient.TracerDisabledWhen, () => true),
-    protectEmailUnsettledCause,
-    Effect.mapError(() => new EmailDeliveryUnknown({ provider, reason: "transport" })),
-  );
 
 export interface EmailHttpExchange {
   readonly request: (

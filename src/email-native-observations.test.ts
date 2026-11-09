@@ -14,7 +14,11 @@ import {
   Schema,
 } from "effect";
 import { TestClock } from "effect/testing";
-import { emailFixtureClientLayer, startEmailHttpFixture } from "../test/email-http-fixture.js";
+import {
+  emailFixtureClientLayer,
+  emailUnexpectedHttpClientLayer,
+  startEmailHttpFixture,
+} from "../test/email-http-fixture.js";
 import type { EmailHttpFixture } from "../test/email-http-fixture.js";
 import { startEmailTraceFixture } from "../test/email-tracing-fixture.js";
 import { EmailConfigurationError } from "./email-configuration-error.js";
@@ -34,6 +38,7 @@ import {
 import type {
   EmailNativeOperationStarting,
   EmailNativeStartingObserver,
+  EmailNativeObserver,
 } from "./email-native-observations.js";
 import { EmailRejected } from "./email-rejected.js";
 import { defaultedIterableCampaignLayer } from "./iterable-campaign-defaults.js";
@@ -58,15 +63,19 @@ const loopsReply = { body: '{"success":true}', status: 200 };
 
 const iterableReply = { body: '{"code":"Success","msg":"private reply"}', status: 200 };
 
+const loopsAccountLayer = loopsTransactionalLayer(
+  {
+    apiKey: Redacted.make("private-native-key"),
+    attachments: "Disabled",
+    templateAuthority: "ProviderManaged",
+  },
+  policy,
+);
+
 const loopsLayer = (fixture: EmailHttpFixture) =>
-  loopsTransactionalLayer(
-    {
-      apiKey: Redacted.make("private-native-key"),
-      attachments: "Disabled",
-      templateAuthority: "ProviderManaged",
-    },
-    policy,
-  ).pipe(Layer.provide(emailFixtureClientLayer(fixture.url, "https://app.loops.so")));
+  loopsAccountLayer.pipe(
+    Layer.provide(emailFixtureClientLayer(fixture.url, "https://app.loops.so")),
+  );
 
 const iterableLayer = (fixture: EmailHttpFixture) =>
   iterableCampaignLayer(
@@ -94,7 +103,6 @@ const rejected = new EmailRejected({ provider: "loops", reason: "authentication"
 const unknown = new EmailDeliveryUnknown({ provider: "loops", reason: "transport" });
 
 const suppliedLoopsLayer = (
-  base: Layer.Layer<LoopsTransactionalEmail, EmailConfigurationError>,
   send: (job: typeof loopsJob) => Effect.Effect<EmailReceipt, EmailSendError>,
 ) =>
   Layer.effect(
@@ -104,7 +112,7 @@ const suppliedLoopsLayer = (
 
       return LoopsTransactionalEmail.of({ ...native, send: () => send(loopsJob) });
     }),
-  ).pipe(Layer.provide(base));
+  ).pipe(Layer.provide(loopsAccountLayer.pipe(Layer.provide(emailUnexpectedHttpClientLayer))));
 
 describe("bounded native operation observations", () => {
   it.effect.each(["Loops", "Iterable"] as const)(
@@ -182,7 +190,7 @@ describe("bounded native operation observations", () => {
   );
 
   for (const kind of ["Loops", "Iterable"] as const) {
-    it.effect.each(["Defect", "Interruption"] as const)(
+    it.effect.each(["Defect", "Interruption", "ModeledFailure"] as const)(
       `a starting %s cannot become a settled ${kind} batch item or cause submission`,
       (fault) =>
         Effect.gen(function* preserveNativeStartingFault() {
@@ -193,14 +201,26 @@ describe("bounded native operation observations", () => {
           const starts = yield* Ref.make(0);
           const settled = yield* Ref.make(0);
 
-          const starting: EmailNativeStartingObserver = () =>
-            Ref.update(starts, (count) => count + 1).pipe(
-              Effect.andThen(
-                fault === "Defect"
-                  ? Effect.die("private native starting defect")
-                  : Effect.failCause(Cause.interrupt(123)),
+          const callbacks = {
+            starting: () =>
+              Ref.update(starts, (count) => count + 1).pipe(
+                Effect.andThen(
+                  fault === "Defect"
+                    ? Effect.die("private native starting defect")
+                    : Effect.failCause(Cause.interrupt(123)),
+                ),
+              ),
+          } satisfies Record<"starting", EmailNativeStartingObserver>;
+
+          if (fault === "ModeledFailure") {
+            Reflect.set(callbacks, "starting", () =>
+              Ref.update(starts, (count) => count + 1).pipe(
+                Effect.andThen(
+                  Effect.fail(new EmailRejected({ provider: "observer", reason: "rate-limited" })),
+                ),
               ),
             );
+          }
 
           const observer = () => Ref.update(settled, (count) => count + 1);
 
@@ -209,20 +229,32 @@ describe("bounded native operation observations", () => {
               ? LoopsTransactionalEmail.pipe(
                   Effect.flatMap((native) => native.sendAll([{ job: loopsJob }])),
                   Effect.provide(
-                    observedLoopsTransactionalLayer(loopsLayer(fixture), {}, observer, starting),
+                    observedLoopsTransactionalLayer(
+                      loopsLayer(fixture),
+                      {},
+                      observer,
+                      callbacks.starting,
+                    ),
                   ),
                 )
               : IterableCampaignEmail.pipe(
                   Effect.flatMap((native) => native.sendAll([{ job: iterableJob }])),
                   Effect.provide(
-                    observedIterableCampaignLayer(iterableLayer(fixture), {}, observer, starting),
+                    observedIterableCampaignLayer(
+                      iterableLayer(fixture),
+                      {},
+                      observer,
+                      callbacks.starting,
+                    ),
                   ),
                 );
 
           const trace = yield* startEmailTraceFixture();
           const outcome = yield* operation.pipe(Effect.withTracer(trace.tracer), Effect.exit);
           assert(Exit.isFailure(outcome));
-          assert.isTrue(fault === "Defect" ? Exit.hasDies(outcome) : Exit.hasInterrupts(outcome));
+          assert.isTrue(
+            fault === "Interruption" ? Exit.hasInterrupts(outcome) : Exit.hasDies(outcome),
+          );
           assert.strictEqual(yield* Ref.get(starts), 1);
           assert.strictEqual(yield* Ref.get(settled), 0);
           assert.strictEqual(yield* Queue.size(fixture.received), 0);
@@ -347,12 +379,11 @@ describe("bounded native operation observations", () => {
 
   it.effect("retains a native fact before an interruptible callback without resubmitting", () =>
     Effect.gen(function* interruptNativeObserver() {
-      const fixture = yield* startEmailHttpFixture(loopsReply);
       const entered = yield* Deferred.make<boolean>();
       const release = yield* Deferred.make<boolean>();
       const calls = yield* Ref.make(0);
 
-      const base = suppliedLoopsLayer(loopsLayer(fixture), () =>
+      const base = suppliedLoopsLayer(() =>
         Ref.update(calls, (count) => count + 1).pipe(Effect.as(receipt)),
       );
 
@@ -379,19 +410,96 @@ describe("bounded native operation observations", () => {
           ),
         ),
       );
-      assert.strictEqual(yield* Queue.size(fixture.received), 0);
     }),
+  );
+
+  it.effect.each([
+    {
+      expected: EmailNativeObservationSchema.cases.Receipt.make({
+        operation: "LoopsTransactional",
+        receiptKind: "Accepted",
+      }),
+      result: receipt,
+    },
+    {
+      expected: EmailNativeObservationSchema.cases.Rejected.make({
+        operation: "LoopsTransactional",
+      }),
+      result: rejected,
+    },
+    {
+      expected: EmailNativeObservationSchema.cases.Unknown.make({
+        operation: "LoopsTransactional",
+      }),
+      result: unknown,
+    },
+  ] as const)(
+    "an untyped native completion failure aborts batch settlement and retains original evidence %#",
+    ({ result, expected }) =>
+      Effect.gen(function* containUntypedNativeCompletion() {
+        const calls = yield* Ref.make(0);
+
+        const callbackFailure = new EmailRejected({
+          provider: "observer",
+          reason: "rate-limited",
+          status: 429,
+        });
+
+        const callbacks = {
+          observe: () => Effect.void,
+        } satisfies Record<"observe", EmailNativeObserver>;
+
+        Reflect.set(callbacks, "observe", () => Effect.fail(callbackFailure));
+
+        const source = Schema.is(EmailReceiptSchema)(result)
+          ? Effect.succeed(result)
+          : Effect.fail(result);
+
+        const native = suppliedLoopsLayer(() =>
+          Ref.update(calls, (count) => count + 1).pipe(Effect.andThen(source)),
+        );
+
+        yield* Effect.gen(function* inspectUntypedNativeCompletion() {
+          const outcome = yield* (yield* LoopsTransactionalEmail)
+            .sendAll([{ job: loopsJob }, { job: loopsJob }], { concurrency: 1 })
+            .pipe(Effect.exit);
+
+          assert(Exit.isFailure(outcome));
+          assert(Exit.hasDies(outcome));
+          assert(
+            outcome.cause.reasons
+              .filter(Cause.isDieReason)
+              .some((reason) => reason.defect === callbackFailure),
+          );
+
+          if (result !== receipt) {
+            const retained = outcome.cause.reasons
+              .filter(Cause.isDieReason)
+              .map((reason) => reason.defect)
+              .find(Cause.isCause);
+
+            assert(Cause.isCause(retained));
+            const original = Cause.findError(retained);
+            assert(Result.isSuccess(original));
+            assert.strictEqual(original.success, result);
+          }
+
+          assert.strictEqual(yield* Ref.get(calls), 1);
+          assert.deepStrictEqual((yield* (yield* EmailNativeObservations).snapshot).observations, [
+            expected,
+          ]);
+        }).pipe(Effect.provide(observedLoopsTransactionalLayer(native, {}, callbacks.observe)));
+      }),
   );
 
   it.effect.each([rejected, unknown])(
     "never turns a native observer defect into a settled batch item or erases original evidence %#",
     (failure) =>
       Effect.gen(function* preserveNativeObserverDefect() {
-        const fixture = yield* startEmailHttpFixture(loopsReply);
         const defect = new Error("private native observer defect");
         const calls = yield* Ref.make(0);
 
-        const base = suppliedLoopsLayer(loopsLayer(fixture), () =>
+        const base = suppliedLoopsLayer(() =>
           Ref.update(calls, (count) => count + 1).pipe(Effect.andThen(Effect.fail(failure))),
         );
 
@@ -545,8 +653,7 @@ describe("bounded native operation observations", () => {
     "returns the original delegated failure and excludes post-preflight local invalidity",
     (failure) =>
       Effect.gen(function* inspectNativeFailureIdentity() {
-        const fixture = yield* startEmailHttpFixture(loopsReply);
-        const base = suppliedLoopsLayer(loopsLayer(fixture), () => Effect.fail(failure));
+        const base = suppliedLoopsLayer(() => Effect.fail(failure));
         const delivered = yield* Queue.unbounded<typeof EmailNativeObservationSchema.Type>();
         yield* Effect.gen(function* observeNativeFailure() {
           const loops = yield* LoopsTransactionalEmail;
@@ -590,14 +697,12 @@ describe("bounded native operation observations", () => {
             ),
           ),
         );
-        assert.strictEqual(yield* Queue.size(fixture.received), 0);
       }),
   );
 
   it.effect("preserves the exact delegated receipt rather than reconstructing it from a fact", () =>
     Effect.gen(function* inspectNativeReceiptIdentity() {
-      const fixture = yield* startEmailHttpFixture(loopsReply);
-      const base = suppliedLoopsLayer(loopsLayer(fixture), () => Effect.succeed(receipt));
+      const base = suppliedLoopsLayer(() => Effect.succeed(receipt));
 
       const escaped = yield* Effect.gen(function* retainNativeReceiptObservation() {
         const loops = yield* LoopsTransactionalEmail;
@@ -623,7 +728,6 @@ describe("bounded native operation observations", () => {
     },
     ({ kinds, capacity }) =>
       Effect.gen(function* inspectGeneratedNativeHistory() {
-        const fixture = yield* startEmailHttpFixture(loopsReply);
         const cursor = yield* Ref.make(0);
 
         const outcomes: Readonly<
@@ -634,7 +738,7 @@ describe("bounded native operation observations", () => {
           Unknown: Effect.fail(unknown),
         };
 
-        const base = suppliedLoopsLayer(loopsLayer(fixture), () =>
+        const base = suppliedLoopsLayer(() =>
           Effect.gen(function* nextNativeOutcome() {
             const index = yield* Ref.getAndUpdate(cursor, (current) => current + 1);
 
@@ -915,7 +1019,6 @@ describe("bounded native operation observations", () => {
     "preserves defects and resource release without retaining private causes in facts or spans",
     () =>
       Effect.gen(function* preserveNativeObservationDefects() {
-        const fixture = yield* startEmailHttpFixture(loopsReply);
         const released = yield* Deferred.make<boolean>();
         const trace = yield* startEmailTraceFixture();
 
@@ -923,9 +1026,9 @@ describe("bounded native operation observations", () => {
           Effect.acquireRelease(Effect.void, () => Deferred.succeed(released, true)),
         );
 
-        const base = suppliedLoopsLayer(loopsLayer(fixture), () =>
-          Effect.die("private original defect"),
-        ).pipe(Layer.provide(lifecycle));
+        const base = suppliedLoopsLayer(() => Effect.die("private original defect")).pipe(
+          Layer.provide(lifecycle),
+        );
 
         const escaped = yield* Effect.gen(function* inspectDefectiveNativeOperation() {
           const loops = yield* LoopsTransactionalEmail;

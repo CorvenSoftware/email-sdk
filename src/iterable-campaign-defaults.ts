@@ -1,9 +1,8 @@
 import { Effect, Layer, Schema } from "effect";
 import { EmailConfigurationError } from "./email-configuration-error.js";
-import { ownEmailDeliveryPolicy } from "./email-delivery-policy.js";
 import { emailInputIssues } from "./email-input-issues.js";
 import { EmailInvalidMessage } from "./email-invalid-message.js";
-import { emailNativeOperations } from "./email-native-operations.js";
+import { emailNativeOperations, prepareEmailNativeOperation } from "./email-native-operations.js";
 import type { EmailPolicyOptionsSchema as EmailSendOptionsSchema } from "./email-preparation.js";
 import { IterableCampaignEmail } from "./iterable-campaign-email.js";
 import {
@@ -75,17 +74,7 @@ export const defaultedIterableCampaignLayer = <E, R>(
               ),
             );
 
-            const ownedJob = ownIterableJob(merged);
-            const sendOptions = { ...options };
-
-            if (options.policy !== undefined) {
-              sendOptions.policy = ownEmailDeliveryPolicy(options.policy);
-            }
-
-            const ownedOptions = Object.freeze(sendOptions);
-            const preview = yield* iterable.validate(ownedJob, ownedOptions);
-
-            return Object.freeze({ job: ownedJob, options: ownedOptions, preview });
+            return yield* prepareEmailNativeOperation(iterable, ownIterableJob, merged, options);
           });
 
           const operations = emailNativeOperations({

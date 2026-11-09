@@ -1,37 +1,34 @@
 import { Effect, Redacted, Schema } from "effect";
+import type { Layer } from "effect";
 import {
   EmailNativeCapture,
   EmailNativeCapturePayloadSchema,
   capturedLoopsTransactionalLayer,
 } from "../src/email-native-capture.js";
-import {
-  LoopsTransactionalEmail,
-  loopsTransactionalLayer,
-} from "../src/loops-transactional-email.js";
+import { LoopsTransactionalEmail } from "../src/loops-transactional-email.js";
+import type { LoopsTransactionalJobInput } from "../src/loops-transactional-job.js";
 
-export const capturedNativeLoopsLayer = capturedLoopsTransactionalLayer(
-  loopsTransactionalLayer({
-    apiKey: Redacted.make("fictional-unused-key"),
-    attachments: "Disabled",
-    templateAuthority: "ProviderManaged",
-  }),
-  { capacity: 100, maxBytes: 8_388_608, privateData: "AuthorizePayloadCapture" },
-);
-
-export const inspectPrivateNativeCapture = Effect.gen(function* inspectPrivateNativeCapture() {
-  const loops = yield* LoopsTransactionalEmail;
-  yield* loops.validate({
-    email: "recipient@fictional.invalid",
-    transactionalId: "fictional-template",
+export const capturedNativeLoopsLayer = <E, R>(
+  loopsLayer: Layer.Layer<LoopsTransactionalEmail, E, R>,
+) =>
+  capturedLoopsTransactionalLayer(loopsLayer, {
+    capacity: 100,
+    maxBytes: 8_388_608,
+    privateData: "AuthorizePayloadCapture",
   });
-  const capture = yield* EmailNativeCapture;
-  const snapshot = yield* capture.snapshot;
 
-  const payloads = yield* Effect.forEach((payload: string) =>
-    Schema.decodeEffect(Schema.fromJsonString(EmailNativeCapturePayloadSchema))(payload),
-  )(snapshot.records.map((record) => Redacted.value(record.payloadJson)));
+export const inspectPrivateNativeCapture = (job: LoopsTransactionalJobInput) =>
+  Effect.gen(function* submitAndInspectNativeCapture() {
+    const loops = yield* LoopsTransactionalEmail;
+    const receipt = yield* loops.send(job);
+    const capture = yield* EmailNativeCapture;
+    const snapshot = yield* capture.snapshot;
 
-  const purgedRecordCount = yield* capture.purgeRecords;
+    const payloads = yield* Effect.forEach((payload: string) =>
+      Schema.decodeEffect(Schema.fromJsonString(EmailNativeCapturePayloadSchema))(payload),
+    )(snapshot.records.map((record) => Redacted.value(record.payloadJson)));
 
-  return { payloads, purgedRecordCount, snapshot };
-});
+    const purgedRecordCount = yield* capture.purgeRecords;
+
+    return { payloads, purgedRecordCount, receipt, snapshot };
+  });

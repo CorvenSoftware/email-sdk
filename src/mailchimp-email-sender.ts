@@ -1,4 +1,4 @@
-import { DateTime, Effect, Layer, Redacted, Schema } from "effect";
+import { DateTime, Effect, Layer, Predicate, Redacted, Schema } from "effect";
 import type { HttpClient, HttpClientResponse } from "effect/http";
 import { HttpClientRequest } from "effect/http";
 import { EmailAddressSchema, formatEmailMailbox } from "./email-address.js";
@@ -24,12 +24,9 @@ import { EmailRejected } from "./email-rejected.js";
 import { EmailSenderIdempotencySchema } from "./email-sender.js";
 import type { EmailSender, EmailSubmission } from "./email-sender.js";
 import { emailLayer } from "./email-service.js";
-import type {
-  Email,
-  EmailDeliveryPolicy,
-  EmailRetryObserver,
-  EmailRetryRestriction,
-} from "./email-service.js";
+import type { Email } from "./email-service.js";
+import type { EmailDeliveryPolicy } from "./email-delivery-policy.js";
+import type { EmailRetryObserver, EmailRetryRestriction } from "./email-retry-decision.js";
 
 export const mailchimpEmailCapabilities = ownEmailSenderCapabilities(
   EmailSenderCapabilitiesSchema.make({
@@ -49,7 +46,7 @@ const MailchimpStatisticsTag = EmailTagSchema.check(
       !tag.name.includes(":") &&
       !tag.name.startsWith("_") &&
       /^[^\uD800-\uDFFF]*$/u.test(formatEmailTagLabel(tag)) &&
-      new TextEncoder().encode(formatEmailTagLabel(tag)).byteLength <= 50,
+      Buffer.byteLength(formatEmailTagLabel(tag), "utf-8") <= 50,
     {
       expected:
         "a well-formed Mailchimp name:value label of at most 50 UTF-8 bytes with a colon-free, non-reserved name",
@@ -151,9 +148,7 @@ const MailchimpProblem = Schema.Struct({
 });
 
 const mailchimpMailbox = (mailbox: EmailMailbox) =>
-  Schema.is(EmailAddressSchema)(mailbox)
-    ? { email: mailbox }
-    : { email: mailbox.address, name: mailbox.name };
+  Predicate.isString(mailbox) ? { email: mailbox } : { email: mailbox.address, name: mailbox.name };
 
 const buildMailchimpMessage = (message: EmailMessage) => {
   const [replyTo] = message.replyTo ?? [];
@@ -180,7 +175,7 @@ const buildMailchimpMessage = (message: EmailMessage) => {
     auto_text: false,
     bcc_address: null,
     from_email: from.email,
-    from_name: Schema.is(EmailAddressSchema)(message.from) ? undefined : message.from.name,
+    from_name: Predicate.isString(message.from) ? undefined : message.from.name,
     google_analytics_domains: [],
     headers,
     html: message.body.html,
@@ -328,7 +323,7 @@ export const mailchimpSenderLayer = (
 
       if (
         message.metadata !== undefined &&
-        (new TextEncoder().encode(JSON.stringify(message.metadata)).byteLength >= 250 ||
+        (Buffer.byteLength(JSON.stringify(message.metadata), "utf-8") >= 250 ||
           Object.keys(message.metadata).some((name) => !/^[A-Za-z0-9][A-Za-z0-9_]*$/u.test(name)))
       ) {
         issues.push("metadata");
@@ -353,10 +348,7 @@ export const mailchimpSenderLayer = (
         issues.push("body");
       }
 
-      if (
-        new TextEncoder().encode(JSON.stringify(buildMailchimpPayload(message))).byteLength >
-        9_999_000
-      ) {
+      if (Buffer.byteLength(JSON.stringify(buildMailchimpPayload(message)), "utf-8") > 9_999_000) {
         issues.push("body");
       }
 

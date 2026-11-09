@@ -5,9 +5,8 @@ import type { EmailInvalidOptions } from "./email-invalid-options.js";
 import type { EmailReceipt } from "./email-message.js";
 import {
   parseEmailBatchOptions,
-  prepareEmailSendRequest,
+  prepareEmailRequestResult,
   preparedEmailSendOptions,
-  qualifyEmailRequestFailure,
 } from "./email-preparation.js";
 import type { EmailBatchOptionsInput, EmailSendRequest } from "./email-preparation.js";
 import { Email } from "./email-service.js";
@@ -29,16 +28,9 @@ export const sendEmailStream = <E, R>(
 
       return source.pipe(
         Stream.mapEffect((request, index) =>
-          prepareEmailSendRequest(request).pipe(
-            Effect.flatMap((submission) =>
-              qualifyEmailRequestFailure(
-                email.prepare(submission.submission.message, preparedEmailSendOptions(submission)),
-              ),
-            ),
-            protectEmailUnsettledCause,
-            Effect.result,
-            Effect.map((prepared) => ({ index, prepared })),
-          ),
+          prepareEmailRequestResult(request, (submission) =>
+            email.prepare(submission.submission.message, preparedEmailSendOptions(submission)),
+          ).pipe(Effect.map((prepared) => ({ index, prepared }))),
         ),
         Stream.mapEffect(
           ({ index, prepared }) =>

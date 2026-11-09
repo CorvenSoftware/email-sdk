@@ -1,4 +1,4 @@
-import { DateTime, Duration, Effect, Layer, Option, Schema } from "effect";
+import { DateTime, Duration, Effect, Layer, Option, Predicate, Schema } from "effect";
 import { HttpClientRequest } from "effect/http";
 import type { HttpClient, HttpClientResponse } from "effect/http";
 import { EmailAddressSchema, emailMailboxAddress } from "./email-address.js";
@@ -29,12 +29,9 @@ import { EmailRejected } from "./email-rejected.js";
 import { EmailSenderIdempotencySchema } from "./email-sender.js";
 import type { EmailSender, EmailSubmission } from "./email-sender.js";
 import { emailLayer } from "./email-service.js";
-import type {
-  Email,
-  EmailDeliveryPolicy,
-  EmailRetryObserver,
-  EmailRetryRestriction,
-} from "./email-service.js";
+import type { Email } from "./email-service.js";
+import type { EmailDeliveryPolicy } from "./email-delivery-policy.js";
+import type { EmailRetryObserver, EmailRetryRestriction } from "./email-retry-decision.js";
 import type { Redacted } from "effect";
 
 export const lettrEmailCapabilities = ownEmailSenderCapabilities(
@@ -102,7 +99,7 @@ const LettrErrorResponse = Schema.Struct({
 });
 
 const lettrMailboxName = (mailbox: EmailMailbox) =>
-  Schema.is(EmailAddressSchema)(mailbox) ? undefined : mailbox.name;
+  Predicate.isString(mailbox) ? undefined : mailbox.name;
 
 const supportsLettrReplyTo = (replyTo: EmailMessage["replyTo"]): boolean =>
   replyTo === undefined ||

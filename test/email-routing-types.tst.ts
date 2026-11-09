@@ -1,5 +1,5 @@
 import { Duration } from "effect";
-import type { Effect, Layer } from "effect";
+import type { Effect, Layer, Struct } from "effect";
 import { expectTypeOf } from "vitest";
 import {
   capturedEmailRouterLayer,
@@ -8,11 +8,14 @@ import {
 import type { EmailCaptureAggregate } from "../src/email-capture-aggregate.js";
 import type { EmailConfigurationError } from "../src/email-configuration-error.js";
 import type { EmailInvalidOptions } from "../src/email-invalid-options.js";
+import type { EmailReceipt } from "../src/email-message.js";
 import type { EmailObservationAggregate } from "../src/email-observation-aggregate.js";
 import { emailRouterLayer } from "../src/email-routing.js";
 import type {
+  EmailRouteName,
   EmailRoutePlanInput,
   EmailRouter,
+  EmailRoutedReceipt,
   IEmailRoute,
   IEmailRouter,
 } from "../src/email-routing.js";
@@ -30,6 +33,14 @@ export const proveRegisteredEmailRouteInference = <E1, R1, E2, R2>(
   dynamicName: string,
   router: IEmailRouter,
 ): void => {
+  expectTypeOf<EmailRoutedReceipt>().toEqualTypeOf<
+    {
+      readonly [Tag in EmailReceipt["_tag"]]: Struct.Simplify<
+        Extract<EmailReceipt, { readonly _tag: Tag }> & { readonly route: EmailRouteName }
+      >;
+    }[EmailReceipt["_tag"]]
+  >();
+
   const ordinary = emailRouterLayer(
     [
       { layer: first, name: "first" },

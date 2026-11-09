@@ -19,6 +19,6 @@ Use named aggregates when your application needs one read surface over several e
 
 ## Keep acquisition and failure semantics
 
-Reuse the same Layer values used by sending so queries observe the same acquired stores. Source names must be distinct bounded identifiers, not private account values. Aggregation returns its exported aggregate error if a sample cannot be read or validated.
+Reuse the same Layer values used by sending so queries observe the same acquired stores. Source names must be distinct bounded identifiers, not private account values. Invalid snapshots produce the exported aggregate error; unexpected read defects and interruption propagate unchanged.
 
 Samples across sources are not globally atomic. Missing data, eviction or a closed view does not prove non-submission and must not reset route/key recovery evidence.

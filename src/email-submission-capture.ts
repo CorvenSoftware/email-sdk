@@ -1,15 +1,9 @@
-import { Context, Effect, Layer, Option, Ref, Result, Schema } from "effect";
+import { Context, Effect, Layer, Option, Result, Schema } from "effect";
 import { encodeEmailCaptureOutcome } from "./email-capture-outcome.js";
 import { EmailConfigurationError } from "./email-configuration-error.js";
-import {
-  EmailCaptureOutcomeSchema,
-  EmailCaptureOptionsSchema,
-  appendEmailCapture,
-  closeEmailCapture,
-  markEmailCaptureGap,
-  purgeEmailCapture,
-} from "./email-capture-retention.js";
-import type { EmailCaptureOptions, EmailCaptureSnapshot } from "./email-capture-retention.js";
+import { EmailCaptureOutcomeSchema, EmailCaptureOptionsSchema } from "./email-capture-retention.js";
+import type { EmailCaptureOptions } from "./email-capture-retention.js";
+import { acquireEmailCaptureStore } from "./email-capture-store.js";
 import type { EmailSubmissionError } from "./email-errors.js";
 import { emailInputIssues } from "./email-input-issues.js";
 import { EmailIdempotencyKeySchema, EmailMessageSchema } from "./email-message.js";
@@ -94,27 +88,16 @@ export const capturedEmailSenderLayer = <E, R>(
           const { provider } = sender;
           const providerJson = JSON.stringify(provider);
 
-          const captured = yield* Ref.make<EmailCaptureSnapshot>(
-            Object.freeze({
-              closed: false,
-              records: Object.freeze([]),
-              retainedBytes: 0,
-              truncated: false,
-            }),
-          );
+          const capture = yield* acquireEmailCaptureStore(ownedOptions);
 
-          yield* Effect.addFinalizer(() => Ref.update(captured, closeEmailCapture));
-
-          const purgeRecords = Ref.modify(captured, purgeEmailCapture).pipe(
+          const purgeRecords = capture.purgeRecords.pipe(
             emailOperationSpan("EmailSubmissionCapture.purgeRecords"),
           );
-
-          const markCaptureGap = Ref.update(captured, markEmailCaptureGap);
 
           const submit = Effect.fnUntraced(function* captureEmailSubmission(
             submission: EmailSubmission,
           ): Effect.fn.Return<EmailReceipt, EmailSubmissionError> {
-            if ((yield* Ref.get(captured)).closed) {
+            if (yield* capture.closed) {
               return yield* sender.submit(submission);
             }
 
@@ -126,7 +109,7 @@ export const capturedEmailSenderLayer = <E, R>(
                   Effect.onExit((exit) =>
                     Effect.gen(function* retainCapturedEmailExit() {
                       if (Option.isNone(requestJson)) {
-                        return yield* markCaptureGap;
+                        return yield* capture.markGap;
                       }
 
                       const encodedOutcome = yield* encodeEmailCaptureOutcome(exit).pipe(
@@ -134,7 +117,7 @@ export const capturedEmailSenderLayer = <E, R>(
                       );
 
                       if (Result.isFailure(encodedOutcome)) {
-                        return yield* markCaptureGap;
+                        return yield* capture.markGap;
                       }
 
                       if (Option.isNone(encodedOutcome.success)) {
@@ -143,9 +126,7 @@ export const capturedEmailSenderLayer = <E, R>(
 
                       const payloadJson = `{"outcome":${encodedOutcome.success.value},"provider":${providerJson},"submission":${requestJson.value}}`;
 
-                      return yield* Ref.update(captured, (current) =>
-                        appendEmailCapture(current, payloadJson, ownedOptions),
-                      );
+                      return yield* capture.append(payloadJson);
                     }),
                   ),
                 );
@@ -167,7 +148,7 @@ export const capturedEmailSenderLayer = <E, R>(
               EmailSubmissionCapture,
               EmailSubmissionCapture.of({
                 purgeRecords,
-                snapshot: Ref.get(captured).pipe(
+                snapshot: capture.snapshot.pipe(
                   emailOperationSpan("EmailSubmissionCapture.snapshot"),
                 ),
               }),

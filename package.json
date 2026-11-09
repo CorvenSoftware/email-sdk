@@ -246,7 +246,7 @@
   },
   "scripts": {
     "check": "pnpm lint && pnpm typecheck && pnpm check:examples && pnpm docs:check",
-    "lint": "oxlint --type-aware --deny-warnings && oxfmt --check",
+    "lint": "oxlint --type-aware --deny-warnings && node tools/oxlint/corven/check-sdk-rules.mjs && oxfmt --check",
     "fix": "oxfmt && oxlint --fix",
     "typecheck": "tsc --noEmit -p tsconfig.json",
     "check:examples": "tsc --noEmit -p examples/tsconfig.json",

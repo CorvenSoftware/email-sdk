@@ -23,12 +23,9 @@ import { EmailRejected } from "./email-rejected.js";
 import { EmailSenderIdempotencySchema } from "./email-sender.js";
 import type { EmailSender, EmailSubmission } from "./email-sender.js";
 import { emailLayer } from "./email-service.js";
-import type {
-  Email,
-  EmailDeliveryPolicy,
-  EmailRetryObserver,
-  EmailRetryRestriction,
-} from "./email-service.js";
+import type { Email } from "./email-service.js";
+import type { EmailDeliveryPolicy } from "./email-delivery-policy.js";
+import type { EmailRetryObserver, EmailRetryRestriction } from "./email-retry-decision.js";
 
 export const lettermintEmailCapabilities = ownEmailSenderCapabilities(
   EmailSenderCapabilitiesSchema.make({
@@ -335,10 +332,7 @@ export const lettermintSenderLayer = (
           (value) => value === 400 || value === 413 || value === 422,
           () => "invalid-message" as const,
         ),
-        Match.when(
-          (value) => value === 401 || value === 403,
-          () => "authentication" as const,
-        ),
+        Match.when(401, () => "authentication" as const),
         Match.when(
           (value) => value === 404 || value === 405,
           () => "rejected" as const,

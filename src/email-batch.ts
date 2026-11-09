@@ -9,8 +9,7 @@ import type { EmailPersonalizedInput } from "./email-personalization.js";
 import {
   parseEmailBatchOptions,
   parseEmailPersonalizedOptions,
-  prepareEmailSendRequest,
-  qualifyEmailRequestFailure,
+  prepareEmailRequestResult,
 } from "./email-preparation.js";
 import type {
   EmailBatchOptionsInput,
@@ -31,12 +30,7 @@ export const emailBatchOperations = <Prepared, Receipt extends EmailReceipt>(
 
     const prepared = yield* Effect.forEach(
       requests,
-      (request) =>
-        prepareEmailSendRequest(request).pipe(
-          Effect.flatMap((submission) => qualifyEmailRequestFailure(preflight(submission))),
-          protectEmailUnsettledCause,
-          Effect.result,
-        ),
+      (request) => prepareEmailRequestResult(request, preflight),
       { concurrency: 1 },
     );
 

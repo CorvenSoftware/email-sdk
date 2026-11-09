@@ -1,5 +1,5 @@
 import { assert, describe, it } from "@effect/vitest";
-import { Cause, Deferred, Duration, Effect, Exit, Fiber, Layer, Ref, Schema } from "effect";
+import { Cause, Deferred, Duration, Effect, Exit, Fiber, Layer, Ref } from "effect";
 import { TestClock } from "effect/testing";
 import { validateEmailCapabilities } from "./email-capabilities.js";
 import type { EmailConfigurationError } from "./email-configuration-error.js";
@@ -12,6 +12,12 @@ import { EmailSender, EmailSenderIdempotencySchema } from "./email-sender.js";
 import type { IEmailSender } from "./email-sender.js";
 import { Email, emailLayer } from "./email-service.js";
 import { observedEmailSenderLayer } from "./email-submission-observations.js";
+import type {
+  EmailSubmissionObserver,
+  EmailSubmissionStartingObserver,
+} from "./email-submission-observations.js";
+import { observedEmailOperationLayer } from "./email-operation-observations.js";
+import type { EmailOperationObserver } from "./email-operation-observations.js";
 import { recordingEmailCapabilities } from "./recording-email-sender.js";
 
 const policy = { deadline: Duration.seconds(10), initialDelay: Duration.millis(1), maxAttempts: 3 };
@@ -37,12 +43,13 @@ const suppliedSender = (submit: IEmailSender["submit"]) =>
     }),
   );
 
-const variants = Schema.Struct({
-  interruption: Schema.Literals(["Defect", "Interrupt", "AnotherFailure"]),
-  observed: Schema.Boolean,
-  reversed: Schema.Boolean,
-  uncertainty: Schema.Boolean,
-});
+const variants = (["Defect", "Interrupt", "AnotherFailure"] as const).flatMap((interruption) =>
+  [false, true].flatMap((observed) =>
+    [false, true].flatMap((reversed) =>
+      [false, true].map((uncertainty) => ({ interruption, observed, reversed, uncertainty })),
+    ),
+  ),
+);
 
 describe("unsettled compound email failures", () => {
   for (const mode of ["Direct", "Batch", "Personalized", "Routed"] as const) {
@@ -174,10 +181,9 @@ describe("unsettled compound email failures", () => {
       );
     }
 
-    it.effect.prop(
-      `preserves compound evidence without retry, fallback or settlement in ${mode}`,
-      { variant: variants },
-      ({ variant }) =>
+    it.effect.each(variants)(
+      `preserves compound evidence without retry, fallback or settlement in ${mode}: %j`,
+      (variant) =>
         Effect.gen(function* preserveUnsettledEmailEvidence() {
           const entered = yield* Deferred.make<boolean>();
           const calls = yield* Ref.make(0);
@@ -306,7 +312,93 @@ describe("unsettled compound email failures", () => {
 
           yield* app.pipe(Effect.provide(selected));
         }),
-      { arbitrary: { runs: 12 } },
+    );
+  }
+});
+
+describe("compound observer faults", () => {
+  for (const boundary of ["Starting", "Completion", "Operation"] as const) {
+    it.effect.each(["Defect", "Interruption"] as const)(
+      `preserves %s alongside a modeled callback failure at ${boundary}`,
+      (secondaryKind) =>
+        Effect.gen(function* preserveCompoundCallbackEvidence() {
+          const submissions = yield* Ref.make(0);
+
+          const rejection = new EmailRejected({ provider: "observer", reason: "rate-limited" });
+
+          const defect = new Error("private callback cleanup defect");
+
+          const secondary = secondaryKind === "Defect" ? Cause.die(defect) : Cause.interrupt(123);
+
+          const cause = Cause.combine(Cause.fail(rejection), secondary);
+
+          const callbacks = {
+            completion: () => Effect.void,
+            operation: () => Effect.void,
+            starting: () => Effect.void,
+          } satisfies {
+            completion: EmailSubmissionObserver;
+            operation: EmailOperationObserver;
+            starting: EmailSubmissionStartingObserver;
+          };
+
+          const callback = {
+            Completion: "completion",
+            Operation: "operation",
+            Starting: "starting",
+          } as const;
+
+          Reflect.set(callbacks, callback[boundary], () => Effect.failCause(cause));
+
+          const base = suppliedSender(() =>
+            Ref.update(submissions, (count) => count + 1).pipe(
+              Effect.as(EmailReceiptSchema.cases.Accepted.make({ provider: "fixture" })),
+            ),
+          );
+
+          const sender =
+            boundary === "Operation"
+              ? base
+              : observedEmailSenderLayer(base, {}, callbacks.completion, callbacks.starting);
+
+          const email = emailLayer(policy).pipe(Layer.provide(sender));
+
+          const layer =
+            boundary === "Operation"
+              ? observedEmailOperationLayer(email, callbacks.operation)
+              : email;
+
+          const exit = yield* Email.pipe(
+            Effect.flatMap((service) => service.send(message)),
+            Effect.provide(layer),
+            Effect.exit,
+          );
+
+          assert(Exit.isFailure(exit));
+          assert(Exit.hasDies(exit));
+
+          if (secondaryKind === "Defect") {
+            assert(
+              exit.cause.reasons.some(
+                (reason) => Cause.isDieReason(reason) && reason.defect === defect,
+              ),
+            );
+          } else {
+            assert(Exit.hasInterrupts(exit));
+          }
+
+          const retained = exit.cause.reasons
+            .filter(Cause.isDieReason)
+            .map((reason) => reason.defect)
+            .find(Cause.isCause);
+
+          assert(Cause.isCause(retained));
+          assert.deepStrictEqual(
+            retained.reasons.filter(Cause.isFailReason).map((reason) => reason.error),
+            [rejection],
+          );
+          assert.strictEqual(yield* Ref.get(submissions), boundary === "Starting" ? 0 : 1);
+        }),
     );
   }
 });

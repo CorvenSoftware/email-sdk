@@ -15,6 +15,7 @@ import type { EmailDeliveryPolicy } from "./email-delivery-policy.js";
 import type { EmailRetryObserver, EmailRetryRestriction } from "./email-retry-decision.js";
 import type { EmailSendError, EmailSubmissionError } from "./email-errors.js";
 import { EmailHttpCredentialSchema } from "./email-http-credential.js";
+import { executeEmailHttpRequest } from "./email-http-execution.js";
 import { readEmailHttpJson } from "./email-http-response.js";
 import { emailInputIssues } from "./email-input-issues.js";
 import { EmailInvalidMessage } from "./email-invalid-message.js";
@@ -223,7 +224,7 @@ export const loopsTransactionalLayer = (
 
         const payload = JSON.stringify(buildLoopsPayload(job));
 
-        if (new TextEncoder().encode(payload).byteLength >= 4_000_000) {
+        if (Buffer.byteLength(payload, "utf-8") >= 4_000_000) {
           return yield* new EmailInvalidMessage({
             issues: [
               {
@@ -257,12 +258,7 @@ export const loopsTransactionalLayer = (
             request = HttpClientRequest.setHeader(request, "Idempotency-Key", key);
           }
 
-          const response = yield* client.execute(request).pipe(
-            Effect.provideService(HttpClient.TracerDisabledWhen, () => true),
-            Effect.mapError(
-              () => new EmailDeliveryUnknown({ provider: "loops", reason: "transport" }),
-            ),
-          );
+          const response = yield* executeEmailHttpRequest(client, request, "loops");
 
           return yield* parseLoopsAcknowledgement(response, key);
         },

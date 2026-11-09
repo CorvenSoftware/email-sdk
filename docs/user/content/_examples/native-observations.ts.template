@@ -1,4 +1,5 @@
-import { Effect, Redacted } from "effect";
+import { Effect } from "effect";
+import type { Layer } from "effect";
 import {
   EmailNativeObservations,
   observedLoopsTransactionalLayer,
@@ -7,31 +8,26 @@ import type {
   EmailNativeObserver,
   EmailNativeStartingObserver,
 } from "@corvencore/email-sdk/native-observations";
-import { LoopsTransactionalEmail, loopsTransactionalLayer } from "@corvencore/email-sdk/loops";
+import { LoopsTransactionalEmail } from "@corvencore/email-sdk/loops";
+import type { LoopsTransactionalJobInput } from "@corvencore/email-sdk/loops";
 
-export const observedNativeLoopsLayer = (
+export const observedNativeLoopsLayer = <E, R>(
+  loopsLayer: Layer.Layer<LoopsTransactionalEmail, E, R>,
   observer: EmailNativeObserver,
   startingObserver?: EmailNativeStartingObserver,
 ) =>
   observedLoopsTransactionalLayer(
-    loopsTransactionalLayer({
-      apiKey: Redacted.make("fictional-unused-key"),
-      attachments: "Disabled",
-      templateAuthority: "ProviderManaged",
-    }),
+    loopsLayer,
     { capacity: 100 },
     observer,
     startingObserver,
   );
 
-export const inspectNativeOperationFacts = Effect.gen(function* inspectNativeOperationFacts() {
-  const loops = yield* LoopsTransactionalEmail;
-  const view = yield* EmailNativeObservations;
+export const inspectNativeOperationFacts = (job: LoopsTransactionalJobInput) =>
+  Effect.gen(function* submitAndInspectNativeFacts() {
+    const loops = yield* LoopsTransactionalEmail;
+    const view = yield* EmailNativeObservations;
+    const receipt = yield* loops.send(job);
 
-  const preview = yield* loops.validate({
-    email: "recipient@fictional.invalid",
-    transactionalId: "fictional-template",
+    return { observations: yield* view.snapshot, receipt };
   });
-
-  return { observations: yield* view.snapshot, preview };
-});

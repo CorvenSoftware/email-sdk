@@ -1,4 +1,4 @@
-import { Duration, Effect, Layer, Redacted, Schema } from "effect";
+import { Duration, Effect, Layer, Predicate, Redacted, Schema } from "effect";
 import { HttpClientRequest } from "effect/http";
 import type { HttpClient, HttpClientResponse } from "effect/http";
 import {
@@ -27,12 +27,9 @@ import { EmailRejected } from "./email-rejected.js";
 import { EmailSenderIdempotencySchema } from "./email-sender.js";
 import type { EmailSender, EmailSubmission } from "./email-sender.js";
 import { emailLayer } from "./email-service.js";
-import type {
-  Email,
-  EmailDeliveryPolicy,
-  EmailRetryObserver,
-  EmailRetryRestriction,
-} from "./email-service.js";
+import type { Email } from "./email-service.js";
+import type { EmailDeliveryPolicy } from "./email-delivery-policy.js";
+import type { EmailRetryObserver, EmailRetryRestriction } from "./email-retry-decision.js";
 
 export const sequenzyEmailCapabilities = ownEmailSenderCapabilities(
   EmailSenderCapabilitiesSchema.make({
@@ -135,9 +132,7 @@ const readSequenzyAcknowledgement = Effect.fnUntraced(function* readSequenzyAckn
       Effect.mapError(invalid),
     );
 
-    const to = Schema.is(EmailAddressSchema)(acknowledgement.to)
-      ? [acknowledgement.to]
-      : acknowledgement.to;
+    const to = Predicate.isString(acknowledgement.to) ? [acknowledgement.to] : acknowledgement.to;
 
     if (
       !sameSequenzyRecipients(to, message.to.map(emailMailboxAddress)) ||
@@ -231,7 +226,7 @@ export const sequenzySenderLayer = (
           cc: message.cc?.map(emailMailboxAddress),
           emailType: "transactional",
           fromEmail: emailMailboxAddress(message.from),
-          fromName: Schema.is(EmailAddressSchema)(message.from) ? undefined : message.from.name,
+          fromName: Predicate.isString(message.from) ? undefined : message.from.name,
           replyTo: message.replyTo?.map(formatEmailMailbox)[0],
           subject: message.subject,
           to: message.to.map(emailMailboxAddress),

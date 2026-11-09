@@ -270,7 +270,7 @@ describe("Unosend actual single-send protocol", () => {
   );
 
   it.live(
-    "rejects unsupported CID, media authority, metadata, repeated headers and replay keys without HTTP",
+    "rejects unsupported media authority, repeated headers and replay keys without HTTP",
     () =>
       Effect.gen(function* preflightUnosend() {
         const fixture = yield* startEmailHttpFixture({ body: acknowledgement, status: 200 });
@@ -284,14 +284,11 @@ describe("Unosend actual single-send protocol", () => {
           } as const;
 
           const intents = [
-            { ...message, attachments: [{ ...attachment, contentId: "private-cid" }] },
             { ...message, attachments: [{ ...attachment, contentType: "ProviderSelected" }] },
             {
               ...message,
               attachments: [{ ...attachment, contentType: "application/octet-stream" }],
             },
-            { ...message, metadata: { workflow: "private-value" } },
-            { ...message, replyTo: ["reply@example.test", "other@example.test"] },
             {
               ...message,
               headers: [

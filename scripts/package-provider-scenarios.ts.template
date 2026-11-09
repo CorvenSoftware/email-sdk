@@ -1,0 +1,138 @@
+import assert from "node:assert/strict";
+import { verifyAuthoredProvider } from "./author.js";
+import type { Effect, Layer } from "effect";
+import type { HttpClient } from "effect/http";
+import type { Email, EmailConfigurationError } from "@corvencore/email-sdk";
+import type { IterableCampaignEmail } from "@corvencore/email-sdk/iterable";
+import type { EmailNativeObserver, EmailNativeOperationStarting, EmailNativeStartingObserver } from "@corvencore/email-sdk/native-observations";
+
+export const verifyInstalledProviders = (loaded: {
+  readonly ProviderKit: typeof import("@corvencore/email-sdk/provider");
+  readonly EffectLibrary: typeof import("effect");
+  readonly EffectHttp: typeof import("effect/http");
+  readonly EmailSdk: typeof import("@corvencore/email-sdk");
+  readonly Brevo: typeof import("@corvencore/email-sdk/brevo");
+  readonly Sequenzy: typeof import("@corvencore/email-sdk/sequenzy");
+  readonly Sendheron: typeof import("@corvencore/email-sdk/sendheron");
+  readonly Iterable: typeof import("@corvencore/email-sdk/iterable");
+  readonly IterableDefaults: typeof import("@corvencore/email-sdk/iterable-defaults");
+  readonly NativeObservations: typeof import("@corvencore/email-sdk/native-observations");
+  readonly NativeCapture: typeof import("@corvencore/email-sdk/native-capture");
+}): Effect.Effect<void> => {
+  const { defineEmailHttpProvider } = loaded.ProviderKit;
+  const { Effect, Layer, Redacted, Ref, Result, Schema } = loaded.EffectLibrary;
+  const { HttpClient } = loaded.EffectHttp;
+  const { Email, EmailDeliveryUnknown, EmailInvalidMessage, EmailRejected } = loaded.EmailSdk;
+  const { brevoEmailLayer } = loaded.Brevo;
+  const { sequenzyEmailLayer } = loaded.Sequenzy;
+  const { sendheronEmailLayer } = loaded.Sendheron;
+  const { IterableCampaignEmail, iterableCampaignLayer } = loaded.Iterable;
+  const { defaultedIterableCampaignLayer, IterableCampaignDefaultsSchema } = loaded.IterableDefaults;
+  const { EmailNativeObservations, observedIterableCampaignLayer, EmailNativeObservationSnapshotSchema, EmailNativeOperationStartingSchema } = loaded.NativeObservations;
+  const { EmailNativeCapture, EmailNativeCapturePayloadSchema, capturedIterableCampaignLayer } = loaded.NativeCapture;
+  const apiKey = Redacted.make("fictional-unused-key");
+  const message = { body: { html: "<p>Fictional packed notification</p>" }, from: { address: "host@fictional.invalid", name: "Fictional Host" }, replyTo: "reply@fictional.invalid", subject: "Fictional packed notification", to: "recipient@fictional.invalid" } as const;
+  const noTransport = Layer.succeed(HttpClient.HttpClient, HttpClient.make(() => Effect.die("Unexpected packed provider transport")));
+  const brevo: Layer.Layer<Email, EmailConfigurationError, HttpClient.HttpClient> = brevoEmailLayer({ apiKey, contentAuthority: "AuthorizeProviderRendering", submissionMode: "TransactionalOnly", tracking: "AuthorizeProviderTracking" });
+  const sequenzy: Layer.Layer<Email, EmailConfigurationError, HttpClient.HttpClient> = sequenzyEmailLayer({ apiKey, automaticUtm: "AccountDisabled", contactWrites: "AuthorizeProviderManagedProfiles", contentAuthority: "AuthorizeProviderRenderingAndRetention", replyTracking: "AccountDisabled", senderIdentity: "ExistingVerifiedProfile", submissionMode: "TransactionalOnly" });
+  const sendheron: Layer.Layer<Email, EmailConfigurationError, HttpClient.HttpClient> = sendheronEmailLayer({ apiKey, submissionMode: "TransactionalOnly", tracking: "AuthorizeProviderTracking" });
+  const iterable: Layer.Layer<IterableCampaignEmail, EmailConfigurationError, HttpClient.HttpClient> = iterableCampaignLayer({ apiKey, campaignAuthority: "AuthorizeProviderManagedCampaign", contactWrites: "AuthorizeProfileCreation", dataRetention: "AuthorizePersistedSendData", projectIdentity: "EmailBased", region: "US", tracking: "AuthorizeCampaignTracking" });
+
+  return Effect.gen(function* verifyInstalledProviderScenarios() {
+    yield* verifyAuthoredProvider(defineEmailHttpProvider);
+    yield* Effect.gen(function* preflightPackedBrevo() {
+      const email = yield* Email;
+      const preview = yield* email.validate(message);
+      assert.equal(preview.body.html, message.body.html);
+      const error = yield* email.send(message, { idempotencyKey: "unsupported-key" }).pipe(Effect.flip);
+      assert(error instanceof EmailRejected);
+      assert.equal(error.reason, "unsupported-idempotency");
+    }).pipe(Effect.provide(brevo.pipe(Layer.provide(noTransport))));
+    yield* Effect.gen(function* preflightPackedSequenzy() {
+      const email = yield* Email;
+      yield* email.validate(message, { idempotencyKey: "forwarded-key" });
+      const error = yield* email.send({ ...message, headers: [{ name: "X-Workflow", value: "not-durable" }] }).pipe(Effect.flip);
+      assert(error instanceof EmailInvalidMessage);
+    }).pipe(Effect.provide(sequenzy.pipe(Layer.provide(noTransport))));
+    yield* Effect.gen(function* preflightPackedSendheron() {
+      const email = yield* Email;
+      yield* email.validate(message, { idempotencyKey: "forwarded-key" });
+      const error = yield* email.send({ ...message, body: { text: "must not become HTML" } }).pipe(Effect.flip);
+      assert(error instanceof EmailInvalidMessage);
+    }).pipe(Effect.provide(sendheron.pipe(Layer.provide(noTransport))));
+    yield* Effect.gen(function* preflightPackedIterable() {
+      const native = yield* IterableCampaignEmail;
+      const preview = yield* native.validate({ campaignId: 123, dataFields: { values: [0, false, "fictional"] }, recipientEmail: "recipient@fictional.invalid" });
+      assert(Object.isFrozen(preview.dataFields?.values));
+      const error = yield* native.send(preview, { idempotencyKey: "not-native" }).pipe(Effect.flip);
+      assert(error instanceof EmailRejected);
+      assert.equal(error.reason, "unsupported-idempotency");
+    }).pipe(Effect.provide(iterable.pipe(Layer.provide(noTransport))));
+    yield* Effect.gen(function* inspectPackedNativeObservations() {
+      const deliveries = yield* Ref.make(0);
+      const starts: EmailNativeOperationStarting[] = [];
+      const startingObserver: EmailNativeStartingObserver = (fact) => Effect.sync(() => {
+        assert(Object.isFrozen(fact));
+        assert.equal(fact.operation, "IterableCampaign");
+        const codec = Schema.fromJsonString(EmailNativeOperationStartingSchema);
+        const encoded = Schema.encodeSync(codec)(fact);
+        assert.deepEqual(Schema.decodeSync(codec)(encoded), fact);
+        assert(!encoded.includes("recipient@"));
+        starts.push(fact);
+      });
+      const observer: EmailNativeObserver = () => Ref.update(deliveries, (count) => count + 1);
+      const native = yield* IterableCampaignEmail;
+      const failure = new EmailDeliveryUnknown({ provider: "iterable", reason: "transport" });
+      const supplied = Layer.succeed(IterableCampaignEmail, IterableCampaignEmail.of({ ...native, send: () => Effect.fail(failure) }));
+      yield* Effect.gen(function* observePackedNativeOperation() {
+        const current = yield* IterableCampaignEmail;
+        const view = yield* EmailNativeObservations;
+        yield* current.validate({ campaignId: 123, recipientEmail: "recipient@fictional.invalid" });
+        assert.equal((yield* view.snapshot).observations.length, 0);
+        const result = yield* current.send({ campaignId: 123, recipientEmail: "recipient@fictional.invalid" }).pipe(Effect.result);
+        assert(Result.isFailure(result));
+        assert.equal(result.failure, failure);
+        const snapshot = yield* view.snapshot;
+        assert.deepEqual(snapshot.observations.map((value) => [value._tag, value.operation]), [["Unknown", "IterableCampaign"]]);
+        assert(Object.isFrozen(snapshot.observations));
+        const encoded = yield* Schema.encodeEffect(Schema.fromJsonString(EmailNativeObservationSnapshotSchema))(snapshot);
+        assert(!encoded.includes("recipient@"));
+        assert.equal(yield* Ref.get(deliveries), 1);
+        assert.equal(starts.length, 1);
+      }).pipe(Effect.provide(observedIterableCampaignLayer(supplied, { capacity: 1 }, observer, startingObserver)));
+      const escapedCapture = yield* Effect.gen(function* inspectInstalledNativeCapture() {
+        const current = yield* IterableCampaignEmail;
+        const capture = yield* EmailNativeCapture;
+        const result = yield* current.send({ campaignId: 123, recipientEmail: "recipient@fictional.invalid" }).pipe(Effect.result);
+        assert(Result.isFailure(result));
+        assert.equal(result.failure, failure);
+        const snapshot = yield* capture.snapshot;
+        const record = snapshot.records[0];
+        assert(record);
+        const payload = yield* Schema.decodeEffect(Schema.fromJsonString(EmailNativeCapturePayloadSchema))(Redacted.value(record.payloadJson));
+        assert.equal(payload.request._tag, "IterableCampaign");
+        assert.equal(payload.outcome._tag, "Unknown");
+        assert.equal(payload.request.options.idempotencyKey, undefined);
+        assert(!JSON.stringify(snapshot).includes("recipient@"));
+        assert.equal(yield* capture.purgeRecords, 1);
+        assert.equal((yield* capture.snapshot).truncated, true);
+        assert.equal((yield* capture.snapshot).records.length, 0);
+        return capture;
+      }).pipe(Effect.provide(capturedIterableCampaignLayer(supplied, { capacity: 1, maxBytes: 10000, privateData: "AuthorizePayloadCapture" })));
+      assert.equal((yield* escapedCapture.snapshot).closed, true);
+      assert.equal(yield* escapedCapture.purgeRecords, 0);
+    }).pipe(Effect.provide(iterable.pipe(Layer.provide(noTransport))));
+    const defaults = yield* Schema.decodeEffect(IterableCampaignDefaultsSchema)({ dataFields: { collision: true, items: [null, false, 0] }, metadata: { retained: "default" } });
+    yield* Effect.gen(function* preflightPackedIterableDefaults() {
+      const native = yield* IterableCampaignEmail;
+      const preview = yield* native.validate({ campaignId: 123, dataFields: { collision: false, items: [] }, metadata: { retained: "caller" }, recipientEmail: "recipient@fictional.invalid" });
+      assert.deepEqual(preview.dataFields, { collision: false, items: [], inner: true });
+      assert.deepEqual(preview.metadata, { retained: "caller" });
+      assert(Object.isFrozen(preview.dataFields?.items));
+      assert.equal(native.idempotency._tag, "None");
+      const result = yield* native.send(preview, { idempotencyKey: "unsupported-key" }).pipe(Effect.result);
+      assert(Result.isFailure(result) && result.failure instanceof EmailRejected);
+      assert.equal(result.failure.reason, "unsupported-idempotency");
+    }).pipe(Effect.provide(defaultedIterableCampaignLayer(defaultedIterableCampaignLayer(iterable, { dataFields: { inner: true } }), defaults).pipe(Layer.provide(noTransport))));
+  }).pipe(Effect.orDie);
+};

@@ -373,6 +373,98 @@ describe("Email submission contract", () => {
       }).pipe(Effect.provide(recordingEmailLayer)),
   );
 
+  it.effect(
+    "canonical replay preserves normalized schedules and record keys without ignoring changed intent",
+    () =>
+      Effect.gen(function* preserveCanonicalRecordingIntent() {
+        const email = yield* Email;
+        const records = yield* RecordedEmails;
+
+        const attachment: EmailAttachmentInput = {
+          contentBase64: "AA==",
+          contentId: "image",
+          contentType: "image/png",
+          disposition: "inline",
+          filename: "image.png",
+        };
+
+        const metadata = Object.fromEntries<string>([
+          ["event", "created"],
+          ["tenant", "fictional"],
+          ["é", "composed"],
+          ["e\u0301", "decomposed"],
+        ]);
+
+        const original: EmailMessageInput = {
+          ...message,
+          attachments: [attachment],
+          from: { address: "sender@example.test", name: "Sender" },
+          metadata,
+          sendAt: "2030-01-01T01:00:00+01:00",
+          to: ["first@example.test", "second@example.test"],
+        };
+
+        const options = { idempotencyKey: "canonical-event" };
+        const first = yield* email.send(original, options);
+
+        const equivalent = {
+          ...original,
+          attachments: [
+            {
+              contentBase64: "AA==",
+              contentId: "image",
+              contentType: "image/png",
+              disposition: "inline",
+              filename: "image.png",
+            },
+          ],
+          from: { address: "sender@example.test", name: "Sender" },
+          metadata: { ...metadata },
+          sendAt: new Date("2030-01-01T00:00:00.000Z"),
+        } satisfies EmailMessageInput;
+
+        for (const record of [...equivalent.attachments, equivalent.from, equivalent.metadata]) {
+          for (const [key, value] of Object.entries(record).toReversed()) {
+            Reflect.deleteProperty(record, key);
+            Reflect.set(record, key, value);
+          }
+        }
+
+        assert.strictEqual(yield* email.send(equivalent, options), first);
+
+        const changedIntents: readonly EmailMessageInput[] = [
+          { ...original, attachments: [{ ...attachment, contentBase64: "AQ==" }] },
+          {
+            ...original,
+            attachments: [
+              {
+                contentBase64: "AA==",
+                contentType: "image/png",
+                disposition: "attachment",
+                filename: "image.png",
+              },
+            ],
+          },
+          { ...original, from: { address: "sender@example.test", name: "Different Sender" } },
+          { ...original, metadata: { ...metadata, event: "updated" } },
+          { ...original, sendAt: "2030-01-01T00:00:01Z" },
+          { ...original, to: ["second@example.test", "first@example.test"] },
+        ];
+
+        assert.strictEqual(yield* records.purgeMessages, 1);
+
+        for (const changed of changedIntents) {
+          const conflict = yield* email.send(changed, options).pipe(Effect.result);
+          assert(Result.isFailure(conflict));
+          assert(conflict.failure instanceof EmailRejected);
+          assert.strictEqual(conflict.failure.reason, "idempotency-conflict");
+        }
+
+        assert.strictEqual(yield* email.send(equivalent, options), first);
+        assert.deepStrictEqual(yield* records.messages, []);
+      }).pipe(Effect.provide(recordingEmailLayer)),
+  );
+
   it.effect.each([
     { field: "from", input: { ...message, from: "private-address\r\n@example.test" } },
     { field: "from", input: { ...message, from: "private..recipient@example.test" } },

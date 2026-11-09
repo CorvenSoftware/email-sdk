@@ -36,11 +36,13 @@ import {
 } from "./email-submission-observations.js";
 import type {
   EmailSubmissionObservation,
+  EmailSubmissionObserver,
   EmailSubmissionStarting,
   EmailSubmissionStartingObserver,
 } from "./email-submission-observations.js";
 import {
   recordingSenderLayer,
+  RecordedEmails,
   recordingEmailLayer,
   recordingEmailCapabilities,
 } from "./recording-email-sender.js";
@@ -212,7 +214,7 @@ describe("explicit bounded settled sender observations", () => {
   );
 
   for (const mode of ["Direct", "Batch", "Personalized", "Routed"] as const) {
-    it.effect.each(["Defect", "Interruption"] as const)(
+    it.effect.each(["Defect", "Interruption", "ModeledFailure"] as const)(
       `a starting %s never delegates, retries, falls back or settles in ${mode}`,
       (fault) =>
         Effect.gen(function* preserveStartingObserverFault() {
@@ -222,12 +224,24 @@ describe("explicit bounded settled sender observations", () => {
           const settled = yield* Ref.make(0);
           const defect = new Error("private starting observer defect");
 
-          const starting: EmailSubmissionStartingObserver = () =>
-            Ref.update(starts, (count) => count + 1).pipe(
-              Effect.andThen(
-                fault === "Defect" ? Effect.die(defect) : Effect.failCause(Cause.interrupt(123)),
+          const callbacks = {
+            starting: () =>
+              Ref.update(starts, (count) => count + 1).pipe(
+                Effect.andThen(
+                  fault === "Defect" ? Effect.die(defect) : Effect.failCause(Cause.interrupt(123)),
+                ),
+              ),
+          } satisfies Record<"starting", EmailSubmissionStartingObserver>;
+
+          if (fault === "ModeledFailure") {
+            Reflect.set(callbacks, "starting", () =>
+              Ref.update(starts, (count) => count + 1).pipe(
+                Effect.andThen(
+                  Effect.fail(new EmailRejected({ provider: "observer", reason: "rate-limited" })),
+                ),
               ),
             );
+          }
 
           const primary = emailLayer({ ...oneAttempt, maxAttempts: 3 }).pipe(
             Layer.provide(
@@ -235,7 +249,7 @@ describe("explicit bounded settled sender observations", () => {
                 senderLayer(() => Ref.update(calls, (count) => count + 1).pipe(Effect.as(receipt))),
                 {},
                 () => Ref.update(settled, (count) => count + 1),
-                starting,
+                callbacks.starting,
               ),
             ),
           );
@@ -283,7 +297,9 @@ describe("explicit bounded settled sender observations", () => {
           }).pipe(Effect.provide(selected), Effect.withTracer(trace.tracer), Effect.exit);
 
           assert(Exit.isFailure(outcome));
-          assert.isTrue(fault === "Defect" ? Exit.hasDies(outcome) : Exit.hasInterrupts(outcome));
+          assert.isTrue(
+            fault === "Interruption" ? Exit.hasInterrupts(outcome) : Exit.hasDies(outcome),
+          );
           assert.strictEqual(yield* Ref.get(calls), 0);
           assert.strictEqual(yield* Ref.get(backups), 0);
           assert.strictEqual(yield* Ref.get(starts), 1);
@@ -513,6 +529,79 @@ describe("explicit bounded settled sender observations", () => {
           Effect.withTracer(trace.tracer),
         );
         assert.notInclude(yield* trace.diagnostics, "private-observer-defect");
+      }),
+  );
+
+  it.effect(
+    "an untyped completion failure cannot retry an accepted recording or reach fallback",
+    () =>
+      Effect.gen(function* containUntypedSubmissionObserver() {
+        const backups = yield* Ref.make(0);
+
+        const callbackFailure = new EmailRejected({
+          provider: "observer",
+          reason: "rate-limited",
+          status: 429,
+        });
+
+        const callbacks = {
+          observe: () => Effect.void,
+        } satisfies Record<"observe", EmailSubmissionObserver>;
+
+        Reflect.set(callbacks, "observe", () => Effect.fail(callbackFailure));
+
+        yield* Effect.gen(function* routeObservedRecording() {
+          const primary = yield* Email;
+          const recorded = yield* RecordedEmails;
+          const observations = yield* EmailSubmissionObservations;
+
+          const router = emailRouterLayer(
+            [
+              { layer: Layer.succeed(Email, primary), name: "primary" },
+              {
+                layer: emailLayer().pipe(
+                  Layer.provide(
+                    senderLayer(() =>
+                      Ref.update(backups, (count) => count + 1).pipe(Effect.as(receipt)),
+                    ),
+                  ),
+                ),
+                name: "backup",
+              },
+            ],
+            { fallbacks: ["backup"], primary: "primary" },
+          );
+
+          const outcome = yield* Email.pipe(
+            Effect.flatMap((email) => email.send(message)),
+            Effect.provide(router),
+            Effect.exit,
+          );
+
+          assert(Exit.isFailure(outcome));
+          assert(Exit.hasDies(outcome));
+          const defect = Cause.findDefect(outcome.cause);
+          assert(Result.isSuccess(defect));
+          assert.strictEqual(defect.success, callbackFailure);
+          assert.strictEqual((yield* recorded.messages).length, 1);
+          assert.strictEqual(yield* Ref.get(backups), 0);
+          assert.deepStrictEqual((yield* observations.snapshot).observations, [
+            EmailSubmissionObservationSchema.cases.Receipt.make({
+              provider: "recording",
+              receiptKind: "Recorded",
+            }),
+          ]);
+        }).pipe(
+          Effect.provide(
+            emailLayer({ ...oneAttempt, maxAttempts: 3 }).pipe(
+              Layer.provideMerge(
+                observedEmailSenderLayer(recordingSenderLayer, {}, callbacks.observe).pipe(
+                  Layer.provideMerge(recordingSenderLayer),
+                ),
+              ),
+            ),
+          ),
+        );
       }),
   );
 

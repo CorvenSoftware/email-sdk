@@ -1,4 +1,4 @@
-import { Duration, Effect, Layer, Match, Option, Redacted, Schema } from "effect";
+import { Duration, Effect, Layer, Match, Option, Predicate, Redacted, Schema } from "effect";
 import { HttpClientRequest } from "effect/http";
 import type { HttpClient, HttpClientResponse } from "effect/http";
 import { EmailAddressSchema, emailMailboxAddress } from "./email-address.js";
@@ -26,12 +26,9 @@ import { EmailRejected } from "./email-rejected.js";
 import { EmailSenderIdempotencySchema } from "./email-sender.js";
 import type { EmailSender, EmailSubmission } from "./email-sender.js";
 import { emailLayer } from "./email-service.js";
-import type {
-  Email,
-  EmailDeliveryPolicy,
-  EmailRetryObserver,
-  EmailRetryRestriction,
-} from "./email-service.js";
+import type { Email } from "./email-service.js";
+import type { EmailDeliveryPolicy } from "./email-delivery-policy.js";
+import type { EmailRetryObserver, EmailRetryRestriction } from "./email-retry-decision.js";
 
 export const heloEmailCapabilities = ownEmailSenderCapabilities(
   EmailSenderCapabilitiesSchema.make({
@@ -79,9 +76,7 @@ const HeloProblemResponse = Schema.Struct({
 });
 
 const formatHeloMailbox = (mailbox: EmailMailbox) =>
-  Schema.is(EmailAddressSchema)(mailbox)
-    ? { email: mailbox }
-    : { email: mailbox.address, name: mailbox.name };
+  Predicate.isString(mailbox) ? { email: mailbox } : { email: mailbox.address, name: mailbox.name };
 
 const heloCompleteSuppression = Effect.fnUntraced(function* heloCompleteSuppression(
   message: EmailMessage,

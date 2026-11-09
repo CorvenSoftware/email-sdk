@@ -1,4 +1,5 @@
 import { Effect, Match, Schema, Struct, UndefinedOr } from "effect";
+import type { Result } from "effect";
 import type { EmailSendError } from "./email-errors.js";
 import { EmailDeliveryPolicySchema, ownEmailDeliveryPolicy } from "./email-delivery-policy.js";
 import type { EmailDeliveryPolicy } from "./email-delivery-policy.js";
@@ -19,18 +20,6 @@ import {
   ownEmailExecutionMetadata,
 } from "./email-execution-metadata.js";
 import type { EmailExecutionMetadata } from "./email-execution-metadata.js";
-
-export {
-  EmailExecutionMetadataSchema,
-  ownEmailExecutionMetadata,
-} from "./email-execution-metadata.js";
-
-export type {
-  EmailExecutionMetadata,
-  EmailExecutionMetadataInput,
-  EmailExecutionMetadataValue,
-  EmailExecutionMetadataInputValue,
-} from "./email-execution-metadata.js";
 
 export const EmailPolicyOptionsSchema = Schema.Struct({
   idempotencyKey: Schema.optionalKey(EmailIdempotencyKeySchema),
@@ -210,4 +199,14 @@ export const qualifyEmailRequestFailure = <A>(
         Match.orElse((unchanged) => unchanged),
       ),
     ),
+  );
+
+export const prepareEmailRequestResult = <Prepared>(
+  request: EmailSendRequest,
+  prepare: (submission: PreparedEmailSubmission) => Effect.Effect<Prepared, EmailSendError>,
+): Effect.Effect<Result.Result<Prepared, EmailSendError>> =>
+  prepareEmailSendRequest(request).pipe(
+    Effect.flatMap((submission) => qualifyEmailRequestFailure(prepare(submission))),
+    protectEmailUnsettledCause,
+    Effect.result,
   );
