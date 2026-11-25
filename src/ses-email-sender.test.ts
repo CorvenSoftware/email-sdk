@@ -378,36 +378,59 @@ describe("SES constrained regional simple sends", () => {
       }),
   );
 
+  const coralDetail = ":http://internal.amazon.com/coral/com.amazon.coral.service/";
+
   it.live.each([
-    { errorType: "AccessDeniedException", status: 403 },
-    { errorType: "ExpiredTokenException", status: 403 },
-    { errorType: "MailFromDomainNotVerifiedException", status: 400 },
-    { errorType: "AccountSuspendedException", status: 400 },
-    { errorType: "SendingPausedException", status: 400 },
-  ])(
-    "allows explicit fallback only on coherent definite regional refusal (case %#)",
-    ({ errorType, status }) =>
-      Effect.gen(function* routeSesRefusal() {
-        const primary = yield* startEmailHttpFixture({
-          body: JSON.stringify({ __type: errorType, message: "private reason" }),
-          sesErrorType: errorType,
-          status,
-        });
-
-        const backup = yield* startEmailHttpFixture({
-          body: JSON.stringify({ id: "backup" }),
-          status: 200,
-        });
-
-        const receipt = yield* Effect.gen(function* routeSesRejected() {
-          return yield* (yield* (yield* EmailRouter).select()).send(message);
-        }).pipe(Effect.provide(fixtureRoute(primary, backup)));
-
-        assert(EmailReceiptSchema.guards.Accepted(receipt));
-        assert.strictEqual(receipt.route, "backup");
-        assert.strictEqual(yield* Queue.size(primary.received), 1);
-        assert.strictEqual(yield* Queue.size(backup.received), 1);
+    ...[
+      { errorType: "AccessDeniedException", status: 403 },
+      { errorType: "ExpiredTokenException", status: 403 },
+      { errorType: "MailFromDomainNotVerifiedException", status: 400 },
+      { errorType: "AccountSuspendedException", status: 400 },
+      { errorType: "SendingPausedException", status: 400 },
+    ].map(({ errorType, status }) => ({
+      body: JSON.stringify({ __type: errorType, message: "private reason" }),
+      sesErrorType: errorType,
+      status,
+    })),
+    {
+      body: JSON.stringify({ Message: "private reason" }),
+      sesErrorType: `AccessDeniedException${coralDetail}`,
+      status: 403,
+    },
+    {
+      body: JSON.stringify({ message: "private reason" }),
+      sesErrorType: `com.amazonaws.sesv2#AccessDeniedException${coralDetail}`,
+      status: 403,
+    },
+    {
+      body: JSON.stringify({
+        __type: `com.amazonaws.sesv2#ExpiredTokenException${coralDetail}`,
+        message: "private",
       }),
+      status: 403,
+    },
+    {
+      body: JSON.stringify({ Message: "private reason", code: "SendingPausedException" }),
+      status: 400,
+    },
+  ])("allows explicit fallback only on coherent definite regional refusal (case %#)", (reply) =>
+    Effect.gen(function* routeSesRefusal() {
+      const primary = yield* startEmailHttpFixture(reply);
+
+      const backup = yield* startEmailHttpFixture({
+        body: JSON.stringify({ id: "backup" }),
+        status: 200,
+      });
+
+      const receipt = yield* Effect.gen(function* routeSesRejected() {
+        return yield* (yield* (yield* EmailRouter).select()).send(message);
+      }).pipe(Effect.provide(fixtureRoute(primary, backup)));
+
+      assert(EmailReceiptSchema.guards.Accepted(receipt));
+      assert.strictEqual(receipt.route, "backup");
+      assert.strictEqual(yield* Queue.size(primary.received), 1);
+      assert.strictEqual(yield* Queue.size(backup.received), 1);
+    }),
   );
 
   it.effect(
@@ -473,6 +496,16 @@ describe("SES constrained regional simple sends", () => {
     {
       body: JSON.stringify({ message: "private" }),
       sesErrorType: "TooManyRequestsException",
+      status: 400,
+    },
+    {
+      body: JSON.stringify({ code: "ExpiredTokenException", message: "private" }),
+      sesErrorType: `AccessDeniedException${coralDetail}`,
+      status: 403,
+    },
+    {
+      body: JSON.stringify({ message: "private" }),
+      sesErrorType: `com.amazonaws.sesv2#MessageRejected${coralDetail}`,
       status: 400,
     },
     { body: JSON.stringify({ message: "private" }), sesErrorType: "MessageRejected", status: 400 },
