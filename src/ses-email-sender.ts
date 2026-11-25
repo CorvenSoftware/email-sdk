@@ -75,9 +75,18 @@ const SesRefusalType = Schema.Literals([
 ]);
 
 const SesProblem = Schema.Struct({
-  __type: Schema.optionalKey(SesRefusalType),
+  Message: Schema.optionalKey(Schema.String),
+  __type: Schema.optionalKey(Schema.String),
+  code: Schema.optionalKey(Schema.String),
   message: Schema.optionalKey(Schema.String),
 });
+
+const sanitizedSesErrorType = (declared: string): string => {
+  const [withoutDetail = ""] = declared.split(":", 1);
+  const namespaceEnd = withoutDetail.indexOf("#");
+
+  return namespaceEnd === -1 ? withoutDetail : withoutDetail.slice(namespaceEnd + 1);
+};
 
 const SesAsciiText = Schema.String.check(
   Schema.isPattern(/^[\u0020-\u007E]*$/u),
@@ -158,13 +167,19 @@ const parseSesRejection = Effect.fnUntraced(function* parseSesRejection(
     Effect.mapError(invalid),
   );
 
-  const errorType = yield* Schema.decodeUnknownEffect(SesRefusalType)(
-    response.headers["x-amzn-errortype"],
-  ).pipe(Effect.mapError(invalid));
+  const declaredTypes = new Set(
+    [response.headers["x-amzn-errortype"], problem.__type, problem.code].flatMap((declared) =>
+      declared === undefined ? [] : [sanitizedSesErrorType(declared)],
+    ),
+  );
 
-  if (problem.__type !== undefined && problem.__type !== errorType) {
+  if (declaredTypes.size !== 1) {
     return yield* invalid();
   }
+
+  const errorType = yield* Schema.decodeUnknownEffect(SesRefusalType)([...declaredTypes][0]).pipe(
+    Effect.mapError(invalid),
+  );
 
   if (status === 429 && errorType === "TooManyRequestsException") {
     return yield* Option.match(parseEmailHttpRetryAfterMillis(response.headers["retry-after"]), {
