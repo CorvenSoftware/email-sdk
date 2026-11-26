@@ -10,11 +10,7 @@ import { EmailInvalidMessage } from "./email-invalid-message.js";
 import { EmailInvalidOptions } from "./email-invalid-options.js";
 import { EmailReceiptSchema, ownEmailReceipt } from "./email-message.js";
 import type { EmailReceipt } from "./email-message.js";
-import {
-  emailPreparedOperations,
-  ownEmailPreparedPreviews,
-  preparedEmailOperation,
-} from "./email-prepared-operation.js";
+import { emailPreparedOperations, preparedEmailOperation } from "./email-prepared-operation.js";
 import type { EmailPreparedOperation } from "./email-prepared-operation.js";
 import { preparedEmailSendOptions } from "./email-preparation.js";
 import type { PreparedEmailSubmission } from "./email-preparation.js";
@@ -151,27 +147,34 @@ export const observedEmailOperationLayer = <E, R, E2 = never, R2 = never>(
           preparedEmailSendOptions(prepared),
         );
 
-        const previews = ownEmailPreparedPreviews(operation.previews);
+        const observedOperation: EmailPreparedOperation = preparedEmailOperation(
+          operation.previews,
+          operation.validate,
+          Effect.uninterruptibleMask((restore) =>
+            Effect.gen(function* settleObservedEmailOperation() {
+              const result = yield* restore(operation.send).pipe(
+                protectEmailUnsettledCause,
+                Effect.result,
+              );
 
-        const send = Effect.uninterruptibleMask((restore) =>
-          Effect.gen(function* settleObservedEmailOperation() {
-            const result = yield* restore(operation.send).pipe(
-              protectEmailUnsettledCause,
-              Effect.result,
-            );
+              return yield* settleEmailCallbackResult(
+                result,
+                Effect.gen(function* notifyEmailOperationOutcome() {
+                  const outcome = yield* operationOutcome(result);
+                  const event = Object.freeze({ outcome, previews: observedOperation.previews });
+                  yield* restore(
+                    Effect.suspend(() => observe(event)).pipe(
+                      protectEmailUnsettledCause,
+                      Effect.orDie,
+                    ),
+                  );
+                }).pipe(emailOperationSpan("EmailOperation.observe")),
+              );
+            }),
+          ).pipe(protectEmailUnsettledCause),
+        );
 
-            return yield* settleEmailCallbackResult(
-              result,
-              Effect.gen(function* notifyEmailOperationOutcome() {
-                const outcome = yield* operationOutcome(result);
-                const event = Object.freeze({ outcome, previews });
-                yield* restore(Effect.suspend(() => observe(event)).pipe(Effect.orDie));
-              }).pipe(emailOperationSpan("EmailOperation.observe")),
-            );
-          }),
-        ).pipe(protectEmailUnsettledCause);
-
-        return preparedEmailOperation(previews, operation.validate, send);
+        return observedOperation;
       });
 
       return Email.of({ capabilities: email.capabilities, ...emailPreparedOperations(prepare) });

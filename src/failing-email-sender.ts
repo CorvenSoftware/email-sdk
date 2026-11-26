@@ -9,11 +9,8 @@ import { EmailRejected } from "./email-rejected.js";
 import { EmailSender, EmailSenderIdempotencySchema } from "./email-sender.js";
 import type { EmailSubmission } from "./email-sender.js";
 import { emailLayer } from "./email-service.js";
-import type {
-  EmailDeliveryPolicy,
-  EmailRetryObserver,
-  EmailRetryRestriction,
-} from "./email-service.js";
+import type { EmailDeliveryPolicy } from "./email-delivery-policy.js";
+import type { EmailRetryObserver, EmailRetryRestriction } from "./email-retry-decision.js";
 import { syntheticEmailCapabilities } from "./email-synthetic-capabilities.js";
 import { emailOperationSpan } from "./email-tracing.js";
 

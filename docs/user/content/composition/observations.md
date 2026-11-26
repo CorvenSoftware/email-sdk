@@ -19,4 +19,4 @@ The optional starting callback describes a sender invocation. It is a separate e
 
 A sender call is not necessarily a whole logical workflow, an audience or a lifetime delivery count. Local validation can fail before this observation boundary. For complete prepared-operation outcomes, use [operation observations](/composition/operations); for Loops/Iterable use [native instrumentation](/composition/native-instrumentation).
 
-Callbacks are awaited Effects. A callback failure can stop the caller's workflow, but cannot roll back a provider acknowledgment or authorize retry/fallback. Treat missing data and truncated history as incomplete evidence.
+Callbacks are awaited Effects. Unexpected typed callback failures become defects rather than provider rejections; interruption remains interruption. A callback failure can stop the caller's workflow, but cannot roll back a provider acknowledgment or authorize retry/fallback. Treat missing data and truncated history as incomplete evidence.

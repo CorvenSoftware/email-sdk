@@ -1,7 +1,7 @@
-import { DateTime, Effect, Layer, Option, Redacted, Schema } from "effect";
+import { DateTime, Effect, Layer, Option, Predicate, Redacted, Schema } from "effect";
 import { HttpClientRequest } from "effect/http";
 import type { HttpClient, HttpClientResponse } from "effect/http";
-import { EmailAddressSchema, formatEmailMailbox } from "./email-address.js";
+import { formatEmailMailbox } from "./email-address.js";
 import {
   EmailSenderCapabilitiesSchema,
   ownEmailSenderCapabilities,
@@ -21,12 +21,9 @@ import { EmailRejected } from "./email-rejected.js";
 import { EmailSenderIdempotencySchema } from "./email-sender.js";
 import type { EmailSender, EmailSubmission } from "./email-sender.js";
 import { emailLayer } from "./email-service.js";
-import type {
-  Email,
-  EmailDeliveryPolicy,
-  EmailRetryObserver,
-  EmailRetryRestriction,
-} from "./email-service.js";
+import type { Email } from "./email-service.js";
+import type { EmailDeliveryPolicy } from "./email-delivery-policy.js";
+import type { EmailRetryObserver, EmailRetryRestriction } from "./email-retry-decision.js";
 
 export const jetemailEmailCapabilities = ownEmailSenderCapabilities(
   EmailSenderCapabilitiesSchema.make({
@@ -120,14 +117,12 @@ export const jetemailSenderLayer = (
       yield* validateEmailCapabilities(message, jetemailEmailCapabilities);
       const issues = [];
 
-      if (Schema.is(EmailAddressSchema)(message.from) || message.from.name === undefined) {
+      if (Predicate.isString(message.from) || message.from.name === undefined) {
         issues.push({ path: "from", problem: "JetEmail requires an explicit sender display name" });
       }
 
       if (
-        message.to.some(
-          (mailbox) => !Schema.is(EmailAddressSchema)(mailbox) && mailbox.name !== undefined,
-        )
+        message.to.some((mailbox) => !Predicate.isString(mailbox) && mailbox.name !== undefined)
       ) {
         issues.push({
           path: "to",

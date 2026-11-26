@@ -1,4 +1,4 @@
-import { Effect, Layer, Redacted, Schema } from "effect";
+import { Effect, Layer, Predicate, Redacted, Schema } from "effect";
 import type { HttpClient, HttpClientResponse } from "effect/http";
 import { HttpClientRequest } from "effect/http";
 import { EmailAddressSchema, formatEmailMailbox } from "./email-address.js";
@@ -23,12 +23,9 @@ import { EmailRejected } from "./email-rejected.js";
 import { EmailSenderIdempotencySchema } from "./email-sender.js";
 import type { EmailSender, EmailSubmission } from "./email-sender.js";
 import { emailLayer } from "./email-service.js";
-import type {
-  Email,
-  EmailDeliveryPolicy,
-  EmailRetryObserver,
-  EmailRetryRestriction,
-} from "./email-service.js";
+import type { Email } from "./email-service.js";
+import type { EmailDeliveryPolicy } from "./email-delivery-policy.js";
+import type { EmailRetryObserver, EmailRetryRestriction } from "./email-retry-decision.js";
 
 export const scalewayEmailCapabilities = ownEmailSenderCapabilities(
   EmailSenderCapabilitiesSchema.make({
@@ -127,9 +124,7 @@ const ScalewayAcknowledgement = Schema.Struct({
 });
 
 const scalewayMailbox = (mailbox: EmailMailbox) =>
-  Schema.is(EmailAddressSchema)(mailbox)
-    ? { email: mailbox }
-    : { email: mailbox.address, name: mailbox.name };
+  Predicate.isString(mailbox) ? { email: mailbox } : { email: mailbox.address, name: mailbox.name };
 
 const buildScalewayMessage = (message: EmailMessage, projectId: string) => {
   const headers = (message.headers ?? []).map(({ name, value }) => ({ key: name, value }));
@@ -220,9 +215,10 @@ export const scalewaySenderLayer = (
       }
 
       if (
-        new TextEncoder().encode(
+        Buffer.byteLength(
           JSON.stringify(buildScalewayMessage(message, configuration.projectId)),
-        ).byteLength > 1_900_000
+          "utf-8",
+        ) > 1_900_000
       ) {
         issues.push("body");
       }

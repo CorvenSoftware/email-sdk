@@ -1,5 +1,5 @@
-import { Schema } from "effect";
-import { EmailAddressSchema, emailMailboxAddress } from "./email-address.js";
+import { Predicate } from "effect";
+import { emailMailboxAddress } from "./email-address.js";
 import type { EmailMailbox } from "./email-address.js";
 import type { EmailAttachment } from "./email-attachment.js";
 import type { EmailMessage } from "./email-message.js";
@@ -34,7 +34,7 @@ const encodeSmtpHeader = (text: string) => {
 const formatSmtpMailbox = (mailbox: EmailMailbox) => {
   const address = emailMailboxAddress(mailbox);
 
-  return Schema.is(EmailAddressSchema)(mailbox) || mailbox.name === undefined
+  return Predicate.isString(mailbox) || mailbox.name === undefined
     ? address
     : `${encodeSmtpHeader(mailbox.name)}\r\n <${address}>`;
 };

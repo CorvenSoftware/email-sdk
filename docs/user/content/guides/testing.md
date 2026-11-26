@@ -9,7 +9,7 @@ Replace the provider Layer where your application provides Layers. Keep the noti
 
 Use `recordingEmailLayer` and acquire `RecordedEmails` in the same scope, as in the [quickstart](/quickstart). Inspect the returned messages and receipt. Assert the expected recipient, rendered content or absence of a submission after a refused action.
 
-A recorder is in-memory simulation. Reacquisition creates a separate store; purging visible records is not a durable duplicate-prevention mechanism.
+A recorder is in-memory simulation. Reacquisition creates a separate store. Within one acquisition, purging visible messages preserves keyed receipts and canonical plaintext intent for duplicate/conflict checks. That retained identity includes private message content; purge is neither secure erasure nor a replay reset. The recorder is not durable duplicate prevention.
 
 ## Simulate uncertainty
 

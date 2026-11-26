@@ -1,7 +1,7 @@
-import { Duration, Effect, Layer, Match, Option, Redacted, Schema } from "effect";
+import { Duration, Effect, Layer, Match, Option, Predicate, Redacted, Schema } from "effect";
 import type { HttpClient, HttpClientResponse } from "effect/http";
 import { HttpClientRequest } from "effect/http";
-import { EmailAddressSchema } from "./email-address.js";
+import { EmailAddressSchema, emailMailboxAddress } from "./email-address.js";
 import type { EmailMailbox } from "./email-address.js";
 import {
   EmailSenderCapabilitiesSchema,
@@ -22,12 +22,9 @@ import { EmailRejected } from "./email-rejected.js";
 import { EmailSenderIdempotencySchema } from "./email-sender.js";
 import type { EmailSender, EmailSubmission } from "./email-sender.js";
 import { emailLayer } from "./email-service.js";
-import type {
-  Email,
-  EmailDeliveryPolicy,
-  EmailRetryObserver,
-  EmailRetryRestriction,
-} from "./email-service.js";
+import type { Email } from "./email-service.js";
+import type { EmailDeliveryPolicy } from "./email-delivery-policy.js";
+import type { EmailRetryObserver, EmailRetryRestriction } from "./email-retry-decision.js";
 
 export const plunkEmailCapabilities = ownEmailSenderCapabilities(
   EmailSenderCapabilitiesSchema.make({
@@ -77,13 +74,8 @@ const PlunkRejectionCode = Schema.Struct({
   success: Schema.Literal(false),
 });
 
-const plunkMailboxAddress = (mailbox: EmailMailbox) =>
-  Schema.is(EmailAddressSchema)(mailbox) ? mailbox : mailbox.address;
-
 const formatPlunkMailbox = (mailbox: EmailMailbox) =>
-  Schema.is(EmailAddressSchema)(mailbox)
-    ? { email: mailbox }
-    : { email: mailbox.address, name: mailbox.name };
+  Predicate.isString(mailbox) ? { email: mailbox } : { email: mailbox.address, name: mailbox.name };
 
 const classifyPlunkRejection = Effect.fnUntraced(function* classifyPlunkRejection(
   response: HttpClientResponse.HttpClientResponse,
@@ -182,7 +174,7 @@ export const plunkSenderLayer = (
 
       if (
         message.replyTo !== undefined &&
-        (message.replyTo.length !== 1 || !Schema.is(EmailAddressSchema)(message.replyTo[0]))
+        (message.replyTo.length !== 1 || !Predicate.isString(message.replyTo[0]))
       ) {
         return yield* new EmailInvalidMessage({
           issues: [{ path: "replyTo", problem: "Plunk supports one plain reply-to mailbox" }],
@@ -215,7 +207,7 @@ export const plunkSenderLayer = (
             message.headers === undefined
               ? undefined
               : Object.fromEntries(message.headers.map(({ name, value }) => [name, value])),
-          reply: replyTo === undefined ? undefined : plunkMailboxAddress(replyTo),
+          reply: replyTo === undefined ? undefined : emailMailboxAddress(replyTo),
           subject: message.subject,
           to: formatPlunkMailbox(message.to[0]),
         }),
@@ -250,7 +242,7 @@ export const plunkSenderLayer = (
       const [accepted] = acknowledgement.data.emails;
 
       if (
-        accepted.contact.email.toLowerCase() !== plunkMailboxAddress(message.to[0]).toLowerCase()
+        accepted.contact.email.toLowerCase() !== emailMailboxAddress(message.to[0]).toLowerCase()
       ) {
         return yield* new EmailDeliveryUnknown({
           provider: "plunk",

@@ -1,9 +1,9 @@
-import assert = require("node:assert/strict");
 import EffectLibrary = require("effect");
 import React = require("react");
 import EmailSdk = require("@corvencore/email-sdk");
 import ReactEmail = require("@corvencore/email-sdk/react");
 import Testing = require("@corvencore/email-sdk/testing");
+import ReactScenarios = require("./react-scenarios.js");
 
 const { Effect } = EffectLibrary;
 const proveCommonjsReact = (body: ReactEmail.RenderedReactEmail): void => {
@@ -31,40 +31,4 @@ const proveCommonjsReact = (body: ReactEmail.RenderedReactEmail): void => {
 };
 void proveCommonjsReact;
 
-const FailedTemplate = (): never => { throw new Error("private-commonjs-react-error"); };
-void Effect.runPromise(Effect.gen(function* verifyCommonjsReactRendering() {
-  const body = yield* ReactEmail.renderReactEmail(React.createElement("p", null, "Fictional CommonJS <markup>"));
-  assert.equal(body.text, "Fictional CommonJS <markup>");
-  assert.ok(body.html.includes("&lt;markup&gt;"));
-  assert.ok(Object.isFrozen(body));
-  const components = ReactEmail.themedReactEmailComponents({ accent: "#234c39", accentForeground: "#ffffff", background: "#f5f2e9", border: "#a6aa9d", fontFamily: "Georgia, serif", foreground: "#20291e", mutedForeground: "#4b5547", radius: 12, surface: "#ffffff", surfaceForeground: "#20291e" });
-  const catalog = yield* ReactEmail.renderReactEmail(React.createElement(components.EmailDocument, { preview: "Private CommonJS preview" },
-    React.createElement(components.EmailCard, null,
-      React.createElement(components.EmailHeading, { level: 2 }, "Fictional catalog"),
-      React.createElement(components.EmailParagraph, null, "Fictional CommonJS catalog"),
-      React.createElement(components.EmailAction, { href: "https://example.invalid", variant: "outline" }, "Review example"),
-      React.createElement(components.EmailDivider),
-    ),
-  ));
-  assert.ok(catalog.text.includes("Fictional CommonJS catalog"));
-  assert.ok(catalog.text.includes("https://example.invalid"));
-  assert.ok(!catalog.text.includes("Private CommonJS preview"));
-  assert.ok(catalog.html.includes("<h2"));
-  yield* Effect.sync(() => assert.throws(() => require("@corvencore/email-sdk/dist/email-react-components.js"), { code: "ERR_PACKAGE_PATH_NOT_EXPORTED" }));
-  for (const preset of ["light", "dark"] as const) {
-    const family = ReactEmail.themedReactEmailComponents(preset);
-    const rendered = yield* ReactEmail.renderReactEmail(React.createElement(family.EmailDocument, null, React.createElement(family.EmailParagraph, null, "Preset content")));
-    assert.equal(rendered.text, "Preset content");
-    assert.ok(rendered.html.includes(`background-color:${ReactEmail.reactEmailTheme(preset).background}`));
-  }
-  const defaults = ReactEmail.themedReactEmailComponents();
-  assert.equal((yield* ReactEmail.renderReactEmail(React.createElement(defaults.EmailParagraph, null, "Default content"))).text, "Default content");
-  yield* Effect.sync(() => assert.throws(() => require("@corvencore/email-sdk/dist/email-react-theme.js"), { code: "ERR_PACKAGE_PATH_NOT_EXPORTED" }));
-  const email = yield* EmailSdk.Email;
-  yield* email.send({ body, from: "sender@example.invalid", subject: "Synthetic CommonJS React", to: "recipient@example.invalid" });
-  assert.deepEqual((yield* (yield* Testing.RecordedEmails).messages)[0]?.body, body);
-  const failure = yield* Effect.flip(ReactEmail.renderReactEmail(React.createElement(FailedTemplate)));
-  assert.ok(failure instanceof ReactEmail.EmailRenderError);
-  assert.equal(failure.reason, "render-failed");
-  assert.ok(!JSON.stringify(failure).includes("private-commonjs-react-error"));
-}).pipe(Effect.provide(Testing.recordingEmailLayer)));
+void Effect.runPromise(ReactScenarios.verifyInstalledReactRendering({ EffectLibrary, React, EmailSdk, ReactEmail, Testing }));

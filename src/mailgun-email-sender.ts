@@ -31,11 +31,8 @@ import { EmailSenderIdempotencySchema } from "./email-sender.js";
 import type { EmailSubmission, EmailSender } from "./email-sender.js";
 import { Email, emailLayer } from "./email-service.js";
 import { parseEmailReplayPolicy } from "./email-submission-policy.js";
-import type {
-  EmailDeliveryPolicy,
-  EmailRetryObserver,
-  EmailRetryRestriction,
-} from "./email-service.js";
+import type { EmailDeliveryPolicy } from "./email-delivery-policy.js";
+import type { EmailRetryObserver, EmailRetryRestriction } from "./email-retry-decision.js";
 
 export const mailgunEmailCapabilities = ownEmailSenderCapabilities(
   EmailSenderCapabilitiesSchema.make({
@@ -123,11 +120,10 @@ const validateMailgunEmail = Effect.fnUntraced(function* validateMailgunEmail(
 ): Effect.fn.Return<void, EmailInvalidMessage> {
   yield* validateEmailCapabilities(message, mailgunEmailCapabilities);
   const tags = message.tags?.map((tag) => formatEmailTagLabel(tag).toLowerCase()) ?? [];
-  const encoder = new TextEncoder();
   let optionBytes = 0;
 
   for (const [name, value] of mailgunOptionFields(message)) {
-    optionBytes += encoder.encode(name).byteLength + encoder.encode(value).byteLength;
+    optionBytes += Buffer.byteLength(name, "utf-8") + Buffer.byteLength(value, "utf-8");
   }
 
   const checks: readonly { readonly invalid: boolean; readonly issue: EmailInputIssue }[] = [
@@ -455,7 +451,6 @@ export const mailgunPersonalizedEmailLayer = (
           const request: EmailHttpPersonalizationProtocol["request"] = Effect.fnUntraced(
             function* buildNativeMailgunRequest(messages) {
               const entries: string[] = [];
-              const encoder = new TextEncoder();
               let byteLength = 2;
 
               for (const message of messages) {
@@ -467,8 +462,8 @@ export const mailgunPersonalizedEmailLayer = (
                 });
 
                 byteLength +=
-                  encoder.encode(address).byteLength +
-                  encoder.encode(variables).byteLength +
+                  Buffer.byteLength(address, "utf-8") +
+                  Buffer.byteLength(variables, "utf-8") +
                   1 +
                   (entries.length === 0 ? 0 : 1);
 

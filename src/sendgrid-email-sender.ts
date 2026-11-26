@@ -33,16 +33,13 @@ import { parseEmailReplayPolicy } from "./email-submission-policy.js";
 import type { EmailHttpPersonalizationProtocol } from "./email-http-protocol.js";
 import type { EmailMailbox } from "./email-address.js";
 import { emailAttachmentMimeType } from "./email-attachment.js";
-import { EmailAddressSchema, emailMailboxAddress } from "./email-address.js";
+import { emailMailboxAddress } from "./email-address.js";
 import { EmailRejected } from "./email-rejected.js";
 import { EmailSenderIdempotencySchema } from "./email-sender.js";
 import type { EmailSubmission, EmailSender } from "./email-sender.js";
 import { Email, emailLayer } from "./email-service.js";
-import type {
-  EmailDeliveryPolicy,
-  EmailRetryObserver,
-  EmailRetryRestriction,
-} from "./email-service.js";
+import type { EmailDeliveryPolicy } from "./email-delivery-policy.js";
+import type { EmailRetryObserver, EmailRetryRestriction } from "./email-retry-decision.js";
 
 export const sendgridEmailCapabilities = ownEmailSenderCapabilities(
   EmailSenderCapabilitiesSchema.make({
@@ -67,9 +64,7 @@ const SendgridConfiguration = Schema.Struct({
 });
 
 const formatSendgridMailbox = (mailbox: EmailMailbox) =>
-  Schema.is(EmailAddressSchema)(mailbox)
-    ? { email: mailbox }
-    : { email: mailbox.address, name: mailbox.name };
+  Predicate.isString(mailbox) ? { email: mailbox } : { email: mailbox.address, name: mailbox.name };
 
 const sendgridPersonalization = (message: EmailMessage) => ({
   bcc: message.bcc?.map(formatSendgridMailbox),
@@ -93,7 +88,7 @@ interface SendgridNativeEnvelope {
 }
 
 const SendgridPersonalizedBody = Schema.toType(EmailBodySchema).check(
-  Schema.makeFilter((body) => new TextEncoder().encode(JSON.stringify(body)).byteLength <= 8192, {
+  Schema.makeFilter((body) => Buffer.byteLength(JSON.stringify(body), "utf-8") <= 8192, {
     expected: "native SendGrid personalized body JSON within 8192 UTF-8 bytes",
   }),
 );
@@ -168,7 +163,7 @@ const validateSendgridEmail = Effect.fnUntraced(function* validateSendgridEmail(
   const issues = [];
 
   if (
-    !Schema.is(EmailAddressSchema)(message.from) &&
+    !Predicate.isString(message.from) &&
     message.from.name !== undefined &&
     !/^[\u0020-\u007E]+$/u.test(message.from.name)
   ) {
@@ -200,7 +195,7 @@ const validateSendgridEmail = Effect.fnUntraced(function* validateSendgridEmail(
   if (
     message.metadata !== undefined &&
     (Object.keys(message.metadata).length === 0 ||
-      new TextEncoder().encode(JSON.stringify(message.metadata)).byteLength >= 10_000)
+      Buffer.byteLength(JSON.stringify(message.metadata), "utf-8") >= 10_000)
   ) {
     issues.push({
       path: "metadata",

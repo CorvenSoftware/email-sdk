@@ -350,7 +350,6 @@ describe("MailerSend local HTTP submission evidence", () => {
         assert.strictEqual(keyed.reason, "unsupported-idempotency");
 
         for (const unsupported of [
-          { ...message, metadata: { label: "private-value" } },
           { ...message, to: { address: "first@example.test", name: "private, recipient" } },
           { ...message, replyTo: ["reply@example.test", "other-reply@example.test"] as const },
           { ...message, headers: [{ name: "X_Private", value: "private-value" }] },

@@ -34,32 +34,6 @@ import type {
   PreparedEmailSubmission,
 } from "./email-preparation.js";
 
-export { EmailDeliveryPolicySchema } from "./email-delivery-policy.js";
-
-export type { EmailDeliveryPolicy } from "./email-delivery-policy.js";
-
-export type { EmailRetryObserver, EmailRetryRestriction } from "./email-retry-decision.js";
-
-export {
-  EmailBatchOptionsSchema,
-  EmailExecutionMetadataSchema,
-  EmailPersonalizedOptionsSchema,
-  EmailSendOptionsSchema,
-  EmailSendRequestSchema,
-} from "./email-preparation.js";
-
-export type {
-  EmailBatchOptionsInput,
-  EmailExecutionMetadata,
-  EmailExecutionMetadataInput,
-  EmailExecutionMetadataValue,
-  EmailExecutionMetadataInputValue,
-  EmailPersonalizedOptionsInput,
-  EmailSendOptions,
-  EmailSendOptionsInput,
-  EmailSendRequest,
-} from "./email-preparation.js";
-
 export interface IEmail {
   readonly personalization: EmailPersonalizationMode;
   readonly capabilities: EmailSenderCapabilities;

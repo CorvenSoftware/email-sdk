@@ -1,7 +1,6 @@
-import { Effect, Layer, Redacted, Schema } from "effect";
+import { Effect, Layer, Predicate, Redacted, Schema } from "effect";
 import type { HttpClient, HttpClientResponse } from "effect/http";
 import { HttpClientRequest } from "effect/http";
-import { EmailAddressSchema } from "./email-address.js";
 import type { EmailMailbox } from "./email-address.js";
 import {
   EmailSenderCapabilitiesSchema,
@@ -22,12 +21,9 @@ import { EmailRejected } from "./email-rejected.js";
 import { EmailSenderIdempotencySchema } from "./email-sender.js";
 import type { EmailSender, EmailSubmission } from "./email-sender.js";
 import { emailLayer } from "./email-service.js";
-import type {
-  Email,
-  EmailDeliveryPolicy,
-  EmailRetryObserver,
-  EmailRetryRestriction,
-} from "./email-service.js";
+import type { Email } from "./email-service.js";
+import type { EmailDeliveryPolicy } from "./email-delivery-policy.js";
+import type { EmailRetryObserver, EmailRetryRestriction } from "./email-retry-decision.js";
 
 export const zeptomailEmailCapabilities = ownEmailSenderCapabilities(
   EmailSenderCapabilitiesSchema.make({
@@ -159,7 +155,7 @@ const ZeptomailUnsupportedExtension = Schema.Literals([
 ]);
 
 const zeptomailMailbox = (mailbox: EmailMailbox) =>
-  Schema.is(EmailAddressSchema)(mailbox) ? { address: mailbox } : mailbox;
+  Predicate.isString(mailbox) ? { address: mailbox } : mailbox;
 
 const buildZeptomailMessage = (message: EmailMessage) => ({
   attachments: message.attachments
@@ -219,9 +215,7 @@ export const zeptomailSenderLayer = (
           ...(message.cc ?? []),
           ...(message.bcc ?? []),
           ...(message.replyTo ?? []),
-        ].some(
-          (mailbox) => !Schema.is(EmailAddressSchema)(mailbox) && (mailbox.name?.length ?? 0) > 250,
-        )
+        ].some((mailbox) => !Predicate.isString(mailbox) && (mailbox.name?.length ?? 0) > 250)
       ) {
         issues.push("name");
       }
@@ -245,10 +239,7 @@ export const zeptomailSenderLayer = (
         issues.push("attachments");
       }
 
-      if (
-        new TextEncoder().encode(JSON.stringify(buildZeptomailMessage(message))).byteLength >
-        8_000_000
-      ) {
+      if (Buffer.byteLength(JSON.stringify(buildZeptomailMessage(message)), "utf-8") > 8_000_000) {
         issues.push("body");
       }
 

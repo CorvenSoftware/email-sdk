@@ -285,12 +285,14 @@ describe("offline email CLI", () => {
         );
 
         assert(prepared.submission.idempotencyKey !== undefined);
+        assert.isDefined(prepared.executionMetadata);
 
         const text = yield* Schema.encodeEffect(
           Schema.fromJsonString(Schema.toCodecJson(EmailSendRequestSchema)),
         )({
           message: prepared.submission.message,
           options: {
+            executionMetadata: prepared.executionMetadata,
             idempotencyKey: prepared.submission.idempotencyKey,
             policy: {
               deadline: Duration.seconds(30),

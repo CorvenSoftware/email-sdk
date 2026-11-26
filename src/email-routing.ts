@@ -81,48 +81,11 @@ export type EmailRoutePlanInput<Name extends string = string> = Omit<
   readonly fallbacks?: readonly [Name, ...Name[]];
 };
 
-export const EmailRoutedReceiptSchema = Schema.Union([
-  EmailReceiptSchema.cases.Accepted.mapFields((fields) => ({
-    ...fields,
-    route: EmailRouteNameSchema,
-  })),
-  EmailReceiptSchema.cases.AcceptedWithIds.mapFields((fields) => ({
-    ...fields,
-    route: EmailRouteNameSchema,
-  })),
-  EmailReceiptSchema.cases.PartiallyAccepted.mapFields((fields) => ({
-    ...fields,
-    route: EmailRouteNameSchema,
-  })),
-  EmailReceiptSchema.cases.PartiallyRejected.mapFields((fields) => ({
-    ...fields,
-    route: EmailRouteNameSchema,
-  })),
-  EmailReceiptSchema.cases.PartiallyAcceptedCounts.mapFields((fields) => ({
-    ...fields,
-    route: EmailRouteNameSchema,
-  })),
-  EmailReceiptSchema.cases.RecipientsRejected.mapFields((fields) => ({
-    ...fields,
-    route: EmailRouteNameSchema,
-  })),
-  EmailReceiptSchema.cases.RecipientOutcomes.mapFields((fields) => ({
-    ...fields,
-    route: EmailRouteNameSchema,
-  })),
-  EmailReceiptSchema.cases.Recorded.mapFields((fields) => ({
-    ...fields,
-    route: EmailRouteNameSchema,
-  })),
-  EmailReceiptSchema.cases.Simulated.mapFields((fields) => ({
-    ...fields,
-    route: EmailRouteNameSchema,
-  })),
-  EmailReceiptSchema.cases.Suppressed.mapFields((fields) => ({
-    ...fields,
-    route: EmailRouteNameSchema,
-  })),
-]);
+export const EmailRoutedReceiptSchema = Schema.Union(
+  Object.values(
+    Struct.map(Schema.fieldsAssign({ route: EmailRouteNameSchema }))(EmailReceiptSchema.cases),
+  ),
+);
 
 export type EmailRoutedReceipt = typeof EmailRoutedReceiptSchema.Type;
 
@@ -203,38 +166,43 @@ const ownEmailRoutePlan = (plan: typeof EmailRoutePlanSchema.Type) =>
     primary: plan.primary,
   });
 
+const emailFallbackRejectionReasons = {
+  authentication: true,
+  "idempotency-conflict": false,
+  "invalid-message": true,
+  "rate-limited": true,
+  rejected: true,
+  "temporarily-unavailable": true,
+  "unsupported-idempotency": false,
+} satisfies Record<EmailRejected["reason"], boolean>;
+
 const canFallbackEmailSubmission = (failure: EmailSendError): boolean =>
   Match.value(failure).pipe(
-    Match.tag(
-      "EmailRejected",
-      (rejected) =>
-        rejected.reason !== "idempotency-conflict" && rejected.reason !== "unsupported-idempotency",
-    ),
+    Match.tag("EmailRejected", (rejected) => emailFallbackRejectionReasons[rejected.reason]),
     Match.orElse(() => false),
   );
 
-interface PreparedEmailRouteConfiguration<E, R> {
-  readonly bindings: readonly [EmailRouteBinding<E, R>, ...EmailRouteBinding<E, R>[]];
+interface PreparedEmailRouteConfiguration<Binding extends EmailRouteBinding<unknown, unknown>> {
+  readonly bindings: readonly [Binding, ...Binding[]];
   readonly decodePlan: (
     input: EmailRoutePlanInput,
   ) => Effect.Effect<typeof EmailRoutePlanSchema.Type, Schema.SchemaError>;
   readonly defaultRoute: ReturnType<typeof ownEmailRoutePlan>;
-  readonly plan: EmailRoutePlanInput;
 }
 
-export const prepareEmailRouteConfiguration = <E, R>(
-  bindings: readonly [EmailRouteBinding<E, R>, ...EmailRouteBinding<E, R>[]],
+export const prepareEmailRouteConfiguration = <Binding extends EmailRouteBinding<unknown, unknown>>(
+  bindings: readonly [Binding, ...Binding[]],
   defaultPlan: EmailRoutePlanInput,
-): Effect.Effect<PreparedEmailRouteConfiguration<E, R>, EmailConfigurationError> =>
+): Effect.Effect<PreparedEmailRouteConfiguration<Binding>, EmailConfigurationError> =>
   Effect.gen(function* ownEmailRouteConfiguration() {
     const ownedBindings = Object.freeze(
-      EffectArray.map<typeof bindings, EmailRouteBinding<E, R>>((binding) =>
-        Object.freeze({ ...binding }),
-      )(bindings),
+      EffectArray.map<typeof bindings, Binding>((binding) => Object.freeze({ ...binding }))(
+        bindings,
+      ),
     );
 
-    const metadata = EffectArray.map<typeof ownedBindings, Omit<EmailRouteBinding<E, R>, "layer">>(
-      (binding) => Struct.omit(binding, ["layer"]),
+    const metadata = EffectArray.map<typeof ownedBindings, Omit<Binding, "layer">>((binding) =>
+      Struct.omit(binding, ["layer"]),
     )(ownedBindings);
 
     const registrations = yield* parseRouteRegistrations(metadata);
@@ -254,32 +222,17 @@ export const prepareEmailRouteConfiguration = <E, R>(
 
     const defaultRoute = yield* decodePlan(defaultPlan).pipe(Effect.map(ownEmailRoutePlan));
 
-    const [first, ...remaining] = defaultRoute.fallbacks;
-
-    const plan: EmailRoutePlanInput =
-      first === undefined
-        ? Object.freeze(Struct.omit(defaultRoute, ["fallbacks"]))
-        : Object.freeze({
-            ...defaultRoute,
-            fallbacks: Object.freeze([first, ...remaining] as const),
-          });
-
-    return { bindings: ownedBindings, decodePlan, defaultRoute, plan };
+    return { bindings: ownedBindings, decodePlan, defaultRoute };
   }).pipe(
     Effect.mapError((cause) => new EmailConfigurationError({ issues: emailInputIssues(cause) })),
   );
 
-const makeEmailRouterLayer = <E, R>(
-  bindings: readonly [EmailRouteBinding<E, R>, ...EmailRouteBinding<E, R>[]],
-  defaultPlan: EmailRoutePlanInput,
+export const preparedEmailRouterLayer = <E, R>(
+  configuration: PreparedEmailRouteConfiguration<EmailRouteBinding<E, R>>,
 ): Layer.Layer<EmailRouter | Email, E | EmailConfigurationError, R> =>
   Layer.fromBuildMemo((memoMap, scope) =>
     Effect.gen(function* makeEmailRouter() {
-      const {
-        bindings: ownedBindings,
-        decodePlan,
-        defaultRoute,
-      } = yield* prepareEmailRouteConfiguration(bindings, defaultPlan);
+      const { bindings: ownedBindings, decodePlan, defaultRoute } = configuration;
 
       const services = yield* Effect.forEach(
         ownedBindings,
@@ -468,7 +421,13 @@ export const emailRouterLayer = <
   Layer.Error<Bindings[number]["layer"]> | EmailConfigurationError,
   Layer.Services<Bindings[number]["layer"]>
 > =>
-  makeEmailRouterLayer<
-    Layer.Error<Bindings[number]["layer"]>,
-    Layer.Services<Bindings[number]["layer"]>
-  >(bindings, defaultPlan);
+  Layer.unwrap(
+    prepareEmailRouteConfiguration(bindings, defaultPlan).pipe(
+      Effect.map((configuration) =>
+        preparedEmailRouterLayer<
+          Layer.Error<Bindings[number]["layer"]>,
+          Layer.Services<Bindings[number]["layer"]>
+        >(configuration),
+      ),
+    ),
+  );

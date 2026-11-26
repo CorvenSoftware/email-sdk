@@ -1,4 +1,4 @@
-import { Effect, Layer, Match, Option, Redacted, Schema } from "effect";
+import { Effect, Layer, Match, Option, Predicate, Redacted, Schema } from "effect";
 import type { HttpClient, HttpClientResponse } from "effect/http";
 import { HttpClientRequest } from "effect/http";
 import { EmailAddressSchema, formatEmailMailbox } from "./email-address.js";
@@ -27,12 +27,9 @@ import { EmailRejected } from "./email-rejected.js";
 import { EmailSenderIdempotencySchema } from "./email-sender.js";
 import type { EmailSender, EmailSubmission } from "./email-sender.js";
 import { emailLayer } from "./email-service.js";
-import type {
-  Email,
-  EmailDeliveryPolicy,
-  EmailRetryObserver,
-  EmailRetryRestriction,
-} from "./email-service.js";
+import type { Email } from "./email-service.js";
+import type { EmailDeliveryPolicy } from "./email-delivery-policy.js";
+import type { EmailRetryObserver, EmailRetryRestriction } from "./email-retry-decision.js";
 
 export const primitiveEmailCapabilities = ownEmailSenderCapabilities(
   EmailSenderCapabilitiesSchema.make({
@@ -202,7 +199,7 @@ export const primitiveSenderLayer = (
         message.to.length !== 1 ||
         new Set(addresses).size !== addresses.length ||
         [...message.to, ...(message.cc ?? []), ...(message.bcc ?? [])].some(
-          (mailbox) => !Schema.is(EmailAddressSchema)(mailbox) && mailbox.name !== undefined,
+          (mailbox) => !Predicate.isString(mailbox) && mailbox.name !== undefined,
         )
       ) {
         issues.push("to");
@@ -213,8 +210,8 @@ export const primitiveSenderLayer = (
       }
 
       if (
-        new TextEncoder().encode(message.body.text ?? "").byteLength +
-          new TextEncoder().encode(message.body.html ?? "").byteLength >
+        Buffer.byteLength(message.body.text ?? "", "utf-8") +
+          Buffer.byteLength(message.body.html ?? "", "utf-8") >
         262_144
       ) {
         issues.push("body");

@@ -7,7 +7,7 @@ import type {
   EmailObservationAggregate,
   EmailObservationBinding,
 } from "./email-observation-aggregate.js";
-import { emailRouterLayer, prepareEmailRouteConfiguration } from "./email-routing.js";
+import { preparedEmailRouterLayer, prepareEmailRouteConfiguration } from "./email-routing.js";
 import type { EmailRoutePlanInput, EmailRouter } from "./email-routing.js";
 import type { Email } from "./email-service.js";
 import type { EmailSubmissionCapture } from "./email-submission-capture-view.js";
@@ -29,13 +29,8 @@ const capturedRouterLayer = <E, R>(
 ): Layer.Layer<Email | EmailRouter | EmailCaptureAggregate, E | EmailConfigurationError, R> =>
   Layer.unwrap(
     Effect.gen(function* acquireCapturedEmailRoutes() {
-      const accounts = Object.freeze(
-        EffectArray.map<typeof bindings, EmailCapturedRouteBinding<E, R>>((binding) =>
-          Object.freeze({ ...binding }),
-        )(bindings),
-      );
-
-      const configuration = yield* prepareEmailRouteConfiguration(accounts, defaultPlan);
+      const configuration = yield* prepareEmailRouteConfiguration(bindings, defaultPlan);
+      const accounts = configuration.bindings;
 
       const sources = EffectArray.map<typeof accounts, EmailCaptureBinding<E, R>>((account) => ({
         ...account,
@@ -43,7 +38,7 @@ const capturedRouterLayer = <E, R>(
       }))(accounts);
 
       return Layer.mergeAll(
-        emailRouterLayer(accounts, configuration.plan),
+        preparedEmailRouterLayer<E, R>(configuration),
         aggregatedEmailCaptureLayer(sources),
       );
     }),
@@ -55,13 +50,8 @@ const observedRouterLayer = <E, R>(
 ): Layer.Layer<Email | EmailRouter | EmailObservationAggregate, E | EmailConfigurationError, R> =>
   Layer.unwrap(
     Effect.gen(function* acquireObservedEmailRoutes() {
-      const accounts = Object.freeze(
-        EffectArray.map<typeof bindings, EmailObservedRouteBinding<E, R>>((binding) =>
-          Object.freeze({ ...binding }),
-        )(bindings),
-      );
-
-      const configuration = yield* prepareEmailRouteConfiguration(accounts, defaultPlan);
+      const configuration = yield* prepareEmailRouteConfiguration(bindings, defaultPlan);
+      const accounts = configuration.bindings;
 
       const sources = EffectArray.map<typeof accounts, EmailObservationBinding<E, R>>(
         (account) => ({
@@ -71,7 +61,7 @@ const observedRouterLayer = <E, R>(
       )(accounts);
 
       return Layer.mergeAll(
-        emailRouterLayer(accounts, configuration.plan),
+        preparedEmailRouterLayer<E, R>(configuration),
         aggregatedEmailObservationsLayer(sources),
       );
     }),

@@ -1,7 +1,6 @@
-import { DateTime, Effect, Layer, Match, Redacted, Schema } from "effect";
+import { DateTime, Effect, Layer, Match, Predicate, Redacted, Schema } from "effect";
 import { HttpClientRequest } from "effect/http";
 import type { HttpClient, HttpClientResponse } from "effect/http";
-import { EmailAddressSchema } from "./email-address.js";
 import type { EmailMailbox } from "./email-address.js";
 import {
   EmailSenderCapabilitiesSchema,
@@ -21,12 +20,9 @@ import { EmailRejected } from "./email-rejected.js";
 import { EmailSenderIdempotencySchema } from "./email-sender.js";
 import type { EmailSender, EmailSubmission } from "./email-sender.js";
 import { emailLayer } from "./email-service.js";
-import type {
-  Email,
-  EmailDeliveryPolicy,
-  EmailRetryObserver,
-  EmailRetryRestriction,
-} from "./email-service.js";
+import type { Email } from "./email-service.js";
+import type { EmailDeliveryPolicy } from "./email-delivery-policy.js";
+import type { EmailRetryObserver, EmailRetryRestriction } from "./email-retry-decision.js";
 
 export const brevoEmailCapabilities = ownEmailSenderCapabilities(
   EmailSenderCapabilitiesSchema.make({
@@ -114,9 +110,7 @@ const attachmentExtensions = new Set([
 ]);
 
 const formatBrevoMailbox = (mailbox: EmailMailbox) =>
-  Schema.is(EmailAddressSchema)(mailbox)
-    ? { email: mailbox }
-    : { email: mailbox.address, name: mailbox.name };
+  Predicate.isString(mailbox) ? { email: mailbox } : { email: mailbox.address, name: mailbox.name };
 
 const validateBrevoIntent = Effect.fnUntraced(function* validateBrevoIntent(
   message: EmailMessage,
@@ -139,7 +133,7 @@ const validateBrevoIntent = Effect.fnUntraced(function* validateBrevoIntent(
       ...(message.cc ?? []),
       ...(message.bcc ?? []),
       ...(message.replyTo ?? []),
-    ].some((mailbox) => !Schema.is(EmailAddressSchema)(mailbox) && (mailbox.name?.length ?? 0) > 70)
+    ].some((mailbox) => !Predicate.isString(mailbox) && (mailbox.name?.length ?? 0) > 70)
   ) {
     issues.push({ path: "name", problem: "Brevo display names must fit within 70 characters" });
   }

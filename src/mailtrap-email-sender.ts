@@ -1,7 +1,6 @@
-import { Effect, Layer, Redacted, Schema } from "effect";
+import { Effect, Layer, Predicate, Redacted, Schema } from "effect";
 import type { HttpClient, HttpClientResponse } from "effect/http";
 import { HttpClientRequest } from "effect/http";
-import { EmailAddressSchema } from "./email-address.js";
 import type { EmailMailbox } from "./email-address.js";
 import { emailAttachmentMimeType } from "./email-attachment.js";
 import {
@@ -24,12 +23,9 @@ import { EmailRejected } from "./email-rejected.js";
 import { EmailSenderIdempotencySchema } from "./email-sender.js";
 import type { EmailSender, EmailSubmission } from "./email-sender.js";
 import { emailLayer } from "./email-service.js";
-import type {
-  Email,
-  EmailDeliveryPolicy,
-  EmailRetryObserver,
-  EmailRetryRestriction,
-} from "./email-service.js";
+import type { Email } from "./email-service.js";
+import type { EmailDeliveryPolicy } from "./email-delivery-policy.js";
+import type { EmailRetryObserver, EmailRetryRestriction } from "./email-retry-decision.js";
 
 export const mailtrapEmailCapabilities = ownEmailSenderCapabilities(
   EmailSenderCapabilitiesSchema.make({
@@ -74,9 +70,7 @@ const MailtrapProblem = Schema.Struct({
 });
 
 const mailtrapMailbox = (mailbox: EmailMailbox) =>
-  Schema.is(EmailAddressSchema)(mailbox)
-    ? { email: mailbox }
-    : { email: mailbox.address, name: mailbox.name };
+  Predicate.isString(mailbox) ? { email: mailbox } : { email: mailbox.address, name: mailbox.name };
 
 const classifyMailtrapRejection = Effect.fnUntraced(function* classifyMailtrapRejection(
   response: HttpClientResponse.HttpClientResponse,
@@ -141,7 +135,7 @@ export const mailtrapSenderLayer = (
 
       if (
         message.metadata !== undefined &&
-        new TextEncoder().encode(JSON.stringify(message.metadata)).byteLength > 1000
+        Buffer.byteLength(JSON.stringify(message.metadata), "utf-8") > 1000
       ) {
         issues.push("metadata");
       }

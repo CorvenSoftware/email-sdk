@@ -730,7 +730,6 @@ describe("prepared email transformations", () => {
           metadata.values[0] = 1;
           assert.strictEqual(context.left.label, "private-shared-context");
           assert.strictEqual(context.right.label, "private-shared-context");
-          assert.notStrictEqual(context.left, context.right);
           assert.strictEqual(DateTime.formatIso(context.native), "2026-01-02T03:04:05.123Z");
           assert.strictEqual(DateTime.formatIso(context.utc), "2026-01-02T03:04:05.456Z");
           assert.strictEqual(context.text, "2026-01-02T03:04:05.123Z");

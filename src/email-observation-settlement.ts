@@ -12,7 +12,9 @@ export const settleEmailObservation = <E extends EmailSendError, Observation>(se
 }): Effect.Effect<EmailReceipt, E> =>
   Effect.uninterruptibleMask((restore) =>
     Effect.gen(function* settleObservedEmailOutcome() {
-      yield* restore(Effect.suspend(settlement.starting));
+      yield* restore(
+        Effect.suspend(settlement.starting).pipe(protectEmailUnsettledCause, Effect.orDie),
+      );
 
       const outcome = yield* restore(settlement.submit()).pipe(
         protectEmailUnsettledCause,
@@ -23,7 +25,12 @@ export const settleEmailObservation = <E extends EmailSendError, Observation>(se
 
       return yield* settleEmailCallbackResult(
         outcome,
-        restore(Effect.suspend(() => settlement.observe(observation))),
+        restore(
+          Effect.suspend(() => settlement.observe(observation)).pipe(
+            protectEmailUnsettledCause,
+            Effect.orDie,
+          ),
+        ),
       );
     }),
   ).pipe(protectEmailUnsettledCause);

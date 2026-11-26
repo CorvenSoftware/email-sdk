@@ -28,35 +28,52 @@ else
   pnpm pack --out "$stage/email-sdk.tgz"
 fi
 cd -- "$root"
-mkdir -- "$stage/consumer"
-node --input-type=module - "$stage" <<'MANIFEST'
-import { writeFileSync } from "node:fs";
+mkdir -- "$stage/consumer" "$stage/ai-consumer" "$stage/react-consumer"
+node --input-type=module - "$stage" "$root/package.json" <<'MANIFEST'
+import { readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 const stage = process.argv[2];
-writeFileSync(join(stage, "consumer", "package.json"), JSON.stringify({
-  private: true,
-  type: "module",
-  dependencies: { "@corvencore/email-sdk": "file:../email-sdk.tgz", effect: "4.1.2" },
-  devDependencies: { "@types/node": "24.13.6", typescript: "7.0.2" },
-}));
-writeFileSync(join(stage, "consumer", "tsconfig.json"), JSON.stringify({
-  compilerOptions: {
-    target: "ES2024", lib: ["ES2024", "DOM", "ESNext.Disposable"], types: ["node"],
-    module: "NodeNext", moduleResolution: "NodeNext",
-    strict: true, exactOptionalPropertyTypes: true, noUncheckedIndexedAccess: true,
-    verbatimModuleSyntax: true, skipLibCheck: false, noEmit: true,
-  },
-  include: ["consumer.ts", "docs-examples/*.ts"],
-}));
-writeFileSync(join(stage, "consumer", "tsconfig.commonjs.json"), JSON.stringify({
+const source = JSON.parse(readFileSync(process.argv[3], "utf8"));
+for (const [directory, integrations] of [
+  ["consumer", []],
+  ["ai-consumer", ["ai"]],
+  ["react-consumer", ["@react-email/render", "react", "react-dom", "@types/react"]],
+]) {
+  writeFileSync(join(stage, directory, "package.json"), JSON.stringify({
+    private: true,
+    type: "module",
+    dependencies: {
+      "@corvencore/email-sdk": "file:../email-sdk.tgz",
+      effect: source.devDependencies.effect,
+      ...Object.fromEntries(integrations.map((dependency) => [dependency, source.devDependencies[dependency]])),
+    },
+    devDependencies: {
+      "@types/node": source.devDependencies["@types/node"],
+      typescript: source.devDependencies.typescript,
+    },
+  }));
+  writeFileSync(join(stage, directory, "tsconfig.json"), JSON.stringify({
+    compilerOptions: {
+      target: "ES2024", lib: ["ES2024", "DOM", "ESNext.Disposable"], types: ["node"],
+      module: "NodeNext", moduleResolution: "NodeNext",
+      strict: true, exactOptionalPropertyTypes: true, noUncheckedIndexedAccess: true,
+      noImplicitOverride: true, noFallthroughCasesInSwitch: true,
+      verbatimModuleSyntax: true, skipLibCheck: false, noEmit: true,
+    },
+    include: ["consumer.ts", "docs-examples/*.ts"],
+  }));
+}
+writeFileSync(join(stage, "consumer", "tsconfig.core.json"), JSON.stringify({
   extends: "./tsconfig.json",
-  compilerOptions: { noEmit: false, outDir: "compiled-commonjs" },
-  include: ["consumer.cts"],
+  compilerOptions: { noEmit: false, outDir: "compiled-core" },
+  include: ["consumer.ts", "consumer.cts"],
 }));
 MANIFEST
 
 cp -- "$root/scripts/package-consumer.ts.template" "$stage/consumer/consumer.ts"
 cp -- "$root/scripts/package-commonjs-consumer.cts.template" "$stage/consumer/consumer.cts"
+cp -- "$root/scripts/package-core-scenarios.ts.template" "$stage/consumer/core-scenarios.ts"
+cp -- "$root/scripts/package-private-exports.ts.template" "$stage/consumer/private-exports.ts"
 mkdir -- "$stage/consumer/docs-examples"
 for example in "$root/docs/user/content/_examples/"*.ts.template; do
   case "$(basename -- "$example")" in
@@ -86,11 +103,11 @@ assert.equal(result.messages.length, 1);
 README_EXAMPLE
 pnpm --dir "$stage/consumer" install "$install_mode" --ignore-scripts
 pnpm --dir "$stage/consumer" exec tsc --noEmit
-node "$stage/consumer/consumer.ts"
+pnpm --dir "$stage/consumer" exec tsc -p tsconfig.core.json
+node "$stage/consumer/compiled-core/consumer.js"
+node "$stage/consumer/compiled-core/consumer.cjs"
 node "$stage/consumer/docs-runtime.mjs"
 node "$stage/consumer/docs-examples/readme-recording.ts"
-pnpm --dir "$stage/consumer" exec tsc -p tsconfig.commonjs.json
-node "$stage/consumer/compiled-commonjs/consumer.cjs"
 test ! -d "$stage/consumer/node_modules/ai"
 test ! -d "$stage/consumer/node_modules/react"
 test ! -d "$stage/consumer/node_modules/react-dom"
@@ -100,6 +117,7 @@ node "$stage/consumer/cli.mjs"
 cp -- "$root/scripts/package-author-consumer.ts.template" "$stage/consumer/author.ts"
 cp -- "$root/scripts/package-provider-consumer.ts.template" "$stage/consumer/providers.ts"
 cp -- "$root/scripts/package-provider-commonjs-consumer.cts.template" "$stage/consumer/providers.cts"
+cp -- "$root/scripts/package-provider-scenarios.ts.template" "$stage/consumer/provider-scenarios.ts"
 node --input-type=module - "$stage/consumer" <<'PROVIDER_CONFIG'
 import { writeFileSync } from "node:fs";
 import { join } from "node:path";
@@ -114,6 +132,7 @@ node "$stage/consumer/compiled-providers/providers.js"
 node "$stage/consumer/compiled-providers/providers.cjs"
 cp -- "$root/scripts/package-ai-consumer.ts.template" "$stage/consumer/ai.ts"
 cp -- "$root/scripts/package-ai-commonjs-consumer.cts.template" "$stage/consumer/ai.cts"
+cp -- "$root/scripts/package-ai-scenarios.ts.template" "$stage/consumer/ai-scenarios.ts"
 node --input-type=module - "$stage/consumer" <<'AI_CONFIG'
 import { writeFileSync } from "node:fs";
 import { join } from "node:path";
@@ -126,50 +145,47 @@ AI_CONFIG
 pnpm --dir "$stage/consumer" exec tsc -p tsconfig.ai.json
 node "$stage/consumer/compiled-ai/ai.js"
 node "$stage/consumer/compiled-ai/ai.cjs"
-ai_version="$(node -p "require('./package.json').devDependencies.ai")"
-pnpm --dir "$stage/consumer" add "$install_mode" --ignore-scripts --save-exact "ai@$ai_version"
-cp -- "$root/scripts/package-ai-runtime.mjs.template" "$stage/consumer/native-ai.mjs"
-node "$stage/consumer/native-ai.mjs"
-cp -- "$root/scripts/package-react-consumer.ts.template" "$stage/consumer/react.ts"
-cp -- "$root/scripts/package-react-commonjs-consumer.cts.template" "$stage/consumer/react.cts"
-node --input-type=module - "$root/package.json" "$stage/consumer" "$install_mode" <<'REACT_CONFIG'
-import { readFileSync, writeFileSync } from "node:fs";
+test ! -d "$stage/consumer/node_modules/ai"
+test ! -d "$stage/consumer/node_modules/react"
+test ! -d "$stage/consumer/node_modules/react-dom"
+test ! -d "$stage/consumer/node_modules/@react-email/render"
+
+pnpm --dir "$stage/ai-consumer" install "$install_mode" --ignore-scripts
+test ! -d "$stage/ai-consumer/node_modules/react"
+test ! -d "$stage/ai-consumer/node_modules/react-dom"
+test ! -d "$stage/ai-consumer/node_modules/@react-email/render"
+cp -- "$root/scripts/package-ai-runtime.mjs.template" "$stage/ai-consumer/native-ai.mjs"
+node "$stage/ai-consumer/native-ai.mjs"
+
+pnpm --dir "$stage/react-consumer" install "$install_mode" --ignore-scripts
+test ! -d "$stage/react-consumer/node_modules/ai"
+cp -- "$root/scripts/package-react-consumer.ts.template" "$stage/react-consumer/react.ts"
+cp -- "$root/scripts/package-react-commonjs-consumer.cts.template" "$stage/react-consumer/react.cts"
+cp -- "$root/scripts/package-react-scenarios.ts.template" "$stage/react-consumer/react-scenarios.ts"
+node --input-type=module - "$stage/react-consumer" <<'REACT_CONFIG'
+import { writeFileSync } from "node:fs";
 import { join } from "node:path";
-import { spawnSync } from "node:child_process";
-const source = JSON.parse(readFileSync(process.argv[2], "utf8"));
-const dependencies = ["@react-email/render", "react", "react-dom", "@types/react"].map(
-  (dependency) => `${dependency}@${source.devDependencies[dependency]}`,
-);
-const installation = spawnSync("pnpm", [
-  "--dir", process.argv[3], "add", process.argv[4], "--ignore-scripts", "--save-exact", ...dependencies,
-], { stdio: "inherit" });
-if (installation.error) throw installation.error;
-if (installation.status !== 0) process.exit(installation.status ?? 1);
-writeFileSync(join(process.argv[3], "tsconfig.react.json"), JSON.stringify({
+writeFileSync(join(process.argv[2], "tsconfig.react.json"), JSON.stringify({
   extends: "./tsconfig.json",
   compilerOptions: { noEmit: false, outDir: "compiled-react" },
   include: ["react.ts", "react.cts"],
 }));
-REACT_CONFIG
-mkdir -- "$stage/consumer/docs-react"
-for example in "$root/docs/user/content/_examples/"react-*.ts.template; do
-  cp -- "$example" "$stage/consumer/docs-react/$(basename -- "$example" .template)"
-done
-node --input-type=module - "$stage/consumer" <<'DOCS_REACT_CONFIG'
-import { writeFileSync } from "node:fs";
-import { join } from "node:path";
 writeFileSync(join(process.argv[2], "tsconfig.docs-react.json"), JSON.stringify({
   extends: "./tsconfig.json",
   compilerOptions: { noEmit: false, outDir: "compiled-docs-react", rootDir: "docs-react" },
   include: ["docs-react/*.ts"],
 }));
-DOCS_REACT_CONFIG
-pnpm --dir "$stage/consumer" exec tsc -p tsconfig.docs-react.json
-cp -- "$root/scripts/package-docs-react-runtime.mjs.template" "$stage/consumer/docs-react-runtime.mjs"
-node "$stage/consumer/docs-react-runtime.mjs"
-pnpm --dir "$stage/consumer" exec tsc -p tsconfig.react.json
+REACT_CONFIG
+mkdir -- "$stage/react-consumer/docs-react"
+for example in "$root/docs/user/content/_examples/"react-*.ts.template; do
+  cp -- "$example" "$stage/react-consumer/docs-react/$(basename -- "$example" .template)"
+done
+pnpm --dir "$stage/react-consumer" exec tsc -p tsconfig.docs-react.json
+cp -- "$root/scripts/package-docs-react-runtime.mjs.template" "$stage/react-consumer/docs-react-runtime.mjs"
+node "$stage/react-consumer/docs-react-runtime.mjs"
+pnpm --dir "$stage/react-consumer" exec tsc -p tsconfig.react.json
 for format in js cjs; do
-  if ! node "$stage/consumer/compiled-react/react.$format" >> "$stage/react.stdout" 2>> "$stage/react.stderr"; then
+  if ! node "$stage/react-consumer/compiled-react/react.$format" >> "$stage/react.stdout" 2>> "$stage/react.stderr"; then
     printf 'Packed React %s consumer failed; private captured diagnostics were not emitted.\n' "$format" >&2
     exit 1
   fi

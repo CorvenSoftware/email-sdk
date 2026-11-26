@@ -93,7 +93,7 @@ export const emailCliLayer: Layer.Layer<EmailCli, never, EmailCliEnvironment> = 
     const discover = Effect.gen(function* discoverEmailDistribution() {
       const text = yield* environment.readDistribution;
 
-      if (new TextEncoder().encode(text).byteLength > 65_536) {
+      if (Buffer.byteLength(text, "utf-8") > 65_536) {
         return yield* new EmailCliError({ reason: "distribution-unavailable" });
       }
 
@@ -127,7 +127,7 @@ export const emailCliLayer: Layer.Layer<EmailCli, never, EmailCliEnvironment> = 
     ) {
       const text = yield* environment.readRequest;
 
-      if (new TextEncoder().encode(text).byteLength > maxEmailCliInputBytes) {
+      if (Buffer.byteLength(text, "utf-8") > maxEmailCliInputBytes) {
         return yield* new EmailCliError({ reason: "input-limit" });
       }
 

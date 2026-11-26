@@ -1,11 +1,15 @@
-import assert from "node:assert/strict";
-import { Effect, Schema } from "effect";
-import { createElement, Suspense } from "react";
+import * as EffectLibrary from "effect";
+import * as React from "react";
+import * as EmailSdk from "@corvencore/email-sdk";
+import * as ReactEmail from "@corvencore/email-sdk/react";
+import * as Testing from "@corvencore/email-sdk/testing";
+import { verifyInstalledReactRendering } from "./react-scenarios.js";
+import { Effect } from "effect";
+import { createElement } from "react";
 import type { EmailBody, EmailReceipt } from "@corvencore/email-sdk";
 import { Email } from "@corvencore/email-sdk";
-import { EmailRenderError, RenderedReactEmailSchema, reactEmailTheme, renderReactEmail, themedReactEmailComponents } from "@corvencore/email-sdk/react";
+import { EmailRenderError, reactEmailTheme, renderReactEmail, themedReactEmailComponents } from "@corvencore/email-sdk/react";
 import type { RenderedReactEmail } from "@corvencore/email-sdk/react";
-import { RecordedEmails, recordingEmailLayer } from "@corvencore/email-sdk/testing";
 
 const proveReactDeclarations = (body: RenderedReactEmail): void => {
   const rendered: Effect.Effect<RenderedReactEmail, EmailRenderError> = renderReactEmail(createElement("p", null, "Fictional"));
@@ -36,43 +40,12 @@ const proveReactDeclarations = (body: RenderedReactEmail): void => {
 };
 void proveReactDeclarations;
 
-const FailedTemplate = (): never => { throw new Error("private-packed-react-error"); };
-await Effect.runPromise(Effect.gen(function* verifyInstalledReactRendering() {
-  const body = yield* renderReactEmail(createElement("p", null, "Fictional <markup> & native React"));
-  assert.equal(body.text, "Fictional <markup> & native React");
-  assert.ok(body.html.includes("&lt;markup&gt;"));
-  assert.ok(Object.isFrozen(body));
-  yield* Schema.decodeEffect(RenderedReactEmailSchema)(body);
-  const components = themedReactEmailComponents({ accent: "#234c39", accentForeground: "#ffffff", background: "#f5f2e9", border: "#a6aa9d", fontFamily: "Georgia, serif", foreground: "#20291e", mutedForeground: "#4b5547", radius: 12, surface: "#ffffff", surfaceForeground: "#20291e" });
-  const catalog = yield* renderReactEmail(createElement(components.EmailDocument, { preview: "Private packed preview" },
-    createElement(components.EmailCard, null,
-      createElement(components.EmailHeading, null, "Fictional catalog"),
-      createElement(components.EmailParagraph, null, "Fictional catalog content"),
-      createElement(components.EmailAction, { href: "https://example.invalid" }, "Review example"),
-      createElement(components.EmailDivider),
-    ),
-  ));
-  assert.ok(catalog.text.includes("Fictional catalog content"));
-  assert.ok(catalog.text.includes("https://example.invalid"));
-  assert.ok(!catalog.text.includes("Private packed preview"));
-  assert.ok(catalog.html.includes('role="presentation"'));
-  for (const preset of ["light", "dark"] as const) {
-    const family = themedReactEmailComponents(preset);
-    const rendered = yield* renderReactEmail(createElement(family.EmailDocument, null, createElement(family.EmailParagraph, null, "Preset content")));
-    assert.equal(rendered.text, "Preset content");
-    assert.ok(rendered.html.includes(`background-color:${reactEmailTheme(preset).background}`));
-  }
-  const defaults = themedReactEmailComponents();
-  assert.equal((yield* renderReactEmail(createElement(defaults.EmailParagraph, null, "Default content"))).text, "Default content");
-  const email = yield* Email;
-  yield* email.send({ body, from: "sender@example.invalid", subject: "Synthetic React", to: "recipient@example.invalid" });
-  assert.deepEqual((yield* (yield* RecordedEmails).messages)[0]?.body, body);
-  const failure = yield* Effect.flip(renderReactEmail(createElement(Suspense, { fallback: createElement("p", null, "Private fallback") }, createElement(FailedTemplate))));
-  assert.ok(failure instanceof EmailRenderError);
-  assert.equal(failure.reason, "render-failed");
-  assert.ok(!JSON.stringify(failure).includes("private-packed-react-error"));
-}).pipe(Effect.provide(recordingEmailLayer)));
-// @ts-expect-error -- Components are exposed only through the optional React entrypoint.
-await assert.rejects(import("@corvencore/email-sdk/dist/email-react-components.js"), { code: "ERR_PACKAGE_PATH_NOT_EXPORTED" });
-// @ts-expect-error -- Theme implementation stays behind the optional React entrypoint.
-await assert.rejects(import("@corvencore/email-sdk/dist/email-react-theme.js"), { code: "ERR_PACKAGE_PATH_NOT_EXPORTED" });
+const provePrivateDeclarations = (): void => {
+  // @ts-expect-error -- Components are exposed only through the optional React entrypoint.
+  void import("@corvencore/email-sdk/dist/email-react-components.js");
+  // @ts-expect-error -- Theme implementation stays behind the optional React entrypoint.
+  void import("@corvencore/email-sdk/dist/email-react-theme.js");
+};
+void provePrivateDeclarations;
+
+await Effect.runPromise(verifyInstalledReactRendering({ EffectLibrary, React, EmailSdk, ReactEmail, Testing }));

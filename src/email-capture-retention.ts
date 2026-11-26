@@ -1,3 +1,4 @@
+import { Buffer } from "node:buffer";
 import { Redacted, Schema } from "effect";
 import { EmailDeliveryUnknown } from "./email-delivery-unknown.js";
 import { EmailReceiptSchema } from "./email-message.js";
@@ -43,26 +44,28 @@ export const appendEmailCapture = (
     return current;
   }
 
-  const { byteLength } = new TextEncoder().encode(payloadJson);
+  const byteLength = Buffer.byteLength(payloadJson, "utf-8");
 
   if (byteLength > options.maxBytes) {
     return Object.freeze({ ...current, truncated: true });
   }
 
-  const records = [...current.records];
-  let { retainedBytes, truncated } = current;
-  retainedBytes += byteLength;
+  let retainedBytes = current.retainedBytes + byteLength;
+  let evictedCount = 0;
 
-  while (records.length >= options.capacity || retainedBytes > options.maxBytes) {
-    const evicted = records.shift();
-
-    if (evicted === undefined) {
+  for (const record of current.records) {
+    if (
+      current.records.length - evictedCount < options.capacity &&
+      retainedBytes <= options.maxBytes
+    ) {
       break;
     }
 
-    retainedBytes -= evicted.byteLength;
-    truncated = true;
+    retainedBytes -= record.byteLength;
+    evictedCount += 1;
   }
+
+  const records = current.records.slice(evictedCount);
 
   records.push(
     Object.freeze({ byteLength, payloadJson: Object.freeze(Redacted.make(payloadJson)) }),
@@ -72,7 +75,7 @@ export const appendEmailCapture = (
     closed: false,
     records: Object.freeze(records),
     retainedBytes,
-    truncated,
+    truncated: current.truncated || evictedCount > 0,
   });
 };
 

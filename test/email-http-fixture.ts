@@ -226,3 +226,10 @@ export const emailFixtureClientLayer = (
       ),
     ),
   );
+
+export const emailUnexpectedHttpClientLayer: Layer.Layer<HttpClient.HttpClient> = Layer.succeed(
+  HttpClient.HttpClient,
+  HttpClient.make(() =>
+    Effect.die(new Error("Synthetic email operation attempted HTTP transport")),
+  ),
+);

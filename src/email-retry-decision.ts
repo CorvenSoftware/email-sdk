@@ -1,16 +1,21 @@
 import { Duration, Effect, Match, Result, Schema } from "effect";
 import { EmailDeliveryUnknown } from "./email-delivery-unknown.js";
+import { maximumEmailSubmissionAttempts } from "./email-delivery-policy.js";
 import type { EmailSubmissionError } from "./email-errors.js";
 import { EmailRejected } from "./email-rejected.js";
 import { settleEmailCallbackResult } from "./email-unsettled-cause.js";
 
 const emailRetryDecisionFields = {
-  attempt: Schema.Int.check(Schema.isBetween({ maximum: 5, minimum: 1 })),
+  attempt: Schema.Int.check(
+    Schema.isBetween({ maximum: maximumEmailSubmissionAttempts - 1, minimum: 1 }),
+  ),
   delayMillis: Schema.Union([
     Schema.Finite.check(Schema.isGreaterThanOrEqualTo(0)),
     Schema.Literal("Infinite"),
   ]),
-  nextAttempt: Schema.Int.check(Schema.isBetween({ maximum: 6, minimum: 2 })),
+  nextAttempt: Schema.Int.check(
+    Schema.isBetween({ maximum: maximumEmailSubmissionAttempts, minimum: 2 }),
+  ),
   provider: Schema.String,
 };
 

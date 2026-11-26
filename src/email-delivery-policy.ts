@@ -6,10 +6,14 @@ const EmailFiniteDuration = Schema.Duration.check(
   }),
 );
 
+export const maximumEmailSubmissionAttempts = 6;
+
 export const EmailDeliveryPolicySchema = Schema.Struct({
   deadline: EmailFiniteDuration,
   initialDelay: EmailFiniteDuration,
-  maxAttempts: Schema.Int.check(Schema.isBetween({ maximum: 6, minimum: 1 })),
+  maxAttempts: Schema.Int.check(
+    Schema.isBetween({ maximum: maximumEmailSubmissionAttempts, minimum: 1 }),
+  ),
 });
 
 export type EmailDeliveryPolicy = typeof EmailDeliveryPolicySchema.Type;

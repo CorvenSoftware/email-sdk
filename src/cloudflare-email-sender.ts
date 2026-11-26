@@ -26,12 +26,9 @@ import { EmailRejected } from "./email-rejected.js";
 import { EmailSenderIdempotencySchema } from "./email-sender.js";
 import type { EmailSender, EmailSubmission } from "./email-sender.js";
 import { emailLayer } from "./email-service.js";
-import type {
-  Email,
-  EmailDeliveryPolicy,
-  EmailRetryObserver,
-  EmailRetryRestriction,
-} from "./email-service.js";
+import type { Email } from "./email-service.js";
+import type { EmailDeliveryPolicy } from "./email-delivery-policy.js";
+import type { EmailRetryObserver, EmailRetryRestriction } from "./email-retry-decision.js";
 import { parseEmailPartialSuppressionReceipt } from "./email-suppression-receipt.js";
 
 export const cloudflareEmailCapabilities = ownEmailSenderCapabilities(
@@ -201,24 +198,18 @@ export const cloudflareSenderLayer = (
           ({ name, value }) =>
             !Schema.is(CloudflareCustomHeaderName)(name) ||
             /^(?:x-cf-|x-cloudflare-|x-auth-)/iu.test(name) ||
-            new TextEncoder().encode(value).byteLength > 2048,
+            Buffer.byteLength(value, "utf-8") > 2048,
         ) === true ||
         (message.headers?.reduce(
           (bytes, { name, value }) =>
-            bytes +
-            new TextEncoder().encode(name).byteLength +
-            new TextEncoder().encode(value).byteLength +
-            4,
+            bytes + Buffer.byteLength(name, "utf-8") + Buffer.byteLength(value, "utf-8") + 4,
           0,
         ) ?? 0) > 16_000
       ) {
         issues.push("headers");
       }
 
-      if (
-        new TextEncoder().encode(JSON.stringify(buildCloudflareMessage(message))).byteLength >
-        4_000_000
-      ) {
+      if (Buffer.byteLength(JSON.stringify(buildCloudflareMessage(message)), "utf-8") > 4_000_000) {
         issues.push("body");
       }
 
